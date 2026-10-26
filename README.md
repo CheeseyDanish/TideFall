@@ -12,7 +12,11 @@ Built with **Unity 6.5 (URP)**. Every model was generated in **Blender** from a 
 - **Roguelike runs.** A meltdown ends the run (and deletes its save); a Legacy record keeps your best. Runs are suspendable each morning.
 - **Tidal cards.** Vote on a modifier at the start of every fight (Red Tide, King Tide, Gold Rush, Glass Cannon…). Cards last several waves and stack. Some exist **only online** (Buddy Beam, Message in a Bottle) or **only in split screen** (Screen Swap, Shared Snacks).
 - **Levels, stats and weapon mods.** XP from kills, stat points to spend (Vigor, Brawn, Aim, Swiftness, Quick Hands, Fortune) in the Stats menu, respec for sand dollars, and a choice of weapon mods every 5 levels.
-- **Sand dollars** are the money: creatures drop them and they slide into your pockets.
+- **Sand dollars** are the money: they fly to whoever made the kill, and teammates can intercept them. **Golden pearls** come from the rare giant clam.
+- **Build defences** anywhere on the beach: sandbag barricades, urchin spikes, kelp snares, bait buckets, harpoon turrets and pearl cannons.
+- **A shop like the 2D one**: tabs of item cards with pictures. Vendors at the hotdog stand and fish cart. You can keep walking with any menu open.
+- **Reload minigames from the 2D game** (rhythm, shells, bolt, heavy, drop, mash, pressure, zone), drawn around your reticle; Perfect reloads hit harder. **Kill combos** pay bonus sand dollars and XP.
+- **Melee first**: the first 3 waves are melee only; every weapon swings its own way (chop, slash, sweep, thrust, slam). Guns kick hard.
 - **The Nuclear Sand Powerplant** behind a wall of 20 breachable sections. Creatures go for breaches and the core.
 - **Waves you can see**: creatures surf in on breakers that swell the sea and break on the shore. Every creature moves its own way (crabs scuttle sideways, puffers puff up into spiky balls…).
 - **First person or top-down, per player.** Your gun and melee weapon in view, a crosshair, mouse or stick look. Switch views any time; split screen can mix them.
@@ -45,6 +49,8 @@ Built with **Unity 6.5 (URP)**. Every model was generated in **Blender** from a 
 | Reload / swap gun | X / Y | R / Q |
 | Switch view (first person / top-down) | R3 | V |
 | Stats & mods / tidal card vote | Select | Tab / C |
+| Build defences | D-pad down | B |
+| Menus (choose) | D-pad | Arrow keys / wheel |
 | Pause menu (settings, save) | Start | Esc |
 
 Everything except the sticks and mouse look can be rebound in **Settings → Controls**.
@@ -58,6 +64,7 @@ Everything except the sticks and mouse look can be rebound in **Settings → Con
 - **Design:** [docs/GDD.md](docs/GDD.md)
 - **Architecture and commands:** [docs/TECH.md](docs/TECH.md), covering setup, tests, builds, the screenshot tour, the online check, the protocol and the Blender pipeline
 - **Rules for AI-assisted changes:** [CLAUDE.md](CLAUDE.md)
+- **Where the game's text is (to edit it):** [docs/TEXT.md](docs/TEXT.md)
 
 ```bash
 unity test . --mode PlayMode --output Logs/TestResults.xml

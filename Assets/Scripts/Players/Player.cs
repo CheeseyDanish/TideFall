@@ -1,6 +1,9 @@
 // TideWall 3D — a player: movement, looking/aiming (first person or top-down), guns, melee, interacting,
 // carrying/throwing, health, being downed and revived, food and status effects, and the roguelike progression:
 // XP and levels, stat points (spent in the Stats menu, respec for sand dollars), and weapon mods every few levels.
+// Menus never stop you walking: they're driven by the d-pad / arrow keys. Guns stay holstered for the run's first
+// waves (melee only). The body is jointed (legs, arms, head) and animated for walking, aiming, swinging and carrying.
+// Build mode places defences (Structure) where you aim.
 //
 // One class, four kinds (see PlayerKind):
 //   Local      offline, or the host's own players: everything is simulated here, input from PlayerControls.
@@ -63,7 +66,15 @@ namespace TideWall
         public MeleeDef Melee { get; private set; }
         public int Ammo => Simulated ? (ammo.TryGetValue(Gun.id, out var a) ? a : 0) : netAmmo;
         public int MagSize => Simulated ? Mathf.RoundToInt(EffGun.magazine * gm.Team.Magazine) : netMag;
-        public float ReloadProgress => Simulated ? (reloadT > 0 ? 1 - reloadT / reloadTotal : -1) : netReload;
+        public float ReloadProgress => Simulated ? (reload != null ? reload.Progress(Ammo, MagSize) : -1) : netReload;
+        /// <summary>The reload minigame to draw at the reticle: the running one, or a finished one still flashing its result.</summary>
+        public ReloadGame ReloadView => Simulated ? reload ?? (lastReload != null && lastReload.WordT > 0 ? lastReload : null) : netReloadGame;
+        /// <summary>Damage bonus from a Perfect reload, until the magazine runs dry.</summary>
+        public float PerfectBonus => Simulated ? perfectBonus : netPerfect;
+        /// <summary>Kills chained within GameDatabase.comboWindow of each other, and the time left to extend the chain.</summary>
+        public int Combo => Simulated ? combo : netCombo;
+        public float ComboLeft => Simulated ? comboT : netComboT;
+        public int BestCombo { get; private set; }
         /// <summary>The equipped weapons with this player's mods applied (what actually fires and swings).</summary>
         public GunDef EffGun { get; private set; }
         public MeleeDef EffMelee { get; private set; }
@@ -85,6 +96,16 @@ namespace TideWall
         /// <summary>Movement multiplier from stats and tidal cards (a client gets it from the host).</summary>
         public float SpeedBonus => Simulated ? (1 + StatBonus(StatKind.MoveSpeed)) * gm.Cards.PlayerSpeed : netSpeedBonus;
         public float SwingT => swingT;
+        /// <summary>0 → 1 through the current melee swing (wind-up, strike, recovery); -1 when not swinging.</summary>
+        public float SwingProgress => swingT > 0 && Melee != null ? 1 - swingT / Mathf.Max(.01f, Melee.SwingTime) : -1;
+        /// <summary>Guns are holstered for the run's first waves: Fire swings the melee weapon instead.</summary>
+        public bool GunsLocked => gm.Waves.RunWave < db.gunsUnlockWave;
+        /// <summary>Build mode: the defence being placed (null = not building).</summary>
+        public StructureDef Building { get; private set; }
+        public float BuildYaw { get; private set; }
+        public bool BuildValid { get; private set; }
+        /// <summary>1 right after a shot, fading (the crosshair spreads with it).</summary>
+        public float FireHeat { get; private set; }
         public Vector3 AimPoint { get; private set; }
         public Vector3 AimDir { get; private set; } = Vector3.forward;
         public Vector2 AimScreen { get; private set; }
@@ -114,12 +135,22 @@ namespace TideWall
         Light lantern;
         readonly HashSet<string> ownedGuns = new(), ownedMelee = new();
         readonly Dictionary<string, int> ammo = new();
-        float fireCd, meleeCd, reloadT, reloadTotal = 1, swingT, dashT, dashCd, fireBuffer, yVel, menuRepeat, hurtFlash, dripAcc, ignoreRemotePosUntil;
+        float strikeT, lockToastT, stepPhase;
+        Transform legL, legR, armL, armR, head;
+        GameObject ghost;
+        string ghostId;
+        Vector3 lastVisualPos;
+        float fireCd, meleeCd, swingT, dashT, dashCd, fireBuffer, yVel, menuRepeat, hurtFlash, dripAcc, ignoreRemotePosUntil;
         Vector3 dashDir, push;
         Enemy grabbedBy;
         Vector2 lastNav;
         // Mirrored from the host (proxies)
-        float netMaxHp = 100, netReload = -1, netCarryWeight, netSpeedBonus = 1;
+        float netMaxHp = 100, netReload = -1, netCarryWeight, netSpeedBonus = 1, netPerfect, netComboT;
+        int netCombo;
+        ReloadGame reload, lastReload, netReloadGame;
+        float perfectBonus, comboT;
+        int combo;
+        bool reloadHeld;
         int netAmmo, netMag = 1, netCarryCount, netXpNext = 60;
         bool statsWanted;   // client: the pause menu asked the host to open the Stats menu
         Vector3 netPos; float netYaw; bool netFirstPerson;
@@ -168,6 +199,7 @@ namespace TideWall
             visual.SetParent(transform, false);
             model = ModelFactory.Spawn("Sailor", visual, Vector3.zero);
             ModelFactory.Recolor(model, "coat", Color);
+            legL = Part("Part_LegL"); legR = Part("Part_LegR"); armL = Part("Part_ArmL"); armR = Part("Part_ArmR"); head = Part("Part_Head");
             GiveGun(db.startGun);
             GiveMelee(db.startMelee);
             if (Simulated) RestoreLoadout();
@@ -187,7 +219,7 @@ namespace TideWall
             nameTag = new GameObject("NameTag").AddComponent<TextMesh>();
             nameTag.transform.SetParent(visual, false);
             nameTag.transform.localPosition = new Vector3(0, 2.35f, 0);
-            nameTag.font = Ui.Font; nameTag.fontSize = 40; nameTag.characterSize = .05f; nameTag.anchor = TextAnchor.MiddleCenter;
+            nameTag.font = Ui.Font; nameTag.fontSize = 100; nameTag.characterSize = .02f; nameTag.anchor = TextAnchor.MiddleCenter;
             nameTag.color = Color.Lerp(Color, Color.white, .35f);
             nameTag.GetComponent<MeshRenderer>().sharedMaterial = Ui.Font.material;
             SetLayer(visual, BodyLayer + Index);
@@ -234,7 +266,7 @@ namespace TideWall
             Gun = g;
             RebuildWeapons();
             if (!ammo.ContainsKey(id)) ammo[id] = MagSize;
-            reloadT = 0;
+            reload = null; perfectBonus = 0;
             if (gunModel != null) Destroy(gunModel.root);
             gunModel = ModelFactory.Spawn(g.model, Socket("Gun"), Vector3.zero);
             SetLayer(gunModel.root.transform, BodyLayer + Index);
@@ -255,6 +287,12 @@ namespace TideWall
         }
 
         Transform Socket(string name) => model.sockets.TryGetValue(name, out var s) ? s : visual;
+
+        Transform Part(string name)
+        {
+            foreach (var t in model.root.GetComponentsInChildren<Transform>(true)) if (t.name == name) return t;
+            return null;
+        }
 
         /// <summary>Max HP changed (upgrades, Vigor, tidal cards): never above the new maximum.</summary>
         public void RefreshMaxHp() { if (!IsDowned && !IsOut && Hp > MaxHp) Hp = MaxHp; }
@@ -411,6 +449,7 @@ namespace TideWall
         }
 
         bool Held(Btn b) => Controls != null ? Controls.Held(b) : Remote != null && Remote.Held(b);
+        Vector2 NavInput() => Controls != null ? Controls.Nav() : Remote?.Nav ?? Vector2.zero;
         bool Pressed(Btn b) => Controls != null ? Controls.Pressed(b) : Remote != null && Remote.Pressed(b);
         public string Glyph(Btn b) => Controls != null ? Controls.Glyph(b) : "";
 
@@ -446,13 +485,20 @@ namespace TideWall
             visual.gameObject.SetActive(true);
 
             if (IsDowned) { UpdateDowned(dt); if (OpenedMenu != null) UpdateMenu(udt); UpdateVisual(dt); return; }
-            if (OpenedMenu != null) { UpdateMenu(udt); if (Kind == PlayerKind.Local) Gravity(dt, Vector3.zero); UpdateReticle(false); UpdateVisual(dt); return; }
-
-            if (Kind == PlayerKind.Local) { TickLook(dt); ResolveAim(LocalAim()); }
+            // Menus don't stop you: walk and look while one is open (it closes if you walk away from the stall)
+            bool menu = OpenedMenu != null;
+            if (menu)
+            {
+                UpdateMenu(udt);
+                if (OpenedMenu != null && OpenedMenu.Anchor.HasValue && FlatDistance(OpenedMenu.Anchor.Value) > OpenedMenu.AnchorRange) CloseMenu();
+            }
+            if (Kind == PlayerKind.Local) { if (OpenedMenu == null || !OpenedMenu.System) TickLook(dt); ResolveAim(LocalAim()); }
             else ApplyRemoteLook();
             UpdateMovement(dt);
-            UpdateCombat(dt);
-            UpdateInteract(dt);
+            if (menu) CombatTimers(dt);
+            else if (Building != null) UpdateBuild(dt);
+            else { UpdateCombat(dt); UpdateInteract(dt); }
+            if (!menu && Building == null && Pressed(Btn.Build) && !Rebinder.Busy) OpenMenu(Menus.Build(this));
             UpdateVisual(dt);
         }
 
@@ -473,12 +519,17 @@ namespace TideWall
             }
         }
 
+        /// <summary>Point the view (screenshot tour, tests).</summary>
+        public void SetLook(float yaw, float pitch) { Yaw = yaw; Pitch = Mathf.Clamp(pitch, -80, 80); }
+
         public void SwitchView()
         {
             PrefersFirstPerson = !PrefersFirstPerson;
             Toast(PrefersFirstPerson ? "First person" : "Top-down view", new Color(.8f, .9f, 1f));
             Sfx.Play("ui");
         }
+
+        float FlatDistance(Vector3 to) { var d = to - transform.position; d.y = 0; return d.magnitude; }
 
         void UpdateWet(float dt)
         {
@@ -723,40 +774,84 @@ namespace TideWall
             return m;
         }
 
+        /// <summary>Timers that keep running whatever you're doing (reloads finish, swings land, even with a menu open).</summary>
+        void CombatTimers(float dt)
+        {
+            fireCd -= dt; meleeCd -= dt; swingT -= dt; fireBuffer -= dt; lockToastT -= dt;
+            FireHeat = Mathf.MoveTowards(FireHeat, 0, dt * 3);
+            comboT -= dt;
+            if (comboT <= 0) combo = 0;
+            lastReload?.Update(dt, ref dummyAmmo, 0);
+            if (reload != null)
+            {
+                int a = Ammo;
+                bool done = reload.Update(dt, ref a, MagSize);
+                ammo[Gun.id] = a;
+                if (done) FinishReload();
+            }
+            if (strikeT > 0)
+            {
+                strikeT -= dt;
+                if (strikeT <= 0) Strike();
+            }
+        }
+
+        /// <summary>Start a melee swing; the hit lands when the wind-up ends.</summary>
+        void StartSwing()
+        {
+            meleeCd = EffMelee.cooldown; swingT = Melee.SwingTime; strikeT = Mathf.Max(.01f, Melee.windup);
+            Sfx.Play("swing");
+        }
+
+        void Strike()
+        {
+            int hit = Combat.Melee(this, EffMelee, transform.position + Vector3.up * .9f + AimDir * .3f, AimDir, DamageMult(true));
+            if (hit > 0) { Sfx.Play("hit"); Shake(.08f + (Melee.style == MeleeStyle.Slam ? .2f : 0)); }
+            if (Melee.style == MeleeStyle.Slam) Fx.Debris(transform.position + AimDir * 1.6f, new Color(.9f, .82f, .6f), 10);
+        }
+
         void UpdateCombat(float dt)
         {
-            fireCd -= dt; meleeCd -= dt; swingT -= dt; fireBuffer -= dt;
-            if (reloadT > 0)
-            {
-                reloadT -= dt;
-                if (reloadT <= 0) { ammo[Gun.id] = MagSize; Sfx.Play("reload"); }
-            }
+            CombatTimers(dt);
             if (grabbedBy != null)
             {
                 // Mash to break free
                 if (Pressed(Btn.Melee) || Pressed(Btn.Interact) || Pressed(Btn.Fire)) grabbedBy.Struggle();
                 return;
             }
-            if (Pressed(Btn.Swap)) CycleGun();
-            if (Pressed(Btn.Reload)) StartReload();
+            if (!GunsLocked && Pressed(Btn.Swap)) CycleGun();
+            if (!GunsLocked && Pressed(Btn.Reload))
+            {
+                if (reload != null) { int a = Ammo; reload.Press(ref a, MagSize); ammo[Gun.id] = a; if (reload.Done) FinishReload(); }
+                else StartReload();
+            }
+            bool rHeld = Held(Btn.Reload);
+            if (reloadHeld && !rHeld && reload != null) { reload.Release(); if (reload.Done) FinishReload(); }
+            reloadHeld = rHeld;
+            // One-at-a-time reloads stop when you fire with rounds in
+            if (reload != null && reload.PerRound && Ammo > 0 && Pressed(Btn.Fire)) { lastReload = null; reload = null; }
 
             if (Pressed(Btn.Fire)) fireBuffer = .25f;
             if (Carrying.Count > 0)
             {
                 if (fireBuffer > 0) { fireBuffer = 0; ThrowTop(); }
             }
-            else if ((Held(Btn.Fire) || fireBuffer > 0) && fireCd <= 0 && reloadT <= 0)
+            else if (GunsLocked)
+            {
+                // The first waves are melee only: the trigger swings your melee weapon
+                if (fireBuffer > 0 && meleeCd <= 0) { fireBuffer = 0; StartSwing(); }
+                if (Pressed(Btn.Fire) && lockToastT <= 0)
+                {
+                    lockToastT = 6;
+                    Toast($"Guns unlock at wave {db.gunsUnlockWave}: melee only until then!", new Color(1, .8f, .5f));
+                }
+            }
+            else if ((Held(Btn.Fire) || fireBuffer > 0) && fireCd <= 0 && reload == null)
             {
                 if (Ammo <= 0) StartReload();
                 else Shoot();
             }
-            if (Pressed(Btn.Melee) && meleeCd <= 0)
-            {
-                meleeCd = EffMelee.cooldown; swingT = .25f;
-                Sfx.Play("swing");
-                int hit = Combat.Melee(this, EffMelee, transform.position + Vector3.up * .9f + AimDir * .3f, AimDir, DamageMult(true));
-                if (hit > 0) { Sfx.Play("hit"); Shake(.08f); }
-            }
+            if (Pressed(Btn.Melee) && meleeCd <= 0) StartSwing();
         }
 
         /// <summary>Where bullets leave from: the first-person gun (bottom right of your view) or the model's muzzle.</summary>
@@ -773,19 +868,42 @@ namespace TideWall
             fireCd = 1 / rate;
             ammo[Gun.id] = Ammo - 1;
             var origin = MuzzlePosition();
-            Combat.FireGun(this, EffGun, origin, AimPoint, DamageMult(false));
+            Combat.FireGun(this, EffGun, origin, AimPoint, DamageMult(false) * (1 + perfectBonus));
             Fx.Flash(origin, new Color(1, .8f, .4f), 5, 3, .06f);
             Fx.Smoke(origin, 1, .05f);
             Sfx.Play(Gun.id switch { "scattergun" => "shotgun", "harpoon" => "harpoon", "flare" => "flare", _ => "shot" });
-            Shake(Gun.id == "scattergun" ? .12f : .05f);
-            if (Ammo <= 0) StartReload();
+            Shake(EffGun.recoil * .025f);
+            FireHeat = 1;
+            Pitch = Mathf.Clamp(Pitch - EffGun.recoil * .25f, -80, 80);   // the barrel climbs a little (the camera kick is bigger, and recovers)
+            if (Ammo <= 0) { perfectBonus = 0; StartReload(); }
         }
 
+        int dummyAmmo;
+
+        /// <summary>Start the gun's reload minigame (CLAUDE.md R6b). With no input it finishes in the normal reload time.</summary>
         void StartReload()
         {
-            if (reloadT > 0 || Ammo >= MagSize) return;
-            reloadT = reloadTotal = EffGun.reload / (1 + StatBonus(StatKind.Handling));
+            if (reload != null || Ammo >= MagSize) return;
+            float time = EffGun.reload / (1 + StatBonus(StatKind.Handling));
+            reload = ReloadGame.Begin(db.Reload(Gun.reloadStyle), time, MagSize);
+            lastReload = null;
             Sfx.Play("reload");
+        }
+
+        /// <summary>Tour and tests: empty the gun and start its reload.</summary>
+        public void EmptyAndReload() { ammo[Gun.id] = 0; reload = null; StartReload(); }
+
+        void FinishReload()
+        {
+            if (!reload.PerRound) ammo[Gun.id] = MagSize;
+            if (reload.Perfect)
+            {
+                perfectBonus = reload.R.bonus > 0 ? reload.R.bonus : db.perfectReloadBonus;
+                Toast($"Perfect reload: +{perfectBonus * 100:0}% damage this magazine", new Color(1, .85f, .3f));
+            }
+            Sfx.Play("reload");
+            lastReload = reload;
+            reload = null;
         }
 
         void CycleGun()
@@ -805,12 +923,28 @@ namespace TideWall
             else if (Kind == PlayerKind.Remote && Net.IsHost) Net.Host.HitMarker(this, crit);
         }
         public void OnSever(Enemy e, LimbDef limb) { Severs++; Toast($"{e.Def.displayName}: {limb.part} off!", new Color(1, .85f, .5f)); }
-        public void OnKill(Enemy e) => Kills++;
+        public void OnKill(Enemy e)
+        {
+            Kills++;
+            if (Hud != null) Hud.KillMarker();
+            Sfx.Play("kill", .7f, .05f);
+            // Kill combos: kills within the window chain; each one past the first pays a little more
+            combo = comboT > 0 ? combo + 1 : 1;
+            comboT = db.comboWindow;
+            BestCombo = Mathf.Max(BestCombo, combo);
+            if (combo >= 2)
+            {
+                int step = Mathf.Min(combo, db.comboMax) - 1;
+                if (db.comboSandDollars > 0) gm.AddSandDollars(step * db.comboSandDollars);
+                if (db.comboXp > 0) GainXp(step * db.comboXp);
+                Sfx.Play("combo", .5f, .05f);
+            }
+        }
 
         // ------------------------------------------------------------------ interaction & carrying
         void UpdateInteract(float dt)
         {
-            Focus = Interactable.Nearest(this);
+            Focus = LookedAt() ?? Interactable.Nearest(this);
             var downedMate = DownedTeammateNearby();
             if (downedMate != null && Held(Btn.Interact))
             {
@@ -821,6 +955,23 @@ namespace TideWall
             if (!Pressed(Btn.Interact)) return;
             if (Focus != null) Focus.Interact(this);
             else if (Carrying.Count > 0) Drop(Carrying[^1]);
+        }
+
+        /// <summary>In first person, the thing under your crosshair (within reach) wins: much easier to grab the right corpse.</summary>
+        Interactable LookedAt()
+        {
+            if (!FirstPerson) return null;
+            var ray = new Ray(EyePos, LookRotation * Vector3.forward);
+            var hits = Physics.RaycastAll(ray, 4.5f, ~0, QueryTriggerInteraction.Collide);
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+            foreach (var h in hits)
+            {
+                if (h.collider.GetComponentInParent<Player>() == this) continue;
+                var it = h.collider.GetComponentInParent<Interactable>();
+                if (it != null && it.isActiveAndEnabled && it.Prompt(this) != null) return it;
+                if (!h.collider.isTrigger) break;   // a wall or the ground is in the way
+            }
+            return null;
         }
 
         public Player DownedTeammateNearby()
@@ -992,29 +1143,38 @@ namespace TideWall
         {
             var menu = ShownMenu;
             if (menu == null || Rebinder.Busy) return;
-            var nav = MoveInput();
+            var nav = NavInput();
             menuRepeat -= dt;
             int dir = nav.y > .5f ? -1 : nav.y < -.5f ? 1 : 0;
-            if (dir != 0 && (Mathf.Abs(lastNav.y) <= .5f || menuRepeat <= 0))
+            int side = nav.x > .5f ? 1 : nav.x < -.5f ? -1 : 0;
+            bool freshV = Mathf.Abs(lastNav.y) <= .5f, freshH = Mathf.Abs(lastNav.x) <= .5f;
+            if (dir != 0 && (freshV || menuRepeat <= 0))
             {
-                menu.Move(dir);
-                menuRepeat = Mathf.Abs(lastNav.y) <= .5f ? .35f : .1f;
+                if (menu.Columns > 0) menu.MoveGrid(0, dir); else menu.Move(dir);
+                menuRepeat = freshV ? .35f : .1f;
                 Sfx.Play("ui", .5f);
             }
-            int side = nav.x > .5f ? 1 : nav.x < -.5f ? -1 : 0;
-            if (side != 0 && (Mathf.Abs(lastNav.x) <= .5f || menuRepeat <= 0))
+            if (side != 0 && (freshH || menuRepeat <= 0))
             {
                 var it = menu.Current;
-                if (it?.OnAdjust != null) { it.OnAdjust(side); Sfx.Play("ui", .5f); menuRepeat = Mathf.Abs(lastNav.x) <= .5f ? .35f : .08f; }
+                if (menu.Columns > 0) { menu.MoveGrid(side, 0); Sfx.Play("ui", .5f); menuRepeat = freshH ? .35f : .1f; }
+                else if (menu.Horizontal) { menu.Move(side); Sfx.Play("ui", .5f); menuRepeat = freshH ? .35f : .1f; }
+                else if (it?.OnAdjust != null) { it.OnAdjust(side); Sfx.Play("ui", .5f); menuRepeat = freshH ? .35f : .08f; }
             }
             lastNav = nav;
-            if (Pressed(Btn.Back) || (Pressed(Btn.Melee) && !menu.System))
+            if (menu.OnTab != null && (Pressed(Btn.Swap) || Pressed(Btn.Reload)))
+            {
+                var next = menu.OnTab(Pressed(Btn.Swap) ? 1 : -1);
+                if (next != null) { ReplaceMenu(next); Sfx.Play("ui"); }
+                return;
+            }
+            if (Pressed(Btn.Back))
             {
                 var parent = menu.Parent?.Invoke();
                 if (parent != null) ReplaceMenu(parent); else CloseMenu();
                 return;
             }
-            if (Pressed(Btn.Interact) || Pressed(Btn.Fire))
+            if (Pressed(Btn.Interact))
             {
                 var item = menu.Current;
                 if (item == null) return;
@@ -1040,20 +1200,165 @@ namespace TideWall
         {
             float scale = Statuses.Has(StatusType.Giant) ? 1.45f : Statuses.Has(StatusType.Tiny) ? .6f : 1;
             visual.localScale = Vector3.Lerp(visual.localScale, Vector3.one * scale, dt * 6);
-            var pose = Quaternion.Euler(IsDowned ? -80 : 0, 0, 0);
-            model.root.transform.localRotation = Quaternion.Slerp(model.root.transform.localRotation, pose, dt * 8);
             if (Statuses.Has(StatusType.Rainbow)) ModelFactory.Recolor(model, "coat", Color.HSVToRGB(Time.time * .5f % 1, .8f, 1));
             else if (Statuses.Has(StatusType.Rage)) ModelFactory.Recolor(model, "coat", Color.Lerp(Color, Color.red, .5f + .5f * Mathf.Sin(Time.time * 12)));
             if (Statuses.Has(StatusType.Bubbles) && Random.value < dt * 10 && Simulated) Fx.Bubbles(transform.position + Vector3.up * 1.8f, 1);
             if (Statuses.Has(StatusType.Speed) && Random.value < dt * 12 && Simulated) Fx.Smoke(transform.position, 1, .2f, new Color(1, .9f, .4f, .4f));
             bool blink = Statuses.Has(StatusType.Invincible) && Mathf.Sin(Time.time * 30) > 0;
             foreach (var r in model.renderers) r.enabled = !blink;
-            // Melee swing: sweep the weapon across the arc
-            if (meleeModel != null)
-                meleeModel.root.transform.localRotation = swingT > 0
-                    ? Quaternion.Euler(-10, Mathf.Lerp(Melee.arcDegrees / 2, -Melee.arcDegrees / 2, 1 - swingT / .25f), 0)
-                    : Quaternion.Euler(-60, 0, 0);
+            AnimateBody(dt);
         }
+
+        // ------------------------------------------------------------------ body animation
+        /// <summary>The jointed sailor: legs stride with your speed, the gun arm aims where you look, the other arm swings
+        /// the melee weapon in that weapon's style, both arms go up to carry, the head follows your gaze.</summary>
+        void AnimateBody(float dt)
+        {
+            if (legL == null) return;
+            var moved = transform.position - lastVisualPos; moved.y = 0;
+            lastVisualPos = transform.position;
+            float speed = dt > 0 ? moved.magnitude / dt : 0;
+            float gait = Mathf.Clamp01(speed / Mathf.Max(1, db.playerSpeed));
+            stepPhase += dt * (4 + speed * 1.6f);
+            float k = 1 - Mathf.Exp(-dt * 18);
+
+            // Legs
+            float stride = Mathf.Sin(stepPhase) * 38 * gait;
+            if (IsDowned) stride = Mathf.Sin(stepPhase * .5f) * 15 * gait;   // a feeble crawl
+            legL.localRotation = Quaternion.Slerp(legL.localRotation, Quaternion.Euler(stride, 0, IsDowned ? -10 : 0), k);
+            legR.localRotation = Quaternion.Slerp(legR.localRotation, Quaternion.Euler(-stride, 0, IsDowned ? 10 : 0), k);
+
+            // Body: bob with the steps, lean into a dash, breathe when still
+            var bodyPose = Quaternion.Euler((IsDowned ? -80 : 0) + (dashT > 0 ? 18 : gait * 5), 0, 0);
+            model.root.transform.localRotation = Quaternion.Slerp(model.root.transform.localRotation, bodyPose, dt * 10);
+            model.root.transform.localPosition = new Vector3(0, IsDowned ? .25f : Mathf.Abs(Mathf.Sin(stepPhase)) * .06f * gait, 0);
+
+            // Head follows where you look (up/down)
+            if (head != null) head.localRotation = Quaternion.Slerp(head.localRotation, Quaternion.Euler(Mathf.Clamp(Pitch, -40, 40) * .6f, 0, 0), k);
+
+            // Arms
+            Quaternion right, left;
+            float sp = SwingProgress;
+            bool carrying = CarryCount > 0;
+            if (carrying) { right = Quaternion.Euler(-165, 0, -12); left = Quaternion.Euler(-165, 0, 12); }
+            else if (IsDowned) { right = Quaternion.Euler(-150 + Mathf.Sin(stepPhase * .5f) * 30, 0, 0); left = Quaternion.Euler(-150 - Mathf.Sin(stepPhase * .5f) * 30, 0, 0); }
+            else
+            {
+                // Gun arm: held out along the aim (the gun is holstered while guns are locked)
+                right = GunsLocked ? Quaternion.Euler(-Mathf.Sin(stepPhase) * 25 * gait, 0, 6) : Quaternion.Euler(-90 + Pitch * .8f - FireHeat * 12, -6, 0);
+                left = sp >= 0 ? SwingArm(sp) : Quaternion.Euler(-35 + Mathf.Sin(stepPhase) * 20 * gait, 0, -6);
+            }
+            armR.localRotation = Quaternion.Slerp(armR.localRotation, right, sp >= 0 ? 1 : k);
+            armL.localRotation = sp >= 0 ? left : Quaternion.Slerp(armL.localRotation, left, k);
+
+            // Weapons in hand: the gun points where you aim whatever the arm does; the melee weapon extends the arm
+            if (gunModel != null)
+            {
+                gunModel.root.SetActive(!GunsLocked && !carrying);
+                gunModel.root.transform.localRotation = Quaternion.Inverse(armR.localRotation) * Quaternion.Euler(Pitch * .8f - FireHeat * 12, 0, 0);
+            }
+            if (meleeModel != null) meleeModel.root.transform.localRotation = Quaternion.Euler(90, 0, 0) * Quaternion.Euler(sp >= 0 ? SwingWrist(sp) : -30, 0, 0);
+        }
+
+        /// <summary>The swinging arm through wind-up → strike → recovery, shaped by the weapon's style.</summary>
+        Quaternion SwingArm(float t)
+        {
+            float w = Melee.windup / Melee.SwingTime, st = (Melee.windup + Melee.strike) / Melee.SwingTime;
+            // a: 0 (rest) → 1 (fully wound up) → strike to 2 → recover to 3
+            float a = t < w ? t / w : t < st ? 1 + (t - w) / Mathf.Max(.001f, st - w) : 2 + (t - st) / Mathf.Max(.001f, 1 - st);
+            switch (Melee.style)
+            {
+                case MeleeStyle.Slash:   // cutlass: cocked back by the shoulder, a flat backhand slash across, wrist rolling
+                    return a < 1 ? Quaternion.Euler(Mathf.Lerp(-35, -95, a), Mathf.Lerp(0, 70, a), Mathf.Lerp(-6, -40, a))
+                         : a < 2 ? Quaternion.Euler(-95, Mathf.Lerp(70, -80, a - 1), Mathf.Lerp(-40, 30, a - 1))
+                         : Quaternion.Euler(Mathf.Lerp(-95, -35, a - 2), Mathf.Lerp(-80, 0, a - 2), Mathf.Lerp(30, -6, a - 2));
+                case MeleeStyle.Sweep:   // oar: a big two-handed side-to-side sweep, low and wide
+                    return a < 1 ? Quaternion.Euler(Mathf.Lerp(-35, -70, a), Mathf.Lerp(0, 95, a), 0)
+                         : a < 2 ? Quaternion.Euler(-70, Mathf.Lerp(95, -95, a - 1), 0)
+                         : Quaternion.Euler(Mathf.Lerp(-70, -35, a - 2), Mathf.Lerp(-95, 0, a - 2), 0);
+                case MeleeStyle.Thrust:  // boat hook: draw back, jab forward, then yank back toward you
+                    return a < 1 ? Quaternion.Euler(Mathf.Lerp(-35, -60, a), 0, 0)
+                         : a < 2 ? Quaternion.Euler(Mathf.Lerp(-60, -95, a - 1), 0, 0)
+                         : Quaternion.Euler(Mathf.Lerp(-95, -35, a - 2), 0, 0);
+                case MeleeStyle.Slam:    // anchor: heaved right up over the head, then brought crashing down
+                    return a < 1 ? Quaternion.Euler(Mathf.Lerp(-35, -200, Mathf.SmoothStep(0, 1, a)), 0, 0)
+                         : a < 2 ? Quaternion.Euler(Mathf.Lerp(-200, -10, (a - 1) * (a - 1)), 0, 0)
+                         : Quaternion.Euler(Mathf.Lerp(-10, -35, a - 2), 0, 0);
+                default:                 // spade: up and over, a downward chop
+                    return a < 1 ? Quaternion.Euler(Mathf.Lerp(-35, -165, a), 0, 0)
+                         : a < 2 ? Quaternion.Euler(Mathf.Lerp(-165, -40, a - 1), 0, 0)
+                         : Quaternion.Euler(Mathf.Lerp(-40, -35, a - 2), 0, 0);
+            }
+        }
+
+        /// <summary>The wrist: weapons tilt back during the wind-up and snap through on the strike.</summary>
+        float SwingWrist(float t)
+        {
+            float w = Melee.windup / Melee.SwingTime;
+            return t < w ? Mathf.Lerp(-30, -70, t / w) : Mathf.Lerp(-70, 10, Mathf.Clamp01((t - w) / .35f));
+        }
+
+        // ------------------------------------------------------------------ building
+        public void StartBuilding(StructureDef def)
+        {
+            Building = def;
+            BuildYaw = Mathf.Round(Yaw / 45) * 45;
+            CloseMenu();
+            Toast($"Building {def.displayName}: {Glyph(Btn.Interact)} place · {Glyph(Btn.Reload)} turn · {Glyph(Btn.Back)} cancel", new Color(.7f, .9f, 1));
+        }
+
+        public void StopBuilding() { Building = null; UpdateGhost(); }
+
+        /// <summary>Where the current build would go (on the ground under your aim, within reach).</summary>
+        public Vector3 BuildSpot()
+        {
+            var to = AimPoint - transform.position; to.y = 0;
+            if (to.magnitude > 9) to = to.normalized * 9;
+            if (to.magnitude < 2) to = AimDir * 2.5f;
+            var p = transform.position + to;
+            return new Vector3(p.x, Arena.GroundY(p.z), p.z);
+        }
+
+        void UpdateBuild(float dt)
+        {
+            CombatTimers(dt);
+            var spot = BuildSpot();
+            string why = Structure.WhyNot(Building, spot);
+            BuildValid = why == null && gm.SandDollars >= Building.sandDollars && gm.Pearls >= Building.pearls;
+            if (Pressed(Btn.Reload)) BuildYaw += 45;
+            if (Pressed(Btn.Back) || Pressed(Btn.Build)) { StopBuilding(); return; }
+            if (Pressed(Btn.Interact) || Pressed(Btn.Fire))
+            {
+                if (why != null) { Sfx.Play("deny"); Toast(why, new Color(1, .6f, .6f)); return; }
+                if (!gm.TrySpend(Building.sandDollars, Building.pearls)) { Toast("Not enough sand dollars or pearls", new Color(1, .6f, .6f)); return; }
+                Structure.Build(Building, spot, BuildYaw);
+                Sfx.Play("reload");
+                Fx.Debris(spot + Vector3.up * .3f, new Color(.9f, .82f, .6f), 8);
+                if (gm.SandDollars < Building.sandDollars || gm.Pearls < Building.pearls) StopBuilding();   // can't afford another
+            }
+            UpdateGhost();
+        }
+
+        /// <summary>The see-through preview of what you're placing (only your own camera sees it).</summary>
+        void UpdateGhost()
+        {
+            if (!HasView) return;
+            if (Building == null) { if (ghost != null) { Destroy(ghost); ghost = null; ghostId = null; } return; }
+            if (ghost == null || ghostId != Building.id)
+            {
+                if (ghost != null) Destroy(ghost);
+                var mi = ModelFactory.Spawn(Building.model, null, Vector3.zero);
+                ghost = mi.root; ghostId = Building.id;
+                foreach (var t in ghost.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = ViewLayer + Index;
+                foreach (var r in mi.renderers) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.sharedMaterial = Mats.Transparent(new Color(.4f, 1f, .5f, .45f)); }
+            }
+            var spot = BuildSpot();
+            bool ok = Kind == PlayerKind.LocalProxy ? Structure.WhyNot(Building, spot) == null && gm.SandDollars >= Building.sandDollars && gm.Pearls >= Building.pearls : BuildValid;
+            ghost.transform.SetPositionAndRotation(spot, Quaternion.Euler(0, BuildYaw, 0));
+            var col = ok ? new Color(.4f, 1f, .5f, .45f) : new Color(1f, .35f, .3f, .45f);
+            foreach (var r in ghost.GetComponentsInChildren<Renderer>()) r.sharedMaterial = Mats.Transparent(col);
+        }
+
 
         void UpdateNameTag()
         {
@@ -1088,9 +1393,11 @@ namespace TideWall
             IsDowned = s.downed; IsOut = s.isOut; Ready = s.ready;
             BleedLeft = s.bleedLeft; ReviveProgress = s.revive; Wet = s.wet;
             netAmmo = s.ammo; netMag = Mathf.Max(1, s.mag); netReload = s.reload;
+            netReloadGame = s.reloadGame; netPerfect = s.perfect; netCombo = s.combo; netComboT = s.comboLeft;
             netCarryCount = s.carryCount; netCarryWeight = s.carryWeight;
             if (s.swing > swingT) swingT = s.swing;
             if (Kind == PlayerKind.Proxy) AimPoint = s.aim;
+            if (s.ammo < netAmmo && Kind == PlayerKind.Proxy) FireHeat = 1;
             if (Gun == null || Gun.id != s.gun) GiveGun(s.gun);
             if (Melee == null || Melee.id != s.melee) GiveMelee(s.melee);
             Statuses.ClearAll();
@@ -1102,10 +1409,12 @@ namespace TideWall
         }
 
         /// <summary>Client: the host's menu for this player (rows only; picking happens on the host).</summary>
-        public void ApplyNetMenu(Menu m, string prompt)
+        public void ApplyNetMenu(Menu m, string prompt, string building, float buildYaw)
         {
             OpenedMenu = m;
             NetPrompt = prompt;
+            Building = string.IsNullOrEmpty(building) ? null : db.Structure(building);
+            BuildYaw = buildYaw;
         }
 
         public void NetTeleport(Vector3 at) => Teleport(at, false);
@@ -1142,14 +1451,14 @@ namespace TideWall
                 if (gm.State == GameState.GameOver && Pressed(Btn.Back) && LocalMenu == null) gm.QuitToMenu();
                 if (LocalMenu == null && OpenedMenu == null && Pressed(Btn.View)) SwitchView();
             }
-            if (LocalMenu != null) { UpdateMenu(udt); UpdateVisual(dt); UpdateReticle(false); return; }
+            if (LocalMenu != null) { UpdateMenu(udt); if (!IsOut && !IsDowned && gm.State == GameState.Playing) UpdateMovement(dt); UpdateVisual(dt); UpdateReticle(false); return; }
             visual.gameObject.SetActive(!IsOut);
             if (IsOut || gm.State != GameState.Playing) { UpdateReticle(false); return; }
-            if (OpenedMenu == null) TickLook(dt);
+            TickLook(dt);
             ResolveAim(LocalAim());
-            if (OpenedMenu != null) { Gravity(dt, Vector3.zero); UpdateReticle(false); }
-            else if (IsDowned) { Gravity(dt, MoveDir() * 1f); UpdateReticle(false); }
+            if (IsDowned) { Gravity(dt, MoveDir() * 1f); UpdateReticle(false); }
             else UpdateMovement(dt);
+            UpdateGhost();
             Drip(dt);
             UpdateVisual(dt);
         }
@@ -1159,6 +1468,7 @@ namespace TideWall
         {
             var i = new NetInput { playerIndex = Index, yaw = Yaw, pitch = Pitch, firstPerson = PrefersFirstPerson, pos = transform.position };
             if (statsWanted) { i.pressed |= 1 << (int)Btn.Stats; statsWanted = false; }
+            if (Controls != null && LocalMenu == null) i.nav = Controls.Nav();
             if (LocalMenu != null || Rebinder.Busy || Controls == null) return i;   // our pause menu is open: stand still
             i.move = Controls.Move.ReadValue<Vector2>();
             foreach (Btn b in System.Enum.GetValues(typeof(Btn)))

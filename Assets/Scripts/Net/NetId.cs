@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace TideWall
 {
-    public enum NetKind : byte { Enemy = 1, GasCan = 2, Food = 3, Breaker = 4, SandDollar = 5 }
+    public enum NetKind : byte { Enemy = 1, GasCan = 2, Food = 3, Breaker = 4, SandDollar = 5, Structure = 6 }
 
     public class NetId : MonoBehaviour
     {

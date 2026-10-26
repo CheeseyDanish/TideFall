@@ -157,7 +157,7 @@ namespace TideWall
         {
             var state = (GameState)r.ReadByte();
             int phase = r.ReadInt32(), day = r.ReadInt32(); float elapsed = r.ReadSingle();
-            int sandDollars = r.ReadInt32();
+            int sandDollars = r.ReadInt32(), pearls = r.ReadInt32();
             int sections = r.ReadByte();
             var hps = new List<float>(sections); var maxes = new List<float>(sections);
             for (int i = 0; i < sections; i++) { hps.Add(r.ReadSingle()); maxes.Add(r.ReadSingle()); }
@@ -166,23 +166,24 @@ namespace TideWall
             var actives = new List<(string, int)>();
             for (int i = 0; i < activeCount; i++) actives.Add((r.ReadString(), r.ReadByte()));
             int draftCount = r.ReadByte();
-            List<string> draft = null; float draftLeft = 0; var votes = new Dictionary<int, int>();
+            List<string> draft = null; float draftLeft = 0; bool reroll = false; var votes = new Dictionary<int, int>();
             if (draftCount > 0)
             {
                 draft = new List<string>();
                 for (int i = 0; i < draftCount; i++) draft.Add(r.ReadString());
                 draftLeft = r.ReadSingle();
+                reroll = r.ReadBoolean();
                 int vc = r.ReadByte();
                 for (int i = 0; i < vc; i++) votes[r.ReadByte()] = r.ReadByte();
             }
-            int wave = r.ReadInt32(), waveCount = r.ReadInt32(), left = r.ReadInt32();
+            int wave = r.ReadInt32(), waveCount = r.ReadInt32(), left = r.ReadInt32(), runWave = r.ReadInt32(); string preview = r.ReadString();
             if (gm.State == GameState.MainMenu) gm.BeginClient();
             if (phase >= 0) gm.Phases.NetFollow(phase, day, elapsed);
-            gm.ApplyNet(sandDollars, left);
+            gm.ApplyNet(sandDollars, pearls, left);
             gm.Wall.Restore(hps, maxes);
             gm.Plant.Restore(plantHp, plantMax);
-            gm.Cards.ApplyNet(actives, draft, draftLeft, votes);
-            gm.Waves.ApplyNet(wave, waveCount);
+            gm.Cards.ApplyNet(actives, draft, draftLeft, votes, reroll);
+            gm.Waves.ApplyNet(wave, waveCount, preview); gm.Waves.RunWave = runWave;
             if (state == GameState.GameOver && gm.State == GameState.Playing) gm.NetGameOver("The wall has fallen.");
 
             // Players
@@ -204,8 +205,8 @@ namespace TideWall
             int mine = r.ReadByte();
             for (int i = 0; i < mine; i++)
             {
-                int index = r.ReadByte(); string prompt = r.ReadString(); var menu = r.ReadMenu();
-                gm.Players.ByIndex(index)?.ApplyNetMenu(menu, prompt);
+                int index = r.ReadByte(); string prompt = r.ReadString(); var menu = r.ReadMenu(); string building = r.ReadString(); float buildYaw = r.ReadSingle();
+                gm.Players.ByIndex(index)?.ApplyNetMenu(menu, prompt, building, buildYaw);
             }
 
             // Replicated things
@@ -236,6 +237,10 @@ namespace TideWall
                         go = FoodPickup.Spawn(gm.DB.foods[s.def], s.pos, s.id).gameObject;
                         break;
                     case NetKind.Breaker: go = Breaker.SpawnProxy(s.id, s.pos.x, s.def, s.pos.z).gameObject; break;
+                    case NetKind.Structure:
+                        if (s.def < 0 || s.def >= gm.DB.structures.Count) return;
+                        go = Structure.SpawnProxy(gm.DB.structures[s.def], s.id, s.pos, s.rot).gameObject;
+                        break;
                     case NetKind.SandDollar: go = SandDollarPickup.SpawnProxy(s.id, s.def, s.pos).gameObject; break;
                     default: return;
                 }
@@ -254,6 +259,9 @@ namespace TideWall
                     break;
                 case NetKind.Food:
                     go.transform.position = new Vector3(s.pos.x, go.transform.position.y, s.pos.z);
+                    break;
+                case NetKind.Structure:
+                    go.GetComponent<Structure>().ApplyNet(s.value, s.rootRot);
                     break;
                 case NetKind.Breaker:
                 case NetKind.SandDollar:

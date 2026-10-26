@@ -49,6 +49,7 @@ namespace TideWall.Tests
             foreach (var c in Object.FindObjectsByType<FoodPickup>()) Object.Destroy(c.gameObject);
             foreach (var c in Object.FindObjectsByType<SandDollarPickup>()) Object.Destroy(c.gameObject);
             foreach (var c in Object.FindObjectsByType<Breaker>()) Object.Destroy(c.gameObject);
+            foreach (var c in Object.FindObjectsByType<Structure>()) Object.Destroy(c.gameObject);
             Time.timeScale = 1;
             yield return null;
             try { Directory.Delete(storage, true); } catch (System.Exception) { }
@@ -202,8 +203,8 @@ namespace TideWall.Tests
             var master = p.OpenedMenu.Items.Find(i => i.Label == "Master volume");
             float before = Settings.Current.master;
             p.OpenedMenu.Selected = p.OpenedMenu.Items.IndexOf(master);
-            yield return Hold(pad, new GamepadState { leftStick = new Vector2(-1, 0) }, .05f);
-            Assert.Less(Settings.Current.master, before, "left on a slider lowers it");
+            yield return Hold(pad, new GamepadState().WithButton(GamepadButton.DpadLeft), .05f);
+            Assert.Less(Settings.Current.master, before, "d-pad left on a slider lowers it");
             Settings.Reload();
             Assert.Less(Settings.Current.master, before, "and it was saved to settings.json");
             yield return Tap(pad, GamepadButton.Start);
@@ -308,14 +309,14 @@ namespace TideWall.Tests
                     if (type == Msg.Assigned) { Assert.AreEqual(7, r.ReadInt32()); assigned = r.ReadInt32(); }
                     if (type == Msg.Snapshot && assigned >= 0)
                     {
-                        r.ReadByte(); r.ReadInt32(); r.ReadInt32(); r.ReadSingle(); r.ReadInt32();
+                        r.ReadByte(); r.ReadInt32(); r.ReadInt32(); r.ReadSingle(); r.ReadInt32(); r.ReadInt32();   // state, phase, day, elapsed, sand dollars, pearls
                         int sections = r.ReadByte();
                         for (int i = 0; i < sections; i++) { r.ReadSingle(); r.ReadSingle(); }
                         r.ReadSingle(); r.ReadSingle();                                    // powerplant
                         int activeCards = r.ReadByte();
                         for (int i = 0; i < activeCards; i++) { r.ReadString(); r.ReadByte(); }
                         Assert.AreEqual(0, r.ReadByte(), "no card vote in the morning");
-                        r.ReadInt32(); r.ReadInt32(); r.ReadInt32();
+                        r.ReadInt32(); r.ReadInt32(); r.ReadInt32(); r.ReadInt32(); r.ReadString();   // waves, enemies left, run wave, preview
                         playersInSnapshot = r.ReadByte();
                         snapshots++;
                     }
@@ -331,7 +332,8 @@ namespace TideWall.Tests
             Assert.AreEqual("Tester", remote.Nick);
             Assert.IsNull(remote.Cam, "remote players have no camera on the host");
 
-            // Their machine moves them and pulls the trigger
+            // Their machine moves them and pulls the trigger (late enough in the run that guns are out)
+            gm.Waves.RunWave = gm.DB.gunsUnlockWave;
             int ammo = remote.Ammo;
             var at = remote.transform.position + new Vector3(1.5f, 0, 1);
             var input = new NetInput
@@ -430,7 +432,7 @@ namespace TideWall.Tests
             yield return null;
             var b = Breaker.Launch(0, 14, Arena.ShoreZ + 30, Arena.ShoreZ + 1, 30);
             var crab = Enemy.Spawn(gm.DB.Enemy("crab"), b.RiderPosition(0, 0), 1, -1);
-            b.Carry(crab, 0, 0);
+            b.Carry(crab, 0, 0, canWipeOut: false);
             Assert.IsTrue(crab.Riding);
             for (float t = 0; t < 4 && !b.Broken; t += Time.deltaTime) yield return null;
             Assert.IsTrue(b.Broken, "the breaker reached the shore and broke");
@@ -487,6 +489,264 @@ namespace TideWall.Tests
             for (float t = 0; t < 4 && gm.SandDollars == before; t += Time.deltaTime) yield return null;
             Assert.Greater(gm.SandDollars, before, "and slide into the player's pocket");
             Assert.NotNull(Ui.SandDollarIcon, "the money has an icon");
+        }
+
+        // ------------------------------------------------------------------ this round: menus, melee-first, loot, defences
+        [UnityTest]
+        public IEnumerator YouCanWalkWithAMenuOpenAndItClosesWhenYouLeave()
+        {
+            var p = JoinPad();
+            var pad = (Gamepad)p.Controls.Devices[0];
+            yield return Frames(2);
+            p.OpenMenu(Menus.Shop(p, Menus.ShopTab.Guns, p.transform.position));
+            Assert.AreEqual(MenuLayout.Grid, p.OpenedMenu.Layout);
+            var start = p.transform.position;
+            yield return Hold(pad, new GamepadState { leftStick = new Vector2(0, -1) }, .6f);
+            Assert.Greater(Vector3.Distance(p.transform.position, start), .5f, "the left stick still walks with the shop open");
+            yield return Tap(pad, GamepadButton.DpadRight);
+            Assert.AreEqual(1, p.OpenedMenu?.Selected ?? -1, "the d-pad moves through the item cards");
+            yield return Tap(pad, GamepadButton.Y);
+            Assert.AreEqual(1, p.OpenedMenu?.Tab ?? -1, "Swap switches the shop tab");
+            p.NetTeleport(start + new Vector3(0, 0, 12));
+            yield return Frames(3);
+            Assert.IsNull(p.OpenedMenu, "walking away from the stall closes it");
+        }
+
+        [UnityTest]
+        public IEnumerator TheFirstWavesAreMeleeOnlyAndGullsComeLater()
+        {
+            var p = JoinPad();
+            var pad = (Gamepad)p.Controls.Devices[0];
+            yield return Frames(2);
+            gm.Waves.RunWave = 1;
+            Assert.IsTrue(p.GunsLocked);
+            int ammo = p.Ammo;
+            yield return Hold(pad, new GamepadState { rightTrigger = 1 }, .1f);
+            yield return Frames(10);
+            Assert.AreEqual(ammo, p.Ammo, "the trigger doesn't fire a holstered gun");
+            Assert.GreaterOrEqual(p.SwingProgress, -1);   // it swung the melee weapon instead (or just finished)
+            gm.Waves.RunWave = gm.DB.gunsUnlockWave;
+            Assert.IsFalse(p.GunsLocked, "guns unlock at wave 4");
+            Assert.GreaterOrEqual(gm.DB.Enemy("gull").minWave, 5, "gulls wait until wave 5");
+            // Plan many early nights: no gulls in the first four waves
+            var evening = gm.Cycle.phases.Find(ph => ph.waves > 0);
+            for (int i = 0; i < 20; i++)
+            {
+                gm.Waves.RunWave = 0;
+                gm.Waves.StartPhase(evening, 3);
+                Assert.IsFalse(gm.Waves.Preview.Contains("Gull"), "no gulls planned before wave 5");
+            }
+            gm.Waves.StartPhase(gm.Cycle.phases[0], 1);
+        }
+
+        /// <summary>Step a reload game until `until` is true (or it's done), in 1/120 s ticks.</summary>
+        static void Step(ReloadGame g, ref int ammo, int mag, System.Func<bool> until, float max = 10)
+        {
+            for (float t = 0; t < max && !g.Done && !until(); t += 1 / 120f) g.Update(1 / 120f, ref ammo, mag);
+        }
+
+        [UnityTest]
+        public IEnumerator ReloadMinigamesAreOptionalAndRewardSkill()
+        {
+            yield return null;
+            var db = gm.DB;
+            foreach (ReloadStyle style in System.Enum.GetValues(typeof(ReloadStyle)))
+            {
+                Assert.IsNotNull(db.reloads.Find(r => r.style == style), $"{style} has its numbers");
+                // Doing nothing: the reload finishes in its normal time, with a full magazine
+                var idle = ReloadGame.Begin(db.Reload(style), 1.5f, 6);
+                int a = 0; float spent = 0;
+                while (!idle.Update(1 / 60f, ref a, 6) && spent < 5) spent += 1 / 60f;
+                Assert.IsTrue(idle.Done, $"{style} completes with no input");
+                Assert.Less(spent, 2f, $"{style} takes about the reload time when ignored");
+                Assert.IsFalse(idle.Perfect, $"{style} isn't Perfect by doing nothing");
+                if (idle.PerRound) Assert.AreEqual(6, a, $"{style} loads every round");
+            }
+            foreach (var g in db.guns) Assert.IsNotNull(db.reloads.Find(r => r.style == g.reloadStyle), $"{g.displayName} has a reload minigame");
+
+            // Zone: in the green is Perfect; outside it jams (takes longer)
+            int ammo = 0;
+            var zone = ReloadGame.Begin(db.Reload(ReloadStyle.Zone), 1.5f, 6);
+            Step(zone, ref ammo, 6, () => zone.Marker > (zone.Zone.x + zone.Zone.y) / 2);
+            zone.Press(ref ammo, 6);
+            Assert.IsTrue(zone.Done && zone.Perfect, "a tap in the green finishes early, Perfect");
+            var miss = ReloadGame.Begin(db.Reload(ReloadStyle.Zone), 1.5f, 6);
+            miss.Press(ref ammo, 6);
+            Assert.IsTrue(miss.Jammed && miss.Need > 1.5f && !miss.Done, "a tap outside it jams");
+
+            // Bolt: both zones in order
+            var bolt = ReloadGame.Begin(db.Reload(ReloadStyle.Bolt), 2f, 5);
+            Step(bolt, ref ammo, 5, () => bolt.Marker > (bolt.Zone.x + bolt.Zone.y) / 2);
+            bolt.Press(ref ammo, 5);
+            Assert.AreEqual(1, bolt.Step, "bolt open");
+            Step(bolt, ref ammo, 5, () => bolt.Marker > (bolt.Zone2.x + bolt.Zone2.y) / 2);
+            bolt.Press(ref ammo, 5);
+            Assert.IsTrue(bolt.Perfect, "bolt closed: Perfect");
+
+            // Rhythm: a tap on every beat loads every round by skill
+            ammo = 0;
+            var rhythm = ReloadGame.Begin(db.Reload(ReloadStyle.Rhythm), 1.4f, 6);
+            for (int i = 0; i < 6 && !rhythm.Done; i++)
+            {
+                Step(rhythm, ref ammo, 6, () => rhythm.BeatT >= i * rhythm.R.beat);
+                rhythm.Press(ref ammo, 6);
+                rhythm.Update(.001f, ref ammo, 6);
+            }
+            Assert.AreEqual(6, ammo, "six beats, six rounds");
+            Assert.IsTrue(rhythm.Done && rhythm.Perfect, "every round on the beat is Perfect");
+
+            // Shells: a tap outside the zone slips
+            ammo = 0;
+            var shells = ReloadGame.Begin(db.Reload(ReloadStyle.Shells), 2f, 6);
+            shells.Press(ref ammo, 6);
+            Assert.AreEqual("SLIP", shells.Word);
+            Step(shells, ref ammo, 6, () => shells.RoundFraction > (shells.Zone.x + shells.Zone.y) / 2);
+            shells.Press(ref ammo, 6);
+            Assert.AreEqual(1, ammo, "a tap in the zone loads a shell");
+
+            // Pressure: hold, release in the green; hold too long and it vents
+            var pressure = ReloadGame.Begin(db.Reload(ReloadStyle.Pressure), 2f, 40);
+            pressure.Press(ref ammo, 40);
+            Step(pressure, ref ammo, 40, () => pressure.Needle > (pressure.Zone.x + pressure.Zone.y) / 2);
+            pressure.Release();
+            Assert.IsTrue(pressure.Perfect, "released in the green");
+            var vent = ReloadGame.Begin(db.Reload(ReloadStyle.Pressure), 2f, 40);
+            vent.Press(ref ammo, 40);
+            Step(vent, ref ammo, 40, () => vent.Jammed);
+            Assert.IsTrue(vent.Jammed, "held too long: it vents");
+
+            // Mash: fast enough is Perfect, and quicker than waiting
+            var mash = ReloadGame.Begin(db.Reload(ReloadStyle.Mash), 2f, 10);
+            float took = 0;
+            while (!mash.Done && took < 5) { mash.Press(ref ammo, 10); mash.Update(.1f, ref ammo, 10); took += .1f; }
+            Assert.IsTrue(mash.Perfect && took < 1.2f, "mashing charges it fast");
+        }
+
+        [UnityTest]
+        public IEnumerator PlayersReloadWithTheMinigameAndPerfectsHitHarder()
+        {
+            var p = JoinPad();
+            var pad = (Gamepad)p.Controls.Devices[0];
+            yield return Frames(2);
+            gm.Waves.RunWave = gm.DB.gunsUnlockWave;
+            p.GiveGun("smg");
+            Assert.AreEqual(ReloadStyle.Zone, p.Gun.reloadStyle);
+            // Empty the magazine: the reload starts by itself
+            for (float t = 0; t < 8 && p.ReloadView == null; t += Time.deltaTime)
+            {
+                InputSystem.QueueStateEvent(pad, new GamepadState { rightTrigger = 1 });
+                yield return null;
+            }
+            InputSystem.QueueStateEvent(pad, new GamepadState());
+            Assert.IsNotNull(p.ReloadView, "an empty gun starts its reload minigame");
+            Assert.GreaterOrEqual(p.ReloadProgress, 0);
+            var g = p.ReloadView;
+            for (float t = 0; t < 4 && g.Marker < (g.Zone.x + g.Zone.y) / 2; t += Time.deltaTime) yield return null;
+            yield return Tap(pad, GamepadButton.West);
+            Assert.IsTrue(g.Perfect, "Reload in the green: Perfect");
+            Assert.AreEqual(p.MagSize, p.Ammo, "and the magazine is full");
+            Assert.Greater(p.PerfectBonus, 0, "a Perfect reload adds damage until the magazine is empty");
+        }
+
+        [UnityTest]
+        public IEnumerator KillCombosChainPayAndRunOut()
+        {
+            var p = JoinPad();
+            yield return Frames(2);
+            int sd = gm.SandDollars;
+            for (int i = 0; i < 4; i++)
+            {
+                var crab = Enemy.Spawn(gm.DB.Enemy("crab"), new Vector3(i * 2, 0, 12), 1, -1);
+                yield return null;
+                crab.Die(new DamageInfo { source = p });
+            }
+            Assert.AreEqual(4, p.Combo, "four quick kills: x4");
+            Assert.AreEqual(4, p.BestCombo);
+            Assert.GreaterOrEqual(gm.SandDollars - sd, (1 + 2 + 3) * gm.DB.comboSandDollars, "the combo pays out");
+            Time.timeScale = 10;
+            for (float t = 0; t < gm.DB.comboWindow + 1; t += Time.deltaTime) yield return null;
+            Time.timeScale = 1;
+            Assert.AreEqual(0, p.Combo, "the chain breaks when you stop killing");
+        }
+
+        [UnityTest]
+        public IEnumerator LootFliesToTheKillerAndCanBeIntercepted()
+        {
+            var killer = JoinPad();
+            var mate = JoinPad();
+            yield return Frames(2);
+            killer.NetTeleport(new Vector3(-12, 0, 10));
+            mate.NetTeleport(new Vector3(-6, 0, 10));   // standing between the clam and the killer
+            var clam = Enemy.Spawn(gm.DB.Enemy("clam"), new Vector3(0, 0, 10), 1, -1);
+            yield return null;
+            int sd = gm.SandDollars, pearls = gm.Pearls;
+            clam.Die(new DamageInfo { source = killer });
+            for (float t = 0; t < 6 && Object.FindObjectsByType<SandDollarPickup>().Length > 0; t += Time.deltaTime) yield return null;
+            Assert.Greater(gm.Pearls, pearls, "the giant clam drops golden pearls");
+            Assert.Greater(gm.SandDollars, sd, "and sand dollars");
+            Assert.AreEqual(0, Object.FindObjectsByType<SandDollarPickup>().Length, "all of it was caught on the way");
+        }
+
+        [UnityTest]
+        public IEnumerator DefencesAreBuiltAndBlockCreatures()
+        {
+            var p = JoinPad();
+            yield return Frames(2);
+            gm.AddSandDollars(1000); gm.AddPearls(5);
+            var barricade = gm.DB.Structure("barricade");
+            p.StartBuilding(barricade);
+            p.SetLook(0, 30);
+            p.NetTeleport(new Vector3(0, 0, 8));
+            yield return Frames(3);
+            int sd = gm.SandDollars;
+            var pad = (Gamepad)p.Controls.Devices[0];
+            yield return Tap(pad, GamepadButton.A);
+            yield return Frames(2);
+            Assert.AreEqual(1, Structure.All.Count, "the barricade was placed");
+            Assert.AreEqual(sd - barricade.sandDollars, gm.SandDollars, "and paid for");
+            Assert.IsNotNull(Structure.WhyNot(barricade, Structure.All[0].transform.position), "nothing else fits on top of it");
+            Assert.IsNotNull(Structure.WhyNot(gm.DB.Structure("turret"), new Vector3(0, 0, Arena.ShoreZ + 2)), "not in the sea");
+            p.StopBuilding();
+            // A crab walking into it has to chew through
+            var b = Structure.All[0];
+            float hp = b.Hp;
+            p.NetTeleport(new Vector3(-40, 0, -20));
+            var crab = Enemy.Spawn(gm.DB.Enemy("crab"), b.transform.position + new Vector3(0, 0, 4), 1, -1);
+            Time.timeScale = 4;
+            for (float t = 0; t < 20 && b != null && b.Hp >= hp; t += Time.deltaTime) yield return null;
+            Time.timeScale = 1;
+            Assert.IsTrue(b == null || b.Hp < hp, "the crab attacked the barricade in its way");
+            Assert.NotNull(crab);
+            // A turret shoots on its own
+            var turret = Structure.Build(gm.DB.Structure("turret"), new Vector3(20, 0, 6), 0);
+            var drowner = Enemy.Spawn(gm.DB.Enemy("drowner"), new Vector3(20, 0, 14), 1, -1);
+            float dh = drowner.Hp;
+            for (float t = 0; t < 4 && drowner != null && !drowner.Dead && drowner.Hp >= dh; t += Time.deltaTime) yield return null;
+            Assert.IsTrue(drowner == null || drowner.Dead || drowner.Hp < dh, "the harpoon turret hit it");
+            Assert.NotNull(turret);
+        }
+
+        [UnityTest]
+        public IEnumerator VendorsCorpsesAndTheCardVoteOptions()
+        {
+            JoinPad();
+            yield return Frames(2);
+            Assert.NotNull(gm.World.chef, "the hotdog chef is at the stand");
+            Assert.NotNull(gm.World.fishmonger, "the fishmonger is at the cart");
+            // Corpses sit on the sand, not in it
+            var croc = Enemy.Spawn(gm.DB.Enemy("croc"), new Vector3(5, 0, 12), 1, -1);
+            yield return null;
+            croc.Die(default);
+            yield return null;
+            Assert.GreaterOrEqual(ModelFactory.Bounds(croc.Model.root).min.y, -.05f, "the corpse isn't sunk into the ground");
+            // The vote offers the cards plus a random one (and sometimes a re-roll)
+            gm.Cards.OfferDraft();
+            var p = gm.Players.All[0];
+            Assert.AreEqual(MenuLayout.Cards, p.OpenedMenu.Layout);
+            Assert.AreEqual(gm.Cards.Draft.Count + (gm.Cards.RerollOffered ? 2 : 1), p.OpenedMenu.Items.Count);
+            gm.Cards.Vote(p, gm.Cards.Draft.Count);   // the face-down random card
+            Assert.IsNull(gm.Cards.Draft);
+            Assert.AreEqual(1, gm.Cards.Actives.Count, "a random card was dealt");
         }
 
         // ------------------------------------------------------------------ combat and creatures

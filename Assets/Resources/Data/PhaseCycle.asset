@@ -30,6 +30,7 @@ MonoBehaviour:
     spawnFood: 1
     spawnGasCans: 1
     tidalDraft: 0
+    corpseThieves: 3
     skyColor: {r: 0.62, g: 0.8, b: 0.96, a: 1}
     sunColor: {r: 1, g: 0.93, b: 0.8, a: 1}
     sunIntensity: 1.3
@@ -66,6 +67,7 @@ MonoBehaviour:
     spawnFood: 0
     spawnGasCans: 0
     tidalDraft: 1
+    corpseThieves: 0
     skyColor: {r: 0.95, g: 0.55, b: 0.35, a: 1}
     sunColor: {r: 1, g: 0.6, b: 0.35, a: 1}
     sunIntensity: 1
@@ -93,6 +95,7 @@ MonoBehaviour:
     spawnFood: 0
     spawnGasCans: 0
     tidalDraft: 1
+    corpseThieves: 0
     skyColor: {r: 0.04, g: 0.06, b: 0.14, a: 1}
     sunColor: {r: 0.55, g: 0.65, b: 1, a: 1}
     sunIntensity: 0.35

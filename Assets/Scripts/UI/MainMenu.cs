@@ -58,6 +58,7 @@ namespace TideWall
             shown = true;
             if (cam == null) Build();
             cam.enabled = true;
+            GraphicsApply.MenuBoost = true;
             canvas.gameObject.SetActive(true);
             scenery.SetActive(true);
             map.Enable();
@@ -68,6 +69,7 @@ namespace TideWall
         public void Hide()
         {
             shown = false;
+            GraphicsApply.MenuBoost = false;
             if (cam == null) return;
             cam.enabled = false;
             canvas.gameObject.SetActive(false);

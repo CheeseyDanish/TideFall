@@ -32,6 +32,9 @@ MonoBehaviour:
     cost: 1
     minDay: 1
     xp: 0
+    minWave: 1
+    spawnWeight: 1
+    pearls: 0
     limbs:
     - part: ClawL
       hpFraction: 0.35
@@ -64,6 +67,9 @@ MonoBehaviour:
     cost: 2
     minDay: 1
     xp: 0
+    minWave: 1
+    spawnWeight: 1
+    pearls: 0
     limbs:
     - part: ArmL
       hpFraction: 0.3
@@ -104,6 +110,9 @@ MonoBehaviour:
     cost: 2
     minDay: 1
     xp: 0
+    minWave: 5
+    spawnWeight: 1
+    pearls: 0
     limbs:
     - part: WingL
       hpFraction: 0.3
@@ -132,6 +141,9 @@ MonoBehaviour:
     cost: 2
     minDay: 2
     xp: 0
+    minWave: 1
+    spawnWeight: 1
+    pearls: 0
     limbs:
     - part: Shell
       hpFraction: 0.6
@@ -168,6 +180,9 @@ MonoBehaviour:
     cost: 3
     minDay: 2
     xp: 0
+    minWave: 1
+    spawnWeight: 1
+    pearls: 0
     limbs: []
   - id: urchin
     displayName: Sea Urchin
@@ -188,6 +203,9 @@ MonoBehaviour:
     cost: 2
     minDay: 2
     xp: 0
+    minWave: 1
+    spawnWeight: 1
+    pearls: 0
     limbs: []
   - id: jelly
     displayName: Jellyfish
@@ -208,6 +226,9 @@ MonoBehaviour:
     cost: 2
     minDay: 2
     xp: 0
+    minWave: 1
+    spawnWeight: 1
+    pearls: 0
     limbs:
     - part: Tent1
       hpFraction: 0.2
@@ -244,6 +265,9 @@ MonoBehaviour:
     cost: 6
     minDay: 2
     xp: 0
+    minWave: 1
+    spawnWeight: 1
+    pearls: 0
     limbs:
     - part: Fin
       hpFraction: 0.3
@@ -272,6 +296,9 @@ MonoBehaviour:
     cost: 2
     minDay: 3
     xp: 0
+    minWave: 1
+    spawnWeight: 1
+    pearls: 0
     limbs:
     - part: Head
       hpFraction: 0.35
@@ -300,6 +327,9 @@ MonoBehaviour:
     cost: 5
     minDay: 3
     xp: 0
+    minWave: 1
+    spawnWeight: 1
+    pearls: 0
     limbs:
     - part: Head
       hpFraction: 0.3
@@ -324,6 +354,9 @@ MonoBehaviour:
     cost: 8
     minDay: 4
     xp: 0
+    minWave: 1
+    spawnWeight: 1
+    pearls: 0
     limbs:
     - part: Head
       hpFraction: 0.35
@@ -352,6 +385,9 @@ MonoBehaviour:
     cost: 6
     minDay: 4
     xp: 0
+    minWave: 1
+    spawnWeight: 1
+    pearls: 0
     limbs:
     - part: Tent1
       hpFraction: 0.18
@@ -396,6 +432,9 @@ MonoBehaviour:
     cost: 10
     minDay: 5
     xp: 0
+    minWave: 1
+    spawnWeight: 1
+    pearls: 0
     limbs:
     - part: ClawL
       hpFraction: 0.3
@@ -409,6 +448,33 @@ MonoBehaviour:
       hpFraction: 0.3
       effect: 1
       critMultiplier: 2
+  - id: clam
+    displayName: Giant Clam
+    model: Clam
+    behaviour: 10
+    scale: 1
+    hp: 90
+    speed: 0.9
+    damage: 14
+    attackRate: 1
+    attackRange: 1.6
+    armor: 10
+    waterSpeedMult: 0.8
+    aggroRange: 6
+    thorns: 0
+    bounty: 6
+    corpseValue: 30
+    cost: 3
+    minDay: 1
+    xp: 0
+    minWave: 1
+    spawnWeight: 0.15
+    pearls: 2
+    limbs:
+    - part: Lid
+      hpFraction: 0.5
+      effect: 6
+      critMultiplier: 1
   - id: glizzy
     displayName: Glizzy Monster
     model: GlizzyMonster
@@ -428,12 +494,15 @@ MonoBehaviour:
     cost: 0
     minDay: 5
     xp: 0
+    minWave: 1
+    spawnWeight: 1
+    pearls: 0
     limbs: []
   guns:
   - id: revolver
     displayName: Revolver
     model: Revolver
-    description: Six shots, good on weak points.
+    description: 'Six shots, good on weak points. Reload: tap on the beat.'
     price: 0
     damage: 22
     fireRate: 3
@@ -446,12 +515,35 @@ MonoBehaviour:
     magazine: 6
     pierce: 0
     element: 0
+    recoil: 3.5
+    reloadStyle: 1
+    lifesteal: 0
+    limbBonus: 0
+  - id: smg
+    displayName: Rivet SMG
+    model: RivetSMG
+    description: 'Sprays rivets. Reload: tap in the green.'
+    price: 400
+    damage: 9
+    fireRate: 10
+    spreadDegrees: 5
+    range: 24
+    reload: 1.6
+    knockback: 0
+    splash: 0
+    pellets: 1
+    magazine: 24
+    pierce: 0
+    element: 0
+    recoil: 1.6
+    reloadStyle: 0
     lifesteal: 0
     limbBonus: 0
   - id: scattergun
     displayName: Scattergun
     model: Scattergun
-    description: Seven pellets. Clears crabs and claws, weak at range.
+    description: 'Seven pellets. Clears crabs and claws, weak at range. Reload: shell
+      by shell.'
     price: 300
     damage: 9
     fireRate: 1.2
@@ -464,12 +556,15 @@ MonoBehaviour:
     magazine: 6
     pierce: 0
     element: 0
+    recoil: 8
+    reloadStyle: 2
     lifesteal: 0
     limbBonus: 0
   - id: harpoon
     displayName: Harpoon Gun
     model: HarpoonGun
-    description: Skewers a whole line and shoves it back into the surf.
+    description: 'Skewers a whole line and shoves it back into the surf. Reload:
+      one narrow chance.'
     price: 600
     damage: 60
     fireRate: 0.9
@@ -482,12 +577,35 @@ MonoBehaviour:
     magazine: 3
     pierce: 99
     element: 0
+    recoil: 6
+    reloadStyle: 4
+    lifesteal: 0
+    limbBonus: 0
+  - id: longrifle
+    displayName: Longrifle
+    model: Longrifle
+    description: 'Long range, goes through one. Reload: work the bolt.'
+    price: 750
+    damage: 75
+    fireRate: 0.8
+    spreadDegrees: 0
+    range: 60
+    reload: 2
+    knockback: 0
+    splash: 0
+    pellets: 1
+    magazine: 5
+    pierce: 1
+    element: 0
+    recoil: 7
+    reloadStyle: 3
     lifesteal: 0
     limbBonus: 0
   - id: flare
     displayName: Flare Gun
     model: FlareGun
-    description: Sets dry targets alight. Wet ones just steam.
+    description: 'Sets dry targets alight. Wet ones just steam. Reload: catch the
+      moving zone.'
     price: 450
     damage: 15
     fireRate: 1.2
@@ -500,6 +618,48 @@ MonoBehaviour:
     magazine: 4
     pierce: 0
     element: 1
+    recoil: 4.5
+    reloadStyle: 5
+    lifesteal: 0
+    limbBonus: 0
+  - id: eelcaster
+    displayName: Eel Caster
+    model: EelCaster
+    description: 'Shocking bolts that crackle over a crowd. Reload: mash to charge.'
+    price: 850
+    damage: 18
+    fireRate: 4
+    spreadDegrees: 2
+    range: 22
+    reload: 2.2
+    knockback: 0
+    splash: 1.2
+    pellets: 1
+    magazine: 10
+    pierce: 0
+    element: 2
+    recoil: 2.5
+    reloadStyle: 6
+    lifesteal: 0
+    limbBonus: 0
+  - id: blowtorch
+    displayName: Blowtorch
+    model: Blowtorch
+    description: 'Short, hot and hungry. Reload: hold, release in the green.'
+    price: 700
+    damage: 5
+    fireRate: 9
+    spreadDegrees: 9
+    range: 8
+    reload: 2
+    knockback: 0
+    splash: 0
+    pellets: 4
+    magazine: 40
+    pierce: 0
+    element: 1
+    recoil: 0.8
+    reloadStyle: 7
     lifesteal: 0
     limbBonus: 0
   melee:
@@ -516,6 +676,10 @@ MonoBehaviour:
     stun: 0
     pull: 0
     element: 0
+    style: 0
+    windup: 0.12
+    strike: 0.1
+    recover: 0.2
     lifesteal: 0
     limbBonus: 0
   - id: cutlass
@@ -531,6 +695,10 @@ MonoBehaviour:
     stun: 0
     pull: 0
     element: 0
+    style: 1
+    windup: 0.06
+    strike: 0.08
+    recover: 0.14
     lifesteal: 0
     limbBonus: 0
   - id: oar
@@ -546,6 +714,10 @@ MonoBehaviour:
     stun: 0
     pull: 0
     element: 0
+    style: 2
+    windup: 0.16
+    strike: 0.14
+    recover: 0.24
     lifesteal: 0
     limbBonus: 0
   - id: boathook
@@ -562,6 +734,10 @@ MonoBehaviour:
     stun: 0
     pull: 3
     element: 2
+    style: 3
+    windup: 0.08
+    strike: 0.1
+    recover: 0.22
     lifesteal: 0
     limbBonus: 0
   - id: anchor
@@ -577,6 +753,10 @@ MonoBehaviour:
     stun: 1
     pull: 0
     element: 0
+    style: 4
+    windup: 0.38
+    strike: 0.14
+    recover: 0.38
     lifesteal: 0
     limbBonus: 0
   foods:
@@ -1481,6 +1661,238 @@ MonoBehaviour:
     breakerReach: 0
     sandDollarLifetime: 0
     special: snacks
+  structures:
+  - id: barricade
+    displayName: Sandbag Barricade
+    model: Barricade
+    description: Blocks creatures. They have to chew through it.
+    kind: 0
+    sandDollars: 40
+    pearls: 0
+    hp: 260
+    radius: 1.6
+    damage: 0
+    rate: 1
+    range: 0
+    slow: 0
+    splash: 0
+    max: 0
+  - id: spikes
+    displayName: Urchin Spikes
+    model: Spikes
+    description: Hurts anything that walks over it (wears down as it does).
+    kind: 1
+    sandDollars: 60
+    pearls: 0
+    hp: 160
+    radius: 1.2
+    damage: 14
+    rate: 1
+    range: 0
+    slow: 0
+    splash: 0
+    max: 0
+  - id: snare
+    displayName: Kelp Snare
+    model: KelpSnare
+    description: 'Tangles creatures: half speed while they cross it.'
+    kind: 2
+    sandDollars: 50
+    pearls: 0
+    hp: 200
+    radius: 1.4
+    damage: 0
+    rate: 1
+    range: 0
+    slow: 0.5
+    splash: 0
+    max: 0
+  - id: bait
+    displayName: Bait Bucket
+    model: BaitBucket
+    description: Creatures nearby go for the fish heads instead of you or the wall.
+    kind: 5
+    sandDollars: 30
+    pearls: 0
+    hp: 90
+    radius: 0.6
+    damage: 0
+    rate: 1
+    range: 11
+    slow: 0
+    splash: 0
+    max: 0
+  - id: turret
+    displayName: Harpoon Turret
+    model: HarpoonTurret
+    description: Fires harpoons at the nearest creature.
+    kind: 3
+    sandDollars: 120
+    pearls: 1
+    hp: 180
+    radius: 0.8
+    damage: 26
+    rate: 0.8
+    range: 20
+    slow: 0
+    splash: 0
+    max: 4
+  - id: cannon
+    displayName: Pearl Cannon
+    model: PearlCannon
+    description: Lobs exploding pearls into crowds.
+    kind: 4
+    sandDollars: 200
+    pearls: 3
+    hp: 240
+    radius: 1
+    damage: 70
+    rate: 0.3
+    range: 28
+    slow: 0
+    splash: 3.5
+    max: 2
+  reloads:
+  - style: 0
+    displayName: Active
+    how: Tap {r} in the green
+    zone: {x: 0.42, y: 0.6}
+    zone2: {x: 0, y: 0}
+    jam: 0.6
+    bonus: 0
+    perRound: 0
+    beat: 0.2
+    window: 0.07
+    fumble: 0.35
+    slip: 0.25
+    width: 0.16
+    perTap: 0.09
+    perfectUnder: 0.55
+    fill: 0.9
+  - style: 1
+    displayName: Rhythm
+    how: Tap {r} on the beat
+    zone: {x: 0.42, y: 0.6}
+    zone2: {x: 0, y: 0}
+    jam: 0.6
+    bonus: 0
+    perRound: 1
+    beat: 0.2
+    window: 0.07
+    fumble: 0.35
+    slip: 0.25
+    width: 0.16
+    perTap: 0.09
+    perfectUnder: 0.55
+    fill: 0.9
+  - style: 2
+    displayName: Shell by shell
+    how: "Tap {r} in the green \xB7 fire to stop"
+    zone: {x: 0.55, y: 0.85}
+    zone2: {x: 0, y: 0}
+    jam: 0.6
+    bonus: 0
+    perRound: 1
+    beat: 0.2
+    window: 0.07
+    fumble: 0.35
+    slip: 0.25
+    width: 0.16
+    perTap: 0.09
+    perfectUnder: 0.55
+    fill: 0.9
+  - style: 3
+    displayName: Bolt
+    how: Tap {r} in each zone
+    zone: {x: 0.22, y: 0.36}
+    zone2: {x: 0.62, y: 0.76}
+    jam: 0.5
+    bonus: 0
+    perRound: 0
+    beat: 0.2
+    window: 0.07
+    fumble: 0.35
+    slip: 0.25
+    width: 0.16
+    perTap: 0.09
+    perfectUnder: 0.55
+    fill: 0.9
+  - style: 4
+    displayName: Heavy
+    how: "One chance \xB7 {r} in the gold"
+    zone: {x: 0.3, y: 0.4}
+    zone2: {x: 0, y: 0}
+    jam: 1.4
+    bonus: 0.4
+    perRound: 0
+    beat: 0.2
+    window: 0.07
+    fumble: 0.35
+    slip: 0.25
+    width: 0.16
+    perTap: 0.09
+    perfectUnder: 0.55
+    fill: 0.9
+  - style: 5
+    displayName: Drop
+    how: Tap {r} in the green
+    zone: {x: 0.42, y: 0.6}
+    zone2: {x: 0, y: 0}
+    jam: 0.6
+    bonus: 0
+    perRound: 0
+    beat: 0.2
+    window: 0.07
+    fumble: 0.35
+    slip: 0.25
+    width: 0.16
+    perTap: 0.09
+    perfectUnder: 0.55
+    fill: 0.9
+  - style: 6
+    displayName: Capacitor
+    how: Mash {r}
+    zone: {x: 0.42, y: 0.6}
+    zone2: {x: 0, y: 0}
+    jam: 0.6
+    bonus: 0
+    perRound: 0
+    beat: 0.2
+    window: 0.07
+    fumble: 0.35
+    slip: 0.25
+    width: 0.16
+    perTap: 0.09
+    perfectUnder: 0.55
+    fill: 0.9
+  - style: 7
+    displayName: Pressure
+    how: "Hold {r} \xB7 release in the green"
+    zone: {x: 0.62, y: 0.82}
+    zone2: {x: 0, y: 0}
+    jam: 0.8
+    bonus: 0
+    perRound: 0
+    beat: 0.2
+    window: 0.07
+    fumble: 0.35
+    slip: 0.25
+    width: 0.16
+    perTap: 0.09
+    perfectUnder: 0.55
+    fill: 0.9
+  chefLines:
+  - Hot dogs! Get 'em while the core's cool!
+  - Ketchup for rage, mustard for speed!
+  - ??? sauce? Your funeral, pal.
+  - Nothing beats a glizzy before a big night.
+  - No refunds if you get turned upside down.
+  fishmongerLines:
+  - Fresh catch! Bring me those corpses!
+  - Intact ones pay better, you know.
+  - Throw 'em in the cart, I'll count 'em!
+  - Is that a clam? Bring me a clam!
+  - Smells like a good night's work.
   playerMaxHp: 100
   playerSpeed: 5.5
   playerWaterSpeedMult: 0.6
@@ -1494,6 +1906,12 @@ MonoBehaviour:
   startGun: revolver
   startMelee: spade
   startSandDollars: 40
+  gunsUnlockWave: 4
+  perfectReloadBonus: 0.25
+  comboWindow: 3
+  comboSandDollars: 1
+  comboXp: 2
+  comboMax: 20
   xpBase: 60
   xpGrowth: 1.35
   statPointsPerLevel: 1
@@ -1503,14 +1921,18 @@ MonoBehaviour:
   respecPerLevel: 15
   sandDollarLifetime: 30
   sandDollarMagnet: 4.5
+  lootFlySpeed: 9
+  lootIntercept: 1.6
   wallSegmentHp: 140
   plantMaxHp: 1000
   breakerSpeed: 9
   breakerGroupSeconds: 1.5
   breakerStartZ: 100
+  breakerWipeoutChance: 0.17
   cardChoices: 3
   cardVoteSeconds: 15
   exclusiveCardChance: 0.6
+  cardRerollChance: 0.15
   wetDrainPerSecond: 0.12
   maxDripsPerSecond: 28
   shockWetMultiplier: 1.5

@@ -20,6 +20,9 @@ It's the 3D, co-op follow-up to Tidewall 2D (the browser game on the website), k
 - Runs are **suspendable**: they autosave every Morning, so you can quit and Continue later, but you can't reload to undo a loss.
 - Each run is different: which **tidal cards** you're offered and vote for, which **weapon mods** you're offered, how you spend **stat points**, and what the waves bring.
 
+## Melee first
+The run's **first 3 waves are melee only**: guns stay holstered (`gunsUnlockWave = 4`), and the trigger swings your melee weapon instead. Learn the creatures up close first. The HUD says when guns come out.
+
 ## Views
 - **First person** (the default). The camera is at your eyes; you see your gun bottom-right (and your melee weapon sweeping across when you swing), and a small crosshair in your colour. Shots go to whatever is under the crosshair. Mouse or right stick looks around; the left stick / WASD moves relative to where you look.
 - **Top-down** (the original view). The camera floats above and behind, looking out to sea. Aim with the mouse cursor or the right stick; a ring in your colour shows the exact point you're aiming at.
@@ -37,9 +40,12 @@ The beach is **twice the size of the original**: 88 m of wall, 40 m of sand to t
 - **Repair Wall** in the shop restores every section and **rebuilds breached ones**.
 
 ## Waves and breakers
-- Creatures **arrive riding breaking waves**. Spawns that come due within ~1.5 s of each other climb onto the same breaker far out at sea; it rolls in (the sea swells under it), rears up near the shore, and **breaks**, throwing them into the surf soaking wet. Bosses get a monster wave of their own. Gulls fly in over the water.
+- Creatures **arrive riding breaking waves**, standing on little **surfboards**, arms out, wobbling for balance. About **1 in 6 wipes out** on the way in: off the board, cartwheeling into the surf, board flying. The wave itself curls over into a foaming lip that throws spray. Spawns that come due within ~1.5 s of each other climb onto the same breaker far out at sea; it rolls in (the sea swells under it), rears up near the shore, and **breaks**, throwing them into the surf soaking wet. Bosses get a monster wave of their own. Gulls fly in over the water.
 - The day's budget is `a + b·d + c·d²` (d = day) times the phase multiplier, spent on packs and split across waves. **Once half of a wave is dead, the next one arrives 3 s later.**
 - Active tidal cards scale the numbers as spawns come due (some creatures never come, or bring a friend).
+- **Run waves** count across the whole run. **Gulls don't appear before wave 5**; giant clams are rare from the start.
+- **What's next**: the HUD shows the rest of the current wave and the next wave ("Incoming: 4 Crabling, 2 Drowner · Wave 2: …"); in calm phases, what the next fight may bring.
+- **Morning thieves**: a few gulls fly in each morning (`corpseThieves`) to snatch the night's corpses before you sell them. Shoot one and it drops its prize.
 
 ## Phases (data-driven)
 Phases live in `Assets/Resources/Data/PhaseCycle.asset` as a list, run in order, looping. **Add, remove or reorder entries to change the day**; no code changes. Each phase sets:
@@ -56,6 +62,7 @@ Phases live in `Assets/Resources/Data/PhaseCycle.asset` as a list, run in order,
 | `waves`, `budgetMultiplier`, `enemyPool` | How much the sea sends, and which creatures |
 | `bossEveryDays`, `bossId` | Every Nth day this phase also brings the boss |
 | `spawnFood`, `spawnGasCans` | Picnic leftovers and gas cans appear on the beach |
+| `corpseThieves` | How many gulls come to steal corpses |
 | `skyColor`, `sun*`, `ambient`, `fog*`, `torchesLit`, `lanterns` | The look (procedural sky, sun, fog); blended over 4 s |
 
 The shipped day:
@@ -67,7 +74,7 @@ The shipped day:
 | **Night** | waves cleared → day +1 | Tidal card vote; 3 waves at full budget; Glizzy Monster boss every 5th day; moonlight, torches, lanterns |
 
 ## Tidal cards
-At the start of a `tidalDraft` phase the team is offered **3 cards** and **votes** (each player in their own view; Stats button to vote later). Ties and no-shows are decided at random when the 15 s timer runs out. A card **lasts several waves**, carrying over into later phases; several can be active at once (shown top-right).
+At the start of a `tidalDraft` phase the team **votes** between **3 face-up cards** and a **face-down random card** ("???", which deals any card allowed right now). Rarely (15%) a **Re-roll** card is offered too: if it wins, three new cards are dealt and you vote again. The vote shows as a row of big cards in each player's view (d-pad / arrows to choose, Interact to vote; Stats to come back to it). Ties and no-shows are decided at random when the 15 s timer runs out. A card **lasts several waves**, carrying over into later phases; several can be active at once (shown top-right).
 
 | Card | Waves | Effect |
 |---|---|---|
@@ -122,10 +129,25 @@ When exclusive cards are possible, one of the three choices is exclusive 60% of 
 | Leech Rounds | heal 8% of damage | Vampire Squid | heal 12% of damage |
 | Buckshot | +2 pellets | | |
 
-## Sand dollars (the money)
-- The team shares one purse of **sand dollars** (shown with a sand dollar icon top-right).
-- Creatures **drop sand dollars** when they die (their bounty × tidal cards). They scatter on the sand and **slide to any player within 4.5 m**; your Fortune adds to what you pick up. Uncollected ones wash away after 30 s (sooner in the surf).
+## Sand dollars and golden pearls
+- The team shares one purse of **sand dollars** (sand dollar icon, top-right) and one of **golden pearls**.
+- When a creature dies, its sand dollars burst out and **fly to whoever killed it**, low over the sand. **Anyone they pass within 1.6 m catches them first**: teammates can intercept ("Intercepted 4 sand dollars from Red!"). With no killer (fire, gas), they land and slide to the nearest player. Fortune adds to what you catch. Uncollected ones wash away after 30 s.
+- **Golden pearls** only come from the rare **Giant Clam** (2 each) and the same flight rules apply. They pay for the best defences.
 - The real money is still **selling corpses** to the fishmonger in the morning (carry them, or throw them into the cart). Intact corpses are worth more.
+
+## Defences (build anywhere on the beach or in town)
+Open the **Build** menu (d-pad down / B), or the shop's **Defences** tab, pick one, then place it where you aim: a see-through preview shows green (OK) or red (not here). Interact places it, Reload turns it 45°, Back cancels. Not in the sea, not on the wall, not on the powerplant or the stalls, not on top of each other.
+
+| Defence | Cost | What it does |
+|---|---|---|
+| Sandbag Barricade | 40 SD | Blocks creatures; they have to chew through it (260 HP) |
+| Urchin Spikes | 60 SD | Hurts anything walking over it (wears down as it does) |
+| Kelp Snare | 50 SD | Half speed for anything crossing it |
+| Bait Bucket | 30 SD | Creatures within 11 m go for the fish heads instead |
+| Harpoon Turret | 120 SD + 1 pearl | Fires at the nearest creature (max 4) |
+| Pearl Cannon | 200 SD + 3 pearls | Lobs exploding pearls into crowds (max 2) |
+
+Defences are saved with the run.
 
 ## Wetness
 - Anything in the sea (or riding a breaker) is **soaked** (wet = 1). On land it dries at `wetDrainPerSecond`.
@@ -152,7 +174,7 @@ Some enemies have severable limbs. A hit lands on whatever is under your crossha
 |---|---|---|---|
 | **Crabling** | Many small, fast targets | Scattergun, oar sweep | Scuttles **sideways** on tiptoe, claws snapping, eye stalks looking about |
 | **Drowner** | Baseline; can you hit heads? | Revolver on the head | Shambles, arms out in front, head lolling |
-| **Gull** | Flies over the wall, straight for the powerplant | Shoot the wings | Glides and banks; grounded, it hops |
+| **Gull** (from wave 5) | Flies over the wall, straight for the powerplant; in the morning, steals corpses | Shoot the wings | Glides and banks; grounded, it hops |
 | **Hermit Crab** | Armour (4) | Shell off with the anchor | Scuttles sideways, shell wobbling |
 | **Puffer** | Explodes when it reaches you (or the wall) | Range; pop it in a crowd | Bobs along, then **puffs into a quivering, spinning spiky ball** as it closes in |
 | **Sea Urchin** | Punishes melee (spines) | Shoot it | Rolls on its spines, bristling |
@@ -163,38 +185,73 @@ Some enemies have severable limbs. A hit lands on whatever is under your crossha
 | **Saltwater Croc** | Grabs and death-rolls a player; tail-swipes | Teammates break the grab; cut the tail | Low belly waddle, swinging tail, jaws up to bite, death roll |
 | **Octopus** | Grabs from 3.5 m and pulls; inks your screen | Cut tentacles | Mantle breathes, tentacles curl |
 | **Clawback** (lobster) | Heavy damage, armour | Claws first, then the head | Walks forward, rears up to strike |
+| **Giant Clam** (rare) | Armour 10 while shut; drops **golden pearls** | Hit it when it gapes open (or knock the lid off) | Hops along shut; gapes open now and then and snaps |
 | **Glizzy Monster** (boss) | Huge, summons crabs, shakes the screen | Everyone, everything | Bounces and squashes |
 
 Behind a breach, creatures go for the powerplant and anyone in town. Bosses arrive on nights where `day % bossEveryDays == 0`.
 
 ## Players
+- **The sailor is animated**: legs stride with your speed, the gun arm aims where you look, the other arm swings the melee weapon in its style, both arms go up to carry, the head follows your gaze, you lean into a dash and crawl when down.
 - **Health 100** (+ Sea Legs, + Vigor). At 0 you're **down**: you crawl and bleed out over 30 s. A teammate holding Interact next to you for 2 s revives you at 40%. Bleed out and you're back at the start of the next phase.
 - **Dash** (short burst). Carrying weight and wading slow you.
-- **Carry**: pick up corpses and gas cans, stacked up to weight 3. **Fire throws** the top item. A corpse thrown into the fishmonger's cart sells itself.
+- **Carry**: pick up corpses and gas cans, stacked up to weight 3. In first person you pick up **what you're looking at** (within 4.5 m); otherwise the nearest thing. **Fire throws** the top item. A corpse thrown into the fishmonger's cart sells itself. Corpses lie on the sand (never sunk into it).
 - **Grabbed** (croc/octopus): mash any button to break free, or get a teammate to hit the grabber.
 
+### Gunplay
+Every shot kicks: the view snaps up and settles (heavier guns kick harder), the gun jolts back, a muzzle flash and an ejected shell, the crosshair spreads and recovers. Hits flash the creature, make it flinch, and pop a **damage number** (yellow with "!" on weak points); kills flash a red X with a thunk.
+
 ### Guns (each player's own; bought with team sand dollars)
-| Gun | Price | Notes |
+| Gun | Price | Notes | Reload minigame |
+|---|---|---|---|
+| Revolver | start | 22 dmg, 6 rounds, good on weak points | Rhythm |
+| Scattergun | 300 | 7 × 9, wide, short range | Shell by shell |
+| Rivet SMG | 400 | 9 dmg, 10/s, 24 rounds | Active (zone) |
+| Flare Gun | 450 | Fire, small splash; steams wet targets | Drop |
+| Harpoon Gun | 600 | 60 dmg, pierces everything (ignores armour), knockback | Heavy |
+| Blowtorch | 700 | 4 × 5 fire, 9/s, 8 m range, 40 rounds | Pressure |
+| Longrifle | 750 | 75 dmg, 60 m, goes through one | Bolt |
+| Eel Caster | 850 | 18 shock, small splash, 10 rounds | Capacitor (mash) |
+
+### Reloading (the 2D game's minigames)
+Every gun has its own reload minigame, drawn **just under your reticle** (with what to press). Every one is **optional**: do nothing and the reload finishes in the gun's normal time. Skill makes it faster, and a **Perfect** reload adds **+25% damage** (Heavy: +40%) until that magazine is empty ("PERFECT +25%" by the reticle and the gun line). A miss **jams** (adds time).
+
+| Style | How | Miss |
 |---|---|---|
-| Revolver | start | 22 dmg, 6 rounds, good on weak points |
-| Scattergun | 300 | 7 × 9, wide, short range |
-| Harpoon Gun | 600 | 60 dmg, pierces everything (ignores armour), knockback |
-| Flare Gun | 450 | Fire, small splash; steams wet targets |
+| Active (zone) | Tap Reload while the marker is in the green | Jam +0.6 s |
+| Rhythm | Rounds load one at a time; tap Reload on each beat (a ring closes on the light) to snap one in. All six on the beat = Perfect | Fumble: a short stall |
+| Shell by shell | Tap Reload as each shell's marker crosses the green. Fire to stop early with what's loaded | Slip: that shell takes longer |
+| Bolt | Tap in the first zone (bolt open, skips ahead), then the second (bolt closed) | Jam +0.5 s |
+| Heavy | One narrow gold zone on an accelerating marker. One chance | Jam +1.4 s |
+| Drop | Like Active, but the zone is somewhere new every reload | Jam +0.6 s |
+| Capacitor | Mash Reload to charge faster. Fast enough = Perfect | — |
+| Pressure | Hold Reload: the needle rises; release in the green. Hold to the top and it vents | Vented +0.8 s |
+
+When you're low on ammo the reticle shows what's left; when you're empty it says **RELOAD** with your button.
+
+### Kill combos
+Kills within **3 seconds** of each other chain into a **combo**, shown beside the reticle ("x4 FRENZY", then RAMPAGE at 6, UNSTOPPABLE at 10) with a bar showing the time left to keep it going. Every kill past the first pays **+1 sand dollar and +2 XP per step** (x4 → +3 SD), up to x20.
 
 ### Melee (nautical and beach)
-| Weapon | Price | Notes |
-|---|---|---|
-| Beach Spade | start | 18 dmg, 100° arc |
-| Cutlass | 250 | Fast, best for lopping limbs |
-| Oar | 300 | 160° sweep, big knockback |
-| Boat Hook | 400 | 3.4 m reach, pulls targets in, Shock |
-| Anchor | 700 | 70 dmg, stuns, slows you while swinging |
+Each weapon swings in its own style, with a wind-up, the strike (when the hit lands) and a follow-through, in first and third person:
+
+| Weapon | Price | Style | Notes |
+|---|---|---|---|
+| Beach Spade | start | Chop: raised high, chopped down and across | 18 dmg, 100° arc |
+| Cutlass | 250 | Slash: cocked back, a fast flat backhand with a wrist roll | Fast, best for lopping limbs |
+| Oar | 300 | Sweep: a big low side-to-side sweep | 160°, big knockback |
+| Boat Hook | 400 | Thrust: jab out, yank back | 3.4 m reach, pulls targets in, Shock |
+| Anchor | 700 | Slam: heaved overhead, brought crashing down (long wind-up) | 70 dmg, stuns, kicks up sand |
 
 ### Team upgrades (shop)
 Repair Wall (every section +40%, breaches rebuilt) · Reinforce Wall (+20% section HP) · **Cool the Core** (+25% powerplant HP) · **Lead Lining** (+20% powerplant max HP) · Sea Legs (+25 HP each) · Heavier Rounds (+15% gun damage) · Whetstone (+15% melee) · Deep Pockets (+30% magazine) · Gas Delivery (+2 gas cans each morning).
 
+## The shop and the vendors
+- **The shop** works like the 2D game's: tabs (**Guns**, **Melee**, **Upgrades**, **Defences**; Swap/Reload to switch) of **item cards** with a **picture of the item**, its stats, its price, and whether you own or have it equipped.
+- **Vendors** stand behind the stalls: the **hotdog chef** (white coat, tall hat, moustache) and the **fishmonger** (yellow oilskins, sou'wester). They turn to whoever comes near, wave, and shout lines ("Ketchup for rage, mustard for speed!").
+- **Menus never stop you walking**: the d-pad / arrow keys (and mouse wheel) drive menus while the left stick / WASD still walks and you can still look around. A stall's menu closes if you walk away from it.
+
 ## Hotdog stand (on two tires)
-Open every phase, so you can heal mid-fight if you can get back to town.
+Open every phase, so you can heal mid-fight if you can get back to town. Its menu is a grid of food cards with pictures.
 
 | Item | Price (sand dollars) | Effect |
 |---|---|---|
@@ -229,13 +286,15 @@ Defaults (every one except the sticks and mouse look can be rebound in **Setting
 | Interact (shop, sell, eat, revive, pick up) | A / Cross | E / Enter |
 | Back (close menu) | B / Circle | Backspace |
 | Reload | X / Square | R |
-| Swap gun | Y / Triangle | Q / middle click |
+| Swap gun (shop: next tab) | Y / Triangle | Q / middle click |
 | Dash | LB / LT | Space / Shift |
 | Switch view | R3 | V |
 | **Stats & mods / tidal card vote** | Select / Back | Tab / C |
+| **Build defences** | D-pad down | B |
+| **Menus: choose** | D-pad | Arrow keys / mouse wheel |
 | Pause menu | Start | Esc / P |
 
-In menus: up/down chooses, left/right changes a value, Interact picks, Back goes back. HUD prompts always show *your* key.
+In menus: the d-pad / arrows choose (left/right changes a value in lists), Interact picks, Back goes back. The left stick / WASD keeps walking. HUD prompts always show *your* key.
 
 Split screen: 1 player full screen · 2 stacked · 3–4 in quarters (with 3, the 4th quarter is an overview). The mouse is captured while a keyboard player looks around in first person.
 
@@ -253,7 +312,8 @@ Menu: **Continue run** · **New run** (pick a slot) · **Other runs** · **Host 
 | Settings | |
 |---|---|
 | **Audio** | Master, Effects, Interface, Ambience (surf) |
-| **Game** | Start in first person · Field of view · Mouse/stick sensitivity · Invert look · Aim assist · Screen shake · Fullscreen · Graphics quality · Show frame rate |
+| **Game** | Start in first person · Field of view · Mouse/stick sensitivity · Invert look · Aim assist · Screen shake · Damage numbers · Show frame rate |
+| **Graphics** | Display mode (borderless / exclusive fullscreen / windowed) · Resolution (native by default) · VSync · Frame rate limit · Render scale (50–200%) · Anti-aliasing (Off, FXAA, SMAA, MSAA 2/4/8x; MSAA 4x default) · Shadows (off/low/medium/high) · Bloom · Post-processing · Draw distance · Particle density · Quality preset |
 | **Controls** | Keyboard & mouse and Controller lists: pick an action, press the new key or button. Reset all controls. |
 
 ## Saves

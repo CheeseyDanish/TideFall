@@ -43,6 +43,13 @@ namespace TideWall
             Make("deny", .2f, t => Mathf.Sign(Mathf.Sin(t * 2 * Mathf.PI * 160)) * Env(t, .08f) * .2f);
             Make("horn", 1.4f, t => (Mathf.Repeat(t * 98, 1) * 2 - 1) * Mathf.Min(1, t * 6) * Mathf.Exp(-t * 1.2f) * .3f);
             Make("jackpot", 1.2f, t => Mathf.Sin(t * 2 * Mathf.PI * (523 * Mathf.Pow(1.26f, Mathf.Floor(t * 8) % 4))) * .35f * Mathf.Exp(-t));
+            Make("kill", .22f, t => (Mathf.Sin(t * 2 * Mathf.PI * (160 - t * 300)) * 1.2f + Noise() * .3f) * Env(t, .06f, .002f) * .6f);
+            // Reload minigames and combos
+            Make("tick", .03f, t => Mathf.Sin(t * 2 * Mathf.PI * 1800) * Env(t, .01f) * .25f);
+            Make("load", .07f, t => (Noise() * .5f + Mathf.Sin(t * 2 * Mathf.PI * 700)) * Env(t, .02f) * .5f);
+            Make("jam", .25f, t => (Mathf.Sign(Mathf.Sin(t * 2 * Mathf.PI * 110)) * .6f + Noise() * .4f) * Env(t, .1f) * .35f);
+            Make("perfect", .35f, t => Mathf.Sin(t * 2 * Mathf.PI * (t < .1f ? 880 : 1320)) * Env(t, .15f) * .35f);
+            Make("combo", .18f, t => Mathf.Sin(t * 2 * Mathf.PI * (600 + t * 2400)) * Env(t, .08f) * .3f);
             Make("gulp", .3f, t => Mathf.Sin(t * 2 * Mathf.PI * (300 + 600 * t)) * Env(t, .1f) * .4f);
 
             // Surf: smoothed noise swelling every few seconds. Loops seamlessly (the swell is a whole number of cycles).

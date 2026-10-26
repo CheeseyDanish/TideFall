@@ -54,6 +54,16 @@ namespace TideWall
         // Root pose ingredients, set by behaviours and combined in PoseRoot()
         float hop, puff, rollSpin, rollAngle, sideYaw;
         bool flop;
+        // Clams open and shut; thieves steal corpses; defences block, slow and lure; hits make it flinch
+        float clamOpen, clamT = 2, flinch, snaredT, snareSlow;
+        bool thief;
+        Corpse stolen;
+        Structure blockedBy;
+        GameObject board;
+        bool wipeout;
+        float tumble;
+        public bool Thief => thief;
+        public float ClamOpen => clamOpen;
 
         // ------------------------------------------------------------------ spawning
         public static Enemy Spawn(EnemyDef def, Vector3 pos, int day, int wave)
@@ -110,7 +120,7 @@ namespace TideWall
 
         static string KindOf(string part)
         {
-            foreach (var k in new[] { "Leg", "Arm", "Wing", "Tent", "Claw", "Tail", "Head", "Eyes", "Fin", "Shell" })
+            foreach (var k in new[] { "Leg", "Arm", "Wing", "Tent", "Claw", "Tail", "Head", "Eyes", "Fin", "Shell", "Lid" })
                 if (part.StartsWith(k)) return k;
             return "Other";
         }
@@ -126,14 +136,27 @@ namespace TideWall
             UpdateWet(dt);
             UpdateStatuses(dt);
             if (Dead) return;
+            if (flinch > 0) flinch -= dt;
+            if (snaredT > 0) snaredT -= dt;
             if (ride != null)
             {
-                // Surfing in on a breaker: the wave carries it; it just hangs on
-                transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.Euler(0, 180, 0), 180 * dt);
+                // Surfing in on a breaker: standing on a board, arms out, wobbling
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.Euler(0, 180 + Mathf.Sin(animT * 1.3f) * 25, 0), 180 * dt);
                 lastPos = transform.position;
                 AnimateLimbs(dt, .3f);
                 PoseRoot(dt, .3f);
                 ApplyLook();
+                return;
+            }
+            if (tumble > 0)
+            {
+                // Wiped out: cartwheeling through the surf
+                tumble -= dt;
+                transform.position += (Vector3.back * 3 + Vector3.down * 1.5f) * dt;
+                Model.root.transform.localRotation *= Quaternion.Euler(600 * dt, 0, 300 * dt);
+                if (Random.value < dt * 10) Fx.Splash(transform.position + Vector3.up * .3f, 2);
+                if (tumble <= 0) Model.root.transform.localRotation = Quaternion.identity;
+                ClampToArena();
                 return;
             }
 
@@ -148,7 +171,8 @@ namespace TideWall
             {
                 switch (Def.behaviour)
                 {
-                    case EnemyBehaviour.Flyer: if (grounded) Walker(dt, 1f); else Flyer(dt); break;
+                    case EnemyBehaviour.Flyer: if (thief && !grounded) Thieve(dt); else if (grounded) Walker(dt, 1f); else Flyer(dt); break;
+                    case EnemyBehaviour.Clam: Clam(dt); break;
                     case EnemyBehaviour.Shark: Shark(dt); break;
                     case EnemyBehaviour.Jelly: Jelly(dt); break;
                     case EnemyBehaviour.Octopus: Octopus(dt); break;
@@ -195,7 +219,10 @@ namespace TideWall
         }
 
         // ------------------------------------------------------------------ targeting & movement
-        float Speed => Def.speed * speedMult * gm.Cards.EnemySpeed * (Arena.InWater(transform.position) ? Def.waterSpeedMult : 1);
+        float Speed => Def.speed * speedMult * gm.Cards.EnemySpeed * (Arena.InWater(transform.position) ? Def.waterSpeedMult : 1) * (snaredT > 0 ? 1 - snareSlow : 1);
+
+        /// <summary>A kelp snare has hold of it for a moment.</summary>
+        public void Snare(float slow, float seconds) { snareSlow = slow; snaredT = Mathf.Max(snaredT, seconds); }
 
         Player NearestPlayer(float range, bool beachOnly)
         {
@@ -236,6 +263,17 @@ namespace TideWall
             if (p != null)
             {
                 if (MoveToward(p.transform.position, Speed * speedScale, dt, Def.attackRange * .8f + Radius * .5f)) TryAttackPlayer(p, dt);
+            }
+            else if (Structure.BaitFor(transform.position) is { } bait)
+            {
+                // A bait bucket nearby: the fish heads win
+                if (MoveToward(bait.transform.position, Speed * speedScale, dt, Radius + bait.Def.radius + .2f) && AttackReady(dt)) { Lunge(); bait.Damage(Damage); }
+            }
+            else if (blockedBy != null && !blockedBy.Dead)
+            {
+                // A barricade's in the way: chew through it
+                Face(blockedBy.transform.position - transform.position, dt);
+                if (AttackReady(dt)) { Lunge(); blockedBy.Damage(Damage); }
             }
             else
             {
@@ -430,6 +468,72 @@ namespace TideWall
             if (stung) { Sfx.Play("zap"); Fx.Sparks(bounds.center, new Color(.7f, .9f, 1f), 8); }
         }
 
+        /// <summary>Giant clam: creeps along shut (heavily armoured), gapes open now and then (soft, and it bites).</summary>
+        void Clam(float dt)
+        {
+            clamT -= dt;
+            bool lid = Limbs.Exists(l => l != null && l.Kind == "Lid" && !l.Severed);
+            bool open = clamT < 0;
+            if (clamT < -2.2f) clamT = Random.Range(2.5f, 4.5f);
+            clamOpen = Mathf.MoveTowards(clamOpen, open ? 1 : 0, dt * (open ? 2.5f : 6));
+            armor = lid && clamOpen < .5f ? Def.armor : 0;
+            var p = NearestPlayer(Def.aggroRange, true);
+            if (p != null && clamOpen > .7f && FlatDist(p.transform.position) <= Def.attackRange + Radius && AttackReady(dt))
+            {
+                clamT = Random.Range(2.5f, 4f); swingT = .25f;     // SNAP
+                p.TakeDamage(Damage, this, "a giant clam");
+                Sfx.Play("bite");
+                return;
+            }
+            if (clamOpen < .3f) Walker(dt, .9f);                   // only moves with its shell shut
+        }
+
+        /// <summary>Make this gull a morning thief: it goes for corpses, not people.</summary>
+        public void MakeThief() { thief = true; flyHeight = 9; }
+
+        void Thieve(float dt)
+        {
+            var pos = transform.position;
+            if (stolen == null)
+            {
+                // Pick the nearest corpse nobody is carrying
+                Corpse best = null; float bd = float.MaxValue;
+                foreach (var c in FindObjectsByType<Corpse>())
+                {
+                    if (c.Holder != null || c.Thief != null || c.gameObject == gameObject) continue;
+                    float d = Vector3.Distance(c.transform.position, pos);
+                    if (d < bd) { bd = d; best = c; }
+                }
+                if (best == null) { FlyAway(dt); return; }
+                var target = best.transform.position + Vector3.up * .6f;
+                var d2 = target - pos;
+                Face(d2, dt);
+                transform.position += d2.normalized * Mathf.Min(Speed * 1.1f * dt, d2.magnitude);
+                if (d2.magnitude < .8f)
+                {
+                    stolen = best; best.Thief = this;
+                    best.transform.SetParent(transform, true);
+                    Sfx.Play("splash", .5f);
+                    gm.Banner("A GULL STOLE A CORPSE!", "Shoot it before it gets away!");
+                }
+                return;
+            }
+            FlyAway(dt);
+        }
+
+        void FlyAway(float dt)
+        {
+            var away = new Vector3(transform.position.x, 14, Arena.ShoreZ + 70) - transform.position;
+            Face(away, dt);
+            transform.position += away.normalized * Speed * .8f * dt;   // slower when carrying
+            if (transform.position.z > Arena.ShoreZ + 60)
+            {
+                if (stolen != null) Destroy(stolen.gameObject);
+                GameManager.Enemies.Remove(this);
+                Destroy(gameObject);
+            }
+        }
+
         void Flyer(float dt)
         {
             var p = NearestPlayer(40, false);
@@ -493,12 +597,48 @@ namespace TideWall
         public void Ride(Breaker b)
         {
             ride = b;
-            if (b != null) { Wet = 1; return; }
+            if (b != null) { Wet = 1; ShowBoard(true); return; }
+            ShowBoard(false);
             var p = transform.position;
             if (Def.behaviour != EnemyBehaviour.Shark && Def.behaviour != EnemyBehaviour.Jelly) p.y = Arena.GroundY(p.z);
             transform.position = p;
             lastPos = p;
             knock += Vector3.back * 3;   // the wave throws it forward
+        }
+
+        /// <summary>Wiped out before reaching the shore: off the board, cartwheeling into the surf.</summary>
+        public void WipeOut()
+        {
+            if (ride == null) return;
+            ride = null;
+            wipeout = true;
+            tumble = 1.2f;
+            ShowBoard(false, launch: true);
+            Fx.Splash(transform.position + Vector3.up * .5f, 10);
+            Sfx.Play("splash", .7f, .1f);
+        }
+
+        /// <summary>The surfboard under its feet while it rides a wave in (flips away when it gets off).</summary>
+        public void ShowBoard(bool on, bool launch = false)
+        {
+            if (on && board == null)
+            {
+                var mi = ModelFactory.Spawn("Surfboard", transform, Vector3.zero, Mathf.Clamp(Radius * 1.2f, .7f, 2.2f));
+                mi.root.transform.localRotation = Quaternion.Euler(0, Random.value < .5f ? 0 : 90, 0);
+                foreach (var r in mi.renderers) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                board = mi.root;
+            }
+            else if (!on && board != null)
+            {
+                board.transform.SetParent(null, true);
+                var rb = board.AddComponent<Rigidbody>();
+                rb.mass = .3f;
+                rb.linearVelocity = (launch ? Vector3.up * 7 : Vector3.up * 3) + Random.insideUnitSphere * 2;
+                rb.angularVelocity = Random.insideUnitSphere * 10;
+                board.AddComponent<BoxCollider>();
+                Destroy(board, 2.5f);
+                board = null;
+            }
         }
 
         /// <summary>The grabbed player mashes buttons: each press shortens the hold.</summary>
@@ -541,7 +681,16 @@ namespace TideWall
                     float minD = Arena.PlantRadius + Radius * .4f;
                     if (fromPlant.magnitude < minD && fromPlant.sqrMagnitude > .0001f) p = gm.World.plant.transform.position + fromPlant.normalized * minD + Vector3.up * p.y;
                 }
-                if (Def.behaviour != EnemyBehaviour.Jelly && !(Def.behaviour == EnemyBehaviour.Shark && !beached) && lungeT <= 0)
+                // Barricades: can't walk through them (Walker chews on whatever blocked it)
+                blockedBy = null;
+                foreach (var st in Structure.All)
+                {
+                    if (st == null || st.Dead || st.Def.kind != StructureKind.Barricade) continue;
+                    var d = p - st.transform.position; d.y = 0;
+                    float minD = st.Def.radius + Radius * .6f;
+                    if (d.magnitude < minD && d.sqrMagnitude > .0001f) { p = st.transform.position + d.normalized * minD + Vector3.up * p.y; blockedBy = st; }
+                }
+                if (Def.behaviour != EnemyBehaviour.Jelly && !(Def.behaviour == EnemyBehaviour.Shark && !beached) && lungeT <= 0 && tumble <= 0)
                     p.y = Arena.GroundY(p.z);
                 if (grounded) p.y = Mathf.MoveTowards(transform.position.y, Arena.GroundY(p.z), 9 * Time.deltaTime);
             }
@@ -583,6 +732,9 @@ namespace TideWall
             }
             Hp -= dmg;
             flashT = .08f;
+            flinch = .18f;
+            if (d.source != null) Fx.DamageNumber(d.point == Vector3.zero ? bounds.center + Vector3.up * bounds.extents.y : d.point, dmg,
+                                                   limb != null && limb.Def.critMultiplier > 1, d.source);
             Fx.Gore(d.point == Vector3.zero ? bounds.center : d.point, GoreColor, 4);
             Sfx.Play("hit", .6f);
             d.source?.OnHitEnemy(this, dmg, limb != null && limb.Def.critMultiplier > 1, d.melee);
@@ -663,7 +815,10 @@ namespace TideWall
             gm.Waves.OnEnemyDied(this);
             if (ride != null) ride = null;
             // Sand dollars wash out of it onto the sand; XP for the killer (and a share for the team)
-            SandDollarPickup.Drop(bounds.center, Mathf.RoundToInt(Def.bounty * gm.Cards.SandDollars));
+            SandDollarPickup.Drop(bounds.center, Mathf.RoundToInt(Def.bounty * gm.Cards.SandDollars), d.source);
+            if (Def.pearls > 0) SandDollarPickup.Drop(bounds.center, Def.pearls, d.source, pearl: true);
+            if (stolen != null) { stolen.transform.SetParent(null, true); stolen.Thief = null; stolen.Throw(stolen.transform.position, Vector3.down); stolen = null; }
+            ShowBoard(false, launch: true);
             gm.Players.AwardKill(d.source, Def.Xp);
             d.source?.OnKill(this);
             Fx.Gore(bounds.center, GoreColor, 16);
@@ -683,6 +838,7 @@ namespace TideWall
             Model.root.transform.localPosition = Vector3.up * .1f;
             Model.root.transform.localRotation = Quaternion.Euler(0, 0, Def.behaviour is EnemyBehaviour.Walker or EnemyBehaviour.Croc ? 180 : 85);
             Model.root.transform.localScale = Vector3.one * Def.scale;
+            LiftCorpse();
             if (Def.behaviour == EnemyBehaviour.Flyer || Def.behaviour == EnemyBehaviour.Jelly)
                 transform.position = new Vector3(transform.position.x, Arena.GroundY(transform.position.z), transform.position.z);
             foreach (var r in Model.renderers) if (r) r.SetPropertyBlock(null);
@@ -750,6 +906,7 @@ namespace TideWall
                     case "Eyes": r = Quaternion.Euler(0, Mathf.Sin(animT * 4) * 12, 0); break;   // eye stalks look about
                     case "Shell": r = Quaternion.Euler(0, 0, Mathf.Sin(s * 2) * 6 * gait); break;    // the shell wobbles as the hermit scurries
                     case "Fin": r = Quaternion.Euler(0, 0, Mathf.Sin(animT * 6) * 6); break;
+                    case "Lid": r = Quaternion.Euler(-clamOpen * 55 + (swingT > 0 ? 25 : 0), 0, 0); break;   // gapes open on its back hinge, snaps shut
                 }
                 l.transform.localRotation = Quaternion.Slerp(l.transform.localRotation, l.BaseRotation * r, dt * 12);
             }
@@ -824,6 +981,10 @@ namespace TideWall
                     scale *= 1 + Mathf.Sin(animT * 2) * .06f;                    // the mantle breathes
                     euler.y = Mathf.Sin(animT * .8f) * 12;
                     break;
+                case EnemyBehaviour.Clam:
+                    pos.y += Mathf.Abs(Mathf.Sin(animT * 3.2f)) * .22f * gait * (1 - clamOpen);   // hops along while shut
+                    euler.z = Mathf.Sin(animT * 3.2f) * 6 * gait;
+                    break;
                 case EnemyBehaviour.Boss:
                 {
                     float b = Mathf.Abs(Mathf.Sin(animT * 2.6f));               // the Glizzy Monster bounces and squashes
@@ -835,6 +996,14 @@ namespace TideWall
             }
             sideYaw = Mathf.MoveTowards(sideYaw, targetSide, 360 * dt);
             euler.y += sideYaw;
+            if (ride != null)
+            {
+                // Surfing: up on the board, leaning and wobbling for balance
+                pos.y += .12f;
+                euler.z += Mathf.Sin(animT * 4.5f) * 14;
+                euler.x += Mathf.Sin(animT * 2.1f) * 6 - 6;
+            }
+            if (flinch > 0) { euler.x -= flinch / .18f * 14; pos += Random.insideUnitSphere * .04f * flinch / .18f; }   // recoils from a hit
             root.localPosition = Vector3.Lerp(root.localPosition, pos, dt * 14);
             root.localRotation = Quaternion.Slerp(root.localRotation, Quaternion.Euler(euler), dt * 14);
             root.localScale = Vector3.Scale(Vector3.one * Def.scale, scale);
@@ -851,7 +1020,7 @@ namespace TideWall
             s.rootPos = r.localPosition; s.rootRot = r.localRotation; s.rootScale = r.localScale.x / Mathf.Max(.0001f, Def.scale);
             var c = Dead ? GetComponent<Corpse>() : null;
             s.wet = c != null ? c.Wet : Wet;
-            s.flags = (byte)((Dead ? 1 : 0) | (flashT > 0 ? 2 : 0) | (burnT > 0 ? 4 : 0) | (grounded ? 8 : 0) | (swingT > 0 ? 16 : 0));
+            s.flags = (byte)((Dead ? 1 : 0) | (flashT > 0 ? 2 : 0) | (burnT > 0 ? 4 : 0) | (grounded ? 8 : 0) | (swingT > 0 ? 16 : 0) | (ride != null ? 32 : 0));
             uint mask = 0;
             for (int i = 0; i < Limbs.Count && i < 32; i++) if (Limbs[i] == null || Limbs[i].Severed) mask |= 1u << i;
             s.severed = mask;
@@ -868,6 +1037,8 @@ namespace TideWall
             burnT = (s.flags & 4) != 0 ? 1 : 0;
             grounded = (s.flags & 8) != 0;
             if ((s.flags & 16) != 0) swingT = .25f;
+            bool surfing = (s.flags & 32) != 0;
+            if (surfing != (board != null)) ShowBoard(surfing);
             for (int i = 0; i < Limbs.Count && i < 32; i++)
                 if ((s.severed & (1u << i)) != 0 && Limbs[i] != null && !Limbs[i].Severed) SeverVisual(Limbs[i]);
             if ((s.flags & 1) != 0 && !Dead) DieVisual(s.value);
@@ -933,6 +1104,16 @@ namespace TideWall
         {
             if (TryGetComponent<NetFollow>(out var f)) f.Set(s.pos, s.rot);
             Model.root.transform.localPosition = s.rootPos; Model.root.transform.localRotation = s.rootRot;
+        }
+
+        /// <summary>A tipped-over corpse can swing below the sand: lift its model so the lowest point sits on the ground
+        /// (otherwise it looks sunk and is hard to pick up).</summary>
+        void LiftCorpse()
+        {
+            var b = ModelFactory.Bounds(Model.root);
+            float ground = Arena.GroundY(transform.position.z);
+            float lift = ground + .02f - b.min.y;
+            if (lift > 0) Model.root.transform.position += Vector3.up * lift;
         }
 
         void OnDestroy() => GameManager.Enemies.Remove(this);

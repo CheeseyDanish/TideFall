@@ -27,7 +27,7 @@ namespace TideWall
 
     public static class NetProtocol
     {
-        public const int Version = 2;
+        public const int Version = 4;
         public const int DefaultPort = 7777;
         public const int DiscoveryPort = 47777;
         public const string DiscoveryTag = "TIDEWALL1";
@@ -47,7 +47,7 @@ namespace TideWall
     public struct NetInput
     {
         public int playerIndex;
-        public Vector2 move;
+        public Vector2 move, nav;
         public ushort held, pressed;
         public float yaw, pitch;
         public bool firstPerson;
@@ -68,6 +68,10 @@ namespace TideWall
         public float speedBonus = 1;
         public string gun = "", melee = "";
         public readonly List<(StatusType, float)> statuses = new();
+        /// <summary>The reload minigame to draw at the reticle (null: none), the Perfect bonus, the kill combo.</summary>
+        public ReloadGame reloadGame;
+        public float perfect, comboLeft;
+        public int combo;
 
         public static NetPlayerState From(Player p)
         {
@@ -79,6 +83,7 @@ namespace TideWall
                 firstPerson = p.FirstPerson, ammo = p.Ammo, mag = p.MagSize, carryCount = p.CarryCount, kills = p.Kills,
                 gun = p.Gun.id, melee = p.Melee.id,
                 level = p.Level, xp = p.Xp, xpNext = p.XpNext, statPoints = p.StatPoints, pendingMods = p.PendingMods, speedBonus = p.SpeedBonus,
+                reloadGame = p.ReloadView, perfect = p.PerfectBonus, combo = p.Combo, comboLeft = p.ComboLeft,
             };
             foreach (var kv in p.Statuses.Active) s.statuses.Add((kv.Key, kv.Value));
             return s;
@@ -95,6 +100,9 @@ namespace TideWall
             w.Write((short)level); w.Write(xp); w.Write(xpNext); w.Write((short)statPoints); w.Write((byte)pendingMods); w.Write(speedBonus);
             w.Write((byte)statuses.Count);
             foreach (var (t, left) in statuses) { w.Write((byte)t); w.Write(left); }
+            w.Write(reloadGame != null);
+            reloadGame?.Write(w);
+            w.Write(perfect); w.Write((short)combo); w.Write(comboLeft);
         }
 
         public static NetPlayerState Read(BinaryReader r)
@@ -113,6 +121,8 @@ namespace TideWall
             s.level = r.ReadInt16(); s.xp = r.ReadInt32(); s.xpNext = r.ReadInt32(); s.statPoints = r.ReadInt16(); s.pendingMods = r.ReadByte(); s.speedBonus = r.ReadSingle();
             int n = r.ReadByte();
             for (int i = 0; i < n; i++) s.statuses.Add(((StatusType)r.ReadByte(), r.ReadSingle()));
+            if (r.ReadBoolean()) s.reloadGame = ReloadGame.Read(r);
+            s.perfect = r.ReadSingle(); s.combo = r.ReadInt16(); s.comboLeft = r.ReadSingle();
             return s;
         }
     }
@@ -126,15 +136,16 @@ namespace TideWall
         public Vector3 pos, rootPos;
         public Quaternion rot, rootRot;
         public float rootScale, wet;
-        public byte flags;          // enemy: 1 dead, 2 hit flash, 4 burning, 8 grounded, 16 attacking · gas can: 1 leaking
+        public byte flags;          // enemy: 1 dead, 2 hit flash, 4 burning, 8 grounded, 16 attacking, 32 surfing · gas can: 1 leaking
         public uint severed;        // bit i = limb i is gone
-        public int value;           // corpse value
+        public int value;           // corpse value · structure HP
 
         public void Write(BinaryWriter w)
         {
             w.Write(id); w.Write((byte)kind); w.Write((short)def);
             w.Write(pos); w.Write(rot);
             if (kind == NetKind.Enemy) { w.Write(rootPos); w.Write(rootRot); w.Write(rootScale); w.Write(wet); w.Write(severed); w.Write(value); }
+            else if (kind == NetKind.Structure) { w.Write(rootRot); w.Write(value); }
             w.Write(flags);
         }
 
@@ -146,6 +157,7 @@ namespace TideWall
                 s.rootPos = r.ReadVector3(); s.rootRot = r.ReadQuaternion(); s.rootScale = r.ReadSingle(); s.wet = r.ReadSingle();
                 s.severed = r.ReadUInt32(); s.value = r.ReadInt32();
             }
+            else if (s.kind == NetKind.Structure) { s.rootRot = r.ReadQuaternion(); s.value = r.ReadInt32(); }
             s.flags = r.ReadByte();
             return s;
         }
@@ -173,7 +185,7 @@ namespace TideWall
 
         public static void Write(this BinaryWriter w, in NetInput i)
         {
-            w.Write((byte)i.playerIndex); w.Write(i.move); w.Write(i.held); w.Write(i.pressed);
+            w.Write((byte)i.playerIndex); w.Write(i.move); w.Write(i.nav); w.Write(i.held); w.Write(i.pressed);
             w.Write(i.yaw); w.Write(i.pitch); w.Write(i.firstPerson); w.Write(i.pos);
             w.Write(i.aim.ray.origin); w.Write(i.aim.ray.direction); w.Write(i.aim.dirHint); w.Write(i.aim.assist);
         }
@@ -182,7 +194,7 @@ namespace TideWall
         {
             var i = new NetInput
             {
-                playerIndex = r.ReadByte(), move = r.ReadVector2(), held = r.ReadUInt16(), pressed = r.ReadUInt16(),
+                playerIndex = r.ReadByte(), move = r.ReadVector2(), nav = r.ReadVector2(), held = r.ReadUInt16(), pressed = r.ReadUInt16(),
                 yaw = r.ReadSingle(), pitch = r.ReadSingle(), firstPerson = r.ReadBoolean(), pos = r.ReadVector3(),
             };
             var o = r.ReadVector3(); var d = r.ReadVector3();
@@ -207,11 +219,15 @@ namespace TideWall
             w.Write(m != null);
             if (m == null) return;
             w.Write(m.Title ?? ""); w.Write((short)m.Selected); w.Write(m.System);
+            w.Write((byte)m.Layout); w.Write((byte)m.Tab);
+            w.Write((byte)(m.Tabs?.Length ?? 0));
+            if (m.Tabs != null) foreach (var t in m.Tabs) w.Write(t);
             w.Write((short)m.Items.Count);
             foreach (var it in m.Items)
             {
                 w.Write(it.Label ?? ""); w.Write(it.Right ?? ""); w.Write(it.Detail ?? ""); w.Write(it.Header);
                 w.Write(it.Blocked?.Invoke() != null);
+                w.Write(it.Icon ?? ""); w.Write(it.Info ?? ""); w.Write(it.Tint); w.Write(it.Owned); w.Write(it.Equipped);
             }
         }
 
@@ -219,11 +235,16 @@ namespace TideWall
         {
             if (!r.ReadBoolean()) return null;
             var m = new Menu { Title = r.ReadString(), Selected = r.ReadInt16(), System = r.ReadBoolean() };
+            m.Layout = (MenuLayout)r.ReadByte(); m.Tab = r.ReadByte();
+            int tabs = r.ReadByte();
+            if (tabs > 0) { m.Tabs = new string[tabs]; for (int i = 0; i < tabs; i++) m.Tabs[i] = r.ReadString(); }
             int n = r.ReadInt16();
             for (int i = 0; i < n; i++)
             {
                 var it = new MenuItem { Label = r.ReadString(), Right = r.ReadString(), Detail = r.ReadString(), Header = r.ReadBoolean() };
                 if (r.ReadBoolean()) it.Blocked = () => "";
+                it.Icon = r.ReadString(); it.Info = r.ReadString(); it.Tint = r.ReadColor(); it.Owned = r.ReadBoolean(); it.Equipped = r.ReadBoolean();
+                if (it.Icon.Length == 0) it.Icon = null;
                 m.Items.Add(it);
             }
             return m;

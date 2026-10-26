@@ -1,6 +1,6 @@
 // TideWall 3D — tidal cards: the run's roguelike modifiers. At the start of a phase with `tidalDraft`, the team is
-// offered a few cards (GameDatabase.cards) and votes (each player in their own view; the timer picks for anyone
-// who doesn't). A card lasts a number of waves, carrying over into later phases, and several can be active.
+// offered three cards (GameDatabase.cards) plus a face-down random one, and rarely a re-roll; everyone votes (each
+// player in their own view; the timer decides for anyone who doesn't). A card lasts a number of waves, carrying over into later phases, and several can be active.
 //
 // Some cards are exclusive: Online cards only appear when players on different computers share the game, and
 // Split Screen cards only when two or more people share one screen. Their effects are unique to that situation:
@@ -21,6 +21,8 @@ namespace TideWall
         /// <summary>The cards being voted on (null when there's no draft).</summary>
         public List<TidalCardDef> Draft { get; private set; }
         public float DraftLeft { get; private set; }
+        /// <summary>This vote also offers a re-roll (three new cards). Choices: 0..n-1 the cards, n random, n+1 re-roll.</summary>
+        public bool RerollOffered { get; private set; }
         public readonly Dictionary<int, int> Votes = new();   // player index → choice
         public const string MenuTag = "TIDAL CARDS";
         public float SwapClock { get; private set; }
@@ -84,6 +86,8 @@ namespace TideWall
         };
 
         // ------------------------------------------------------------------ the draft
+        bool rerolling;
+
         public void OfferDraft()
         {
             if (Net.IsClient || gm.DB.cards.Count == 0 || gm.Players.Count == 0) return;
@@ -93,9 +97,10 @@ namespace TideWall
             if (exclusive.Count > 0 && Random.value < gm.DB.exclusiveCardChance) draft.Add(Pick(exclusive, draft));
             while (draft.Count < gm.DB.cardChoices && draft.Count < pool.Count) draft.Add(Pick(pool, draft));
             Draft = draft;
+            RerollOffered = !rerolling && Random.value < gm.DB.cardRerollChance;
             DraftLeft = gm.DB.cardVoteSeconds;
             Votes.Clear();
-            gm.Banner("TIDAL CARDS", "Vote for the next tide. Cards last several waves.");
+            // (no banner: the card vote itself opens in everyone's view)
             Sfx.Play("bell", .7f, .2f);
             foreach (var p in gm.Players.All)
                 if (p.Simulated && (p.OpenedMenu == null || !p.OpenedMenu.System)) p.OpenMenu(Menus.CardVote(p));
@@ -117,7 +122,7 @@ namespace TideWall
 
         public void Vote(Player p, int choice)
         {
-            if (Draft == null || choice < 0 || choice >= Draft.Count) return;
+            if (Draft == null || choice < 0 || choice > Draft.Count + (RerollOffered ? 1 : 0)) return;
             Votes[p.Index] = choice;
             Sfx.Play("ui");
             if (Votes.Count >= gm.Players.Count) Resolve();
@@ -126,7 +131,7 @@ namespace TideWall
         void Resolve()
         {
             if (Draft == null) return;
-            var tally = new int[Draft.Count];
+            var tally = new int[Draft.Count + (RerollOffered ? 2 : 1)];
             foreach (var v in Votes.Values) tally[v]++;
             int best = -1; var tied = new List<int>();
             for (int i = 0; i < tally.Length; i++)
@@ -134,7 +139,25 @@ namespace TideWall
                 if (tally[i] > best) { best = tally[i]; tied.Clear(); }
                 if (tally[i] == best) tied.Add(i);
             }
-            var chosen = Draft[tied[Random.Range(0, tied.Count)]];
+            int pick = tied[Random.Range(0, tied.Count)];
+            if (pick == Draft.Count + 1)
+            {
+                // Re-roll: three fresh cards (no second re-roll)
+                Draft = null; Votes.Clear();
+                rerolling = true;
+                OfferDraft();
+                rerolling = false;
+                gm.Banner("RE-ROLL!", "Three new cards. Vote again.");
+                return;
+            }
+            TidalCardDef chosen;
+            if (pick == Draft.Count)
+            {
+                var pool = gm.DB.cards.FindAll(Allowed);
+                chosen = pool[Random.Range(0, pool.Count)];
+                gm.Banner("THE TIDE DECIDES…", $"The random card was {chosen.displayName}!");
+            }
+            else chosen = Draft[pick];
             Draft = null;
             Votes.Clear();
             foreach (var p in gm.Players.All) if (p.OpenedMenu != null && p.OpenedMenu.Title == MenuTag) p.CloseMenu();
@@ -232,8 +255,9 @@ namespace TideWall
         }
 
         /// <summary>Client: the host's cards and draft.</summary>
-        public void ApplyNet(List<(string id, int left)> actives, List<string> draft, float draftLeft, Dictionary<int, int> votes)
+        public void ApplyNet(List<(string id, int left)> actives, List<string> draft, float draftLeft, Dictionary<int, int> votes, bool reroll)
         {
+            RerollOffered = reroll;
             Actives.Clear();
             foreach (var (id, left) in actives) if (gm.DB.Card(id) is { } def) Actives.Add(new Active { def = def, wavesLeft = left });
             if (draft == null) Draft = null;

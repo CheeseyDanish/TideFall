@@ -37,6 +37,16 @@ namespace TideWall
 
         public void AddShake(float amount) => shake = Mathf.Min(1.2f, shake + amount * Settings.Current.screenShake);
 
+        float kickPitch, kickYaw, punch;
+
+        /// <summary>A gun's recoil: the view snaps up (and a little sideways) and settles back; the FOV punches in.</summary>
+        public void Kick(float degrees)
+        {
+            kickPitch = Mathf.Min(kickPitch + degrees, 14);
+            kickYaw += Random.Range(-.35f, .35f) * degrees;
+            punch = Mathf.Min(punch + degrees * .5f, 6);
+        }
+
         /// <summary>Which layers this player's camera draws: never other players' view models; your own body only top-down.</summary>
         int Mask(bool firstPerson)
         {
@@ -85,8 +95,11 @@ namespace TideWall
                 var eye = player.EyePos;
                 if (!wasFirstPerson) smoothPos = eye;
                 smoothPos = new Vector3(eye.x, Mathf.Lerp(smoothPos.y, eye.y, 1 - Mathf.Exp(-dt * 14)), eye.z);
-                transform.SetPositionAndRotation(smoothPos, player.LookRotation * Quaternion.Euler(jitter.x * 3, jitter.y * 3, roll));
-                Camera.fieldOfView = FirstPersonFov(Settings.Current.fov + fovExtra, Camera.aspect);
+                kickPitch = Mathf.Lerp(kickPitch, 0, 1 - Mathf.Exp(-dt * 12));
+                kickYaw = Mathf.Lerp(kickYaw, 0, 1 - Mathf.Exp(-dt * 12));
+                punch = Mathf.Lerp(punch, 0, 1 - Mathf.Exp(-dt * 10));
+                transform.SetPositionAndRotation(smoothPos, player.LookRotation * Quaternion.Euler(jitter.x * 3 - kickPitch, jitter.y * 3 + kickYaw, roll));
+                Camera.fieldOfView = FirstPersonFov(Settings.Current.fov + fovExtra - punch, Camera.aspect);
                 wasFirstPerson = true;
                 return;
             }

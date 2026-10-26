@@ -8,6 +8,8 @@ namespace TideWall
     {
         public EnemyDef Def;
         public int Value;
+        /// <summary>A thieving gull has it in its beak.</summary>
+        public Enemy Thief;
         public float Wet;
         Bounds bounds;
         float dripAcc, boundsT;
@@ -17,13 +19,16 @@ namespace TideWall
         public void Init(EnemyDef def, int value, float wet)
         {
             Def = def; Value = value; Wet = wet;
-            radius = 1.8f;
+            radius = 2.6f;   // generous: corpses are awkward to stand right next to
             weight = def.cost >= 6 ? 3 : def.cost >= 3 ? 2 : 1;   // a shark fills your arms; crabs stack
             if (def.behaviour == EnemyBehaviour.Boss) weight = 3;
         }
 
+        public override Vector3 Point => ModelFactory.Bounds(gameObject).center;
+
         public override string Prompt(Player p)
         {
+            if (Thief != null) return null;
             if (Def.behaviour == EnemyBehaviour.Boss && Holder == null && !p.IsDowned)
                 return p.Carrying.Count == 0 ? $"Drag {DisplayName}" : null;
             return base.Prompt(p);

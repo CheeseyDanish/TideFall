@@ -68,15 +68,26 @@ namespace TideWall
             yield return new WaitForSecondsRealtime(3f);
             yield return Shot("03-morning-first-person-two-players");
 
-            while (p1.Level < 5) p1.GainXp(p1.XpNext);   // a level-5 sailor with a mod to choose
-            p1.OpenMenu(Menus.Stats(p1));
-            p2.OpenMenu(Menus.Hotdogs(p2));
-            yield return new WaitForSecondsRealtime(.5f);
-            yield return Shot("04-stats-and-hotdog-menus");
-            p1.CloseMenu(); p2.OpenMenu(Menus.Pause(p2));
-            yield return new WaitForSecondsRealtime(.3f);
-            yield return Shot("04b-pause-menu");
-            p2.CloseMenu();
+            while (p2.Level < 5) p2.GainXp(p2.XpNext);   // a level-5 sailor with a mod to choose
+            p1.OpenMenu(Menus.Shop(p1, Menus.ShopTab.Guns, p1.transform.position));
+            p2.OpenMenu(Menus.Stats(p2));
+            yield return new WaitForSecondsRealtime(.6f);
+            yield return Shot("04-shop-and-stats");
+            p1.OpenMenu(Menus.Hotdogs(p1, p1.transform.position));
+            p2.OpenMenu(Menus.Pause(p2));
+            yield return new WaitForSecondsRealtime(.4f);
+            yield return Shot("04b-hotdogs-and-pause");
+            p1.CloseMenu(); p2.CloseMenu();
+            // The vendors, and a defence being placed
+            gm.AddSandDollars(500); gm.AddPearls(5);
+            Teleport(p1, new Vector3(1, 0, -5)); p1.SetLook(200, 10);
+            p2.StartBuilding(gm.DB.Structure("turret"));
+            yield return new WaitForSecondsRealtime(1.2f);
+            yield return Shot("04c-vendor-and-building");
+            p2.StopBuilding();
+            Structure.Build(gm.DB.Structure("barricade"), new Vector3(-6, 0, 8), 0);
+            Structure.Build(gm.DB.Structure("turret"), new Vector3(4, 0, 6), 0);
+            Structure.Build(gm.DB.Structure("spikes"), new Vector3(0, 0, 12), 0);
 
             gm.Phases.Advance();   // evening: the tidal card vote opens
             yield return new WaitForSecondsRealtime(.6f);
@@ -92,6 +103,16 @@ namespace TideWall
             fire = true;
             yield return new WaitForSecondsRealtime(1.2f);
             yield return Shot("05-evening-fight-first-person");
+
+            // Reload minigames at the reticle (the SMG's green zone, the revolver's beat) and a kill combo
+            fire = false;
+            p1.GiveGun("smg"); p2.GiveGun("revolver");
+            p1.EmptyAndReload(); p2.EmptyAndReload();
+            int combo = 0;
+            foreach (var e in GameManager.Enemies.ToArray())
+                if (e != null && !e.Dead && combo++ < 4) e.Die(new DamageInfo { source = p1 });
+            yield return new WaitForSecondsRealtime(.45f);
+            yield return Shot("05d-reload-minigames-and-combo");
 
             // From the wall's tower: breakers rolling in with creatures aboard
             var b = Breaker.Launch(-8, 18, Arena.ShoreZ + 34, Arena.ShoreZ + 1, 7);

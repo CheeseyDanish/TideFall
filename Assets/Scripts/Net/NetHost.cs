@@ -120,7 +120,7 @@ namespace TideWall
                         var input = r.ReadInput();
                         var p = gm.Players.ByIndex(input.playerIndex);
                         if (p == null || p.Kind != PlayerKind.Remote || p.Owner != c.conn.Id) continue;
-                        p.Remote.Receive(input.move, input.held, input.pressed, input.yaw, input.pitch, input.firstPerson, input.aim, input.pos);
+                        p.Remote.Receive(input.move, input.nav, input.held, input.pressed, input.yaw, input.pitch, input.firstPerson, input.aim, input.pos);
                     }
                     break;
                 }
@@ -263,7 +263,7 @@ namespace TideWall
             // Shared parts, built once
             var shared = new BinaryWriter(new MemoryStream(1024));
             shared.Write((byte)gm.State); shared.Write(gm.Phases.Index); shared.Write(gm.Phases.Day); shared.Write(gm.Phases.Elapsed);
-            shared.Write(gm.SandDollars);
+            shared.Write(gm.SandDollars); shared.Write(gm.Pearls);
             shared.Write((byte)gm.Wall.Sections.Count);
             foreach (var sec in gm.Wall.Sections) { shared.Write(sec.hp); shared.Write(sec.max); }
             shared.Write(gm.Plant.Hp); shared.Write(gm.Plant.MaxHp);
@@ -276,10 +276,11 @@ namespace TideWall
             {
                 foreach (var c in draft) shared.Write(c.id);
                 shared.Write(gm.Cards.DraftLeft);
+                shared.Write(gm.Cards.RerollOffered);
                 shared.Write((byte)gm.Cards.Votes.Count);
                 foreach (var kv in gm.Cards.Votes) { shared.Write((byte)kv.Key); shared.Write((byte)kv.Value); }
             }
-            shared.Write(gm.Waves.Wave); shared.Write(gm.Waves.WaveCount); shared.Write(gm.EnemiesLeft);
+            shared.Write(gm.Waves.Wave); shared.Write(gm.Waves.WaveCount); shared.Write(gm.EnemiesLeft); shared.Write(gm.Waves.RunWave); shared.Write(gm.Waves.Preview);
             shared.Write((byte)gm.Players.Count);
             foreach (var p in gm.Players.All) NetPlayerState.From(p).Write(shared);
             var sharedBytes = ((MemoryStream)shared.BaseStream).ToArray();
@@ -291,6 +292,7 @@ namespace TideWall
                 var s = new NetEntityState { id = n.Id, kind = n.Kind, def = n.Def, pos = n.transform.position, rot = n.transform.rotation, rootScale = 1 };
                 if (n.Kind == NetKind.Enemy && n.TryGetComponent<Enemy>(out var e)) e.WriteNet(ref s);
                 else if (n.Kind == NetKind.GasCan && n.TryGetComponent<GasCan>(out var g)) s.flags = (byte)(g.Leaking ? 1 : 0);
+                else if (n.Kind == NetKind.Structure && n.TryGetComponent<Structure>(out var st)) { s.value = Mathf.CeilToInt(st.Hp); s.rootRot = st.HeadRotation; }
                 current[n.Id] = NetIO.Pack(s);
             }
 
@@ -302,7 +304,7 @@ namespace TideWall
                 // This client's own players: what Interact does and any open menu
                 var mine = gm.Players.All.FindAll(p => p.Kind == PlayerKind.Remote && p.Owner == c.conn.Id);
                 w.Write((byte)mine.Count);
-                foreach (var p in mine) { w.Write((byte)p.Index); w.Write(p.PromptText()); w.WriteMenu(p.OpenedMenu); }
+                foreach (var p in mine) { w.Write((byte)p.Index); w.Write(p.PromptText()); w.WriteMenu(p.OpenedMenu); w.Write(p.Building?.id ?? ""); w.Write(p.BuildYaw); }
                 // Things that changed or appeared, then things that are gone
                 var changed = new List<byte[]>();
                 foreach (var kv in current)

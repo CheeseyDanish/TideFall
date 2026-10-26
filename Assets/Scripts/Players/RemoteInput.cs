@@ -15,7 +15,7 @@ namespace TideWall
 
     public class RemoteInput
     {
-        public Vector2 Move;
+        public Vector2 Move, Nav;
         public float Yaw, Pitch;
         public bool FirstPerson = true;
         public AimSample Aim;
@@ -28,9 +28,10 @@ namespace TideWall
         public bool Pressed(Btn b) => (now & (1 << (int)b)) != 0;
 
         /// <summary>A packet arrived (network thread data, applied on the main thread).</summary>
-        public void Receive(Vector2 move, ushort heldMask, ushort pressedMask, float yaw, float pitch, bool firstPerson, AimSample aim, Vector3 pos)
+        public void Receive(Vector2 move, Vector2 nav, ushort heldMask, ushort pressedMask, float yaw, float pitch, bool firstPerson, AimSample aim, Vector3 pos)
         {
             Move = Vector2.ClampMagnitude(move, 1);
+            Nav = nav;
             held = heldMask;
             pending |= pressedMask;
             Yaw = yaw; Pitch = pitch; FirstPerson = firstPerson; Aim = aim;

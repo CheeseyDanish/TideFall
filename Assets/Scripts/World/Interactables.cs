@@ -42,7 +42,7 @@ namespace TideWall
             label.transform.SetParent(go.transform, false);
             label.transform.localPosition = new Vector3(0, 3.6f, 0);
             label.transform.rotation = Quaternion.Euler(50, 0, 0);
-            label.text = sign; label.font = Ui.Font; label.fontSize = 48; label.characterSize = .09f;
+            label.text = sign; label.font = Ui.Font; label.fontSize = 128; label.characterSize = .034f;
             label.anchor = TextAnchor.MiddleCenter; label.color = new Color(1, .95f, .8f);
             label.GetComponent<MeshRenderer>().sharedMaterial = Ui.Font.material;
             return it;
@@ -56,7 +56,7 @@ namespace TideWall
         public override void Interact(Player p)
         {
             if (!GameManager.I.Phases.ShopOpen) { Sfx.Play("deny"); p.Toast("The shopkeeper is hiding until morning."); return; }
-            p.OpenMenu(Menus.Shop(p));
+            p.OpenMenu(Menus.Shop(p, Menus.ShopTab.Guns, transform.position));
         }
     }
 
@@ -72,9 +72,11 @@ namespace TideWall
 
         public override void Interact(Player p)
         {
-            if (!GameManager.I.Phases.ShopOpen) { Sfx.Play("deny"); return; }
+            if (!GameManager.I.Phases.ShopOpen) { Sfx.Play("deny"); GameManager.I.World.fishmonger?.Say("Come back in the morning!"); return; }
+            int sold = 0;
             for (int i = p.Carrying.Count - 1; i >= 0; i--)
-                if (p.Carrying[i] is Corpse c) { p.Carrying.RemoveAt(i); Sell(c); }
+                if (p.Carrying[i] is Corpse c) { p.Carrying.RemoveAt(i); Sell(c); sold++; }
+            if (sold > 0) GameManager.I.World.fishmonger?.Say(sold > 2 ? "What a haul!" : null);
         }
 
         public static void Sell(Corpse c)
@@ -99,7 +101,11 @@ namespace TideWall
     public class HotdogStand : Interactable
     {
         public override string Prompt(Player p) => "Hotdog stand";
-        public override void Interact(Player p) => p.OpenMenu(Menus.Hotdogs(p));
+        public override void Interact(Player p)
+        {
+            p.OpenMenu(Menus.Hotdogs(p, transform.position));
+            GameManager.I.World.chef?.Say();
+        }
     }
 
     public class ReadyBell : Interactable

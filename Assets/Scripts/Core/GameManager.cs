@@ -33,6 +33,8 @@ namespace TideWall
         public GameState State { get; private set; } = GameState.MainMenu;
         public bool Paused { get; private set; }
         public int SandDollars { get; private set; }
+        /// <summary>Golden pearls: rare (giant clams drop them), spent on the best defences.</summary>
+        public int Pearls { get; private set; }
         public readonly TeamStats Team = new();
         public World World { get; private set; }
         public Wall Wall => World.wall;
@@ -124,6 +126,9 @@ namespace TideWall
             if (save != null)
             {
                 SandDollars = save.sandDollars;
+                Pearls = save.pearls;
+                Waves.RunWave = save.runWave;
+                foreach (var st in save.structures) if (DB.Structure(st.id) is { } def) Structure.Build(def, new Vector3(st.x, 0, st.z), st.yaw, st.hp);
                 Team.Restore(save);
                 Wall.Restore(save.wallSections, save.wallSectionMax);
                 if (save.plantMaxHp > 0) Plant.Restore(save.plantHp, save.plantMaxHp);
@@ -168,6 +173,21 @@ namespace TideWall
             SandDollars += amount;
             OnSandDollars?.Invoke(amount, where, reason);
             if (amount > 0) Sfx.Play("coin", .6f, .06f);
+        }
+
+        public void AddPearls(int amount, Vector3? where = null)
+        {
+            if (amount == 0) return;
+            Pearls += amount;
+            if (amount > 0) Sfx.Play("jackpot", .45f, .1f);
+        }
+
+        /// <summary>Spend sand dollars and golden pearls together (both or neither).</summary>
+        public bool TrySpend(int sandDollars, int pearls)
+        {
+            if (SandDollars < sandDollars || Pearls < pearls) { Sfx.Play("deny"); return false; }
+            Pearls -= pearls;
+            return TrySpend(sandDollars);
         }
 
         public bool TrySpend(int amount)
@@ -228,8 +248,9 @@ namespace TideWall
         }
 
         // ------------------------------------------------------------------ client mirror
-        public void ApplyNet(int sandDollars, int enemiesLeft)
+        public void ApplyNet(int sandDollars, int pearls, int enemiesLeft)
         {
+            Pearls = pearls;
             if (sandDollars != SandDollars) OnSandDollars?.Invoke(sandDollars - SandDollars, null, null);
             SandDollars = sandDollars;
             netEnemiesLeft = enemiesLeft;

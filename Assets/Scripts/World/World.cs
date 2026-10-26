@@ -12,6 +12,7 @@ namespace TideWall
         public PowerPlant plant;
         public Transform lighthouseLamp;
         public ModelInstance keep;
+        public Vendor chef, fishmonger;
         public Light lighthouseBeam;
         public readonly List<Light> torches = new();
         public readonly List<Light> lanterns = new();       // player lanterns register here
@@ -69,9 +70,10 @@ namespace TideWall
             sky.SetFloat("_SunSize", .045f);
         }
 
-        /// <summary>Cameras use the sky when there is one (the material ships in Resources), else the phase colour.</summary>
+        /// <summary>Every frame for every camera: the sky (when there is one; else the phase colour) and the graphics settings.</summary>
         public static void SetupCameraSky(Camera c, Color fallback)
         {
+            GraphicsApply.ConfigureCamera(c);   // anti-aliasing, post-processing, draw distance from Settings
             if (RenderSettings.skybox != null) c.clearFlags = CameraClearFlags.Skybox;
             else { c.clearFlags = CameraClearFlags.SolidColor; c.backgroundColor = fallback; }
         }

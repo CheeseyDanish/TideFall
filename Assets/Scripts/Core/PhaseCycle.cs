@@ -31,6 +31,7 @@ namespace TideWall
         [Tooltip("Picnic leftovers appear on the beach when the phase starts")] public bool spawnFood;
         [Tooltip("Gas cans dropped on the beach when the phase starts (plus upgrades)")] public bool spawnGasCans;
         [Tooltip("The team drafts a tidal card when the phase starts")] public bool tidalDraft;
+        [Tooltip("Thieving gulls that fly in to steal corpses during this phase")] public int corpseThieves;
 
         [Header("Look")]
         public Color skyColor = new(.55f, .75f, .95f);
@@ -64,7 +65,7 @@ namespace TideWall
                 new()
                 {
                     id = "morning", displayName = "Morning", subtitle = "Sell the night's catch, eat, upgrade. Ring the bell when you're ready.",
-                    durationSeconds = 150, endWhenAllReady = true, shopOpen = true, spawnFood = true, spawnGasCans = true, saveOnStart = true,
+                    durationSeconds = 150, endWhenAllReady = true, shopOpen = true, spawnFood = true, spawnGasCans = true, saveOnStart = true, corpseThieves = 3,
                     skyColor = new Color(.62f, .8f, .96f), sunColor = new Color(1f, .93f, .8f), sunIntensity = 1.3f, sunPitch = 30, sunYaw = -70,
                     ambientColor = new Color(.62f, .62f, .6f), fogColor = new Color(.78f, .86f, .93f), fogDensity = .003f,
                 },

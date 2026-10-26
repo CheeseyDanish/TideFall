@@ -85,11 +85,19 @@ def build(name, parts, sockets=()):
             bpy.ops.object.join()
         objs[0].name = nm
         objs[0].parent = root
-    for sname, loc in sockets:
+    bpy.context.view_layer.update()
+    for sock in sockets:
+        sname, loc = sock[0], sock[1]
         e = bpy.data.objects.new('Socket_' + sname, None)
         e.location = loc
         bpy.context.scene.collection.objects.link(e)
-        e.parent = root
+        # (name, location, part): the socket rides on a moving part (a hand on an arm), keeping its world position
+        parent = bpy.data.objects.get(sock[2]) if len(sock) > 2 else None
+        if parent is not None:
+            e.parent = parent
+            e.matrix_parent_inverse = parent.matrix_world.inverted()
+        else:
+            e.parent = root
     export(root)
 
 def export(root):
@@ -273,21 +281,39 @@ build('Lobster', mirror([
 ]))
 
 # =====================================================================================  PLAYER
-build('Sailor', [
-    ('Body', 'box', (.22, .24, .8), (-.14, 0, .4), 'navy'),
-    ('Body', 'box', (.22, .24, .8), (.14, 0, .4), 'navy'),
-    ('Body', 'box', (.6, .38, .7), (0, 0, 1.15), 'coat'),
-    ('Body', 'box', (.62, .4, .08), (0, 0, .84), 'black'),
-    ('Body', 'box', (.16, .16, .6), (-.36, -.18, 1.2), 'coat', None, (60, 0, 0)),
-    ('Body', 'box', (.16, .16, .6), (.36, -.18, 1.2), 'coat', None, (60, 0, 0)),
-    ('Body', 'ball', (.14, .14, .14), (-.36, -.45, 1.05), 'skin'),
-    ('Body', 'ball', (.14, .14, .14), (.36, -.45, 1.05), 'skin'),
-    ('Body', 'ball', (.42, .42, .42), (0, 0, 1.72), 'skin'),
-    ('Body', 'cyl', (.46, .46, .12), (0, 0, 1.94), 'white', None, None, 10),
-    ('Body', 'cyl', (.47, .47, .05), (0, 0, 1.89), 'navy', None, None, 10),
-    ('Body', 'ball', (.05, .05, .05), (-.08, -.2, 1.76), 'black'),
-    ('Body', 'ball', (.05, .05, .05), (.08, -.2, 1.76), 'black'),
-], sockets=[('Gun', (.3, -.5, 1.15)), ('Melee', (-.36, -.45, 1.05))])
+# Sailors are jointed for animation: Part_ objects pivot at hip, shoulder and neck (the game swings them).
+# The hands carry the weapon sockets. Arms hang straight down at rest.
+def person(name, coat, legs, hat, extra=(), arm_col=None):
+    arm_col = arm_col or coat
+    parts = [
+        ('Part_LegL', 'box', (.22, .24, .8), (0, 0, -.4), legs, (-.14, 0, .8)),
+        ('Part_LegL', 'box', (.24, .3, .1), (0, -.04, -.76), 'black', (-.14, 0, .8)),
+        ('Part_LegR', 'box', (.22, .24, .8), (0, 0, -.4), legs, (.14, 0, .8)),
+        ('Part_LegR', 'box', (.24, .3, .1), (0, -.04, -.76), 'black', (.14, 0, .8)),
+        ('Body', 'box', (.6, .38, .7), (0, 0, 1.15), coat),
+        ('Body', 'box', (.62, .4, .08), (0, 0, .84), 'black'),
+        ('Part_ArmL', 'box', (.16, .16, .58), (0, 0, -.27), arm_col, (-.38, 0, 1.44)),
+        ('Part_ArmL', 'ball', (.15, .15, .15), (0, 0, -.6), 'skin', (-.38, 0, 1.44)),
+        ('Part_ArmR', 'box', (.16, .16, .58), (0, 0, -.27), arm_col, (.38, 0, 1.44)),
+        ('Part_ArmR', 'ball', (.15, .15, .15), (0, 0, -.6), 'skin', (.38, 0, 1.44)),
+        ('Part_Head', 'ball', (.42, .42, .42), (0, 0, .22), 'skin', (0, 0, 1.5)),
+        ('Part_Head', 'ball', (.05, .05, .05), (-.08, -.2, .26), 'black', (0, 0, 1.5)),
+        ('Part_Head', 'ball', (.05, .05, .05), (.08, -.2, .26), 'black', (0, 0, 1.5)),
+        *[(p[0], p[1], p[2], p[3], p[4], (0, 0, 1.5)) for p in hat],
+        *extra,
+    ]
+    build(name, parts, sockets=[('Gun', (.38, -.02, .84), 'Part_ArmR'), ('Melee', (-.38, -.02, .84), 'Part_ArmL')])
+
+person('Sailor', 'coat', 'navy', [('Part_Head', 'cyl', (.46, .46, .12), (0, 0, .44), 'white', None, None, 10),
+                                  ('Part_Head', 'cyl', (.47, .47, .05), (0, 0, .39), 'navy', None, None, 10)])
+# Vendors: the hotdog chef (apron, tall hat, moustache) and the fishmonger (yellow oilskins, sou'wester)
+person('VendorChef', 'white', 'greyD', [('Part_Head', 'cyl', (.4, .4, .5), (0, 0, .62), 'white', None, None, 10),
+                                         ('Part_Head', 'ball', (.5, .5, .25), (0, 0, .86), 'white'),
+                                         ('Part_Head', 'box', (.22, .05, .05), (0, -.21, .16), 'brown')],
+       extra=[('Body', 'box', (.5, .05, .6), (0, -.2, 1.0), 'red')])
+person('VendorFish', 'yellow', 'yellow', [('Part_Head', 'cone', (.7, .7, .3), (0, 0, .42), 'yellow', None, None, 10),
+                                          ('Part_Head', 'box', (.3, .05, .1), (0, -.2, .1), 'greyD')],
+       extra=[('Body', 'box', (.5, .05, .55), (0, -.2, 1.05), 'blue')], arm_col='yellow')
 
 # =====================================================================================  WEAPONS (grip at origin, pointing -Y)
 build('Revolver', [
@@ -313,6 +339,34 @@ build('FlareGun', [
     ('Body', 'box', (.09, .22, .12), (0, -.08, .03), 'orange'),
     ('Body', 'cyl', (.11, .11, .25), (0, -.28, .05), 'orange2', None, (90, 0, 0), 8),
 ], sockets=[('Muzzle', (0, -.42, .05))])
+build('RivetSMG', [
+    ('Body', 'box', (.06, .1, .18), (0, .02, -.08), 'greyD', None, (-10, 0, 0)),
+    ('Body', 'box', (.08, .34, .1), (0, -.12, .03), 'grey'),
+    ('Body', 'box', (.05, .08, .2), (0, -.1, -.1), 'greyD'),
+    ('Body', 'cyl', (.04, .04, .22), (0, -.38, .05), 'steel', None, (90, 0, 0), 6),
+    ('Body', 'box', (.07, .12, .04), (0, .08, .1), 'orange'),
+], sockets=[('Muzzle', (0, -.5, .05))])
+build('Longrifle', [
+    ('Body', 'box', (.07, .45, .1), (0, .28, -.04), 'woodD'),
+    ('Body', 'box', (.08, .4, .1), (0, -.15, .02), 'wood'),
+    ('Body', 'cyl', (.035, .035, .8), (0, -.7, .06), 'steel', None, (90, 0, 0), 6),
+    ('Body', 'cyl', (.04, .04, .3), (0, -.1, .14), 'black', None, (90, 0, 0), 6),
+    ('Body', 'box', (.12, .03, .03), (.06, .02, .08), 'steel'),
+], sockets=[('Muzzle', (0, -1.1, .06))])
+build('EelCaster', [
+    ('Body', 'box', (.07, .1, .18), (0, .03, -.08), 'navy', None, (-15, 0, 0)),
+    ('Body', 'box', (.1, .3, .13), (0, -.1, .03), 'teal'),
+    ('Body', 'cyl', (.08, .08, .18), (0, -.32, .04), 'blue', None, (90, 0, 0), 8),
+    ('Body', 'cone', (.07, .07, .12), (0, -.46, .04), 'yellow', None, (90, 0, 0), 6),
+    ('Body', 'box', (.03, .2, .03), (0, -.1, .12), 'yellow'),
+], sockets=[('Muzzle', (0, -.52, .04))])
+build('Blowtorch', [
+    ('Body', 'box', (.06, .1, .18), (0, .03, -.08), 'greyD', None, (-15, 0, 0)),
+    ('Body', 'cyl', (.14, .14, .3), (0, .0, -.12), 'red', None, (0, 0, 0), 10),
+    ('Body', 'box', (.08, .2, .1), (0, -.1, .04), 'steel'),
+    ('Body', 'cyl', (.04, .04, .3), (0, -.32, .05), 'steel', None, (90, 0, 0), 6),
+    ('Body', 'cone', (.07, .07, .08), (0, -.5, .05), 'black', None, (90, 0, 0), 6),
+], sockets=[('Muzzle', (0, -.55, .05))])
 
 build('Oar', [
     ('Body', 'cyl', (.05, .05, 1.5), (0, -.55, 0), 'wood', None, (90, 0, 0), 6),
@@ -466,14 +520,61 @@ build('Powerplant', [
 ], sockets=[('Core', (0, -1, 3.2)), ('SteamL', (-4.0, 1.2, 6.4)), ('SteamR', (4.0, 1.2, 6.4))])
 
 # A breaking wave (1 m long in X; the game stretches it). Front (-Y) is the curling lip, toward the shore.
+# A breaking wave (1 m long in X; the game stretches it): a back slope rising to a crest that curls over into a
+# foaming lip, front (-Y) toward the shore. Built as thin slabs along the curl so it reads as one curved wall of water.
+def curl(points, thick, cols, offset=0.0):
+    out = []
+    for k in range(len(points) - 1):
+        (y0, z0), (y1, z1) = points[k], points[k + 1]
+        length = math.hypot(y1 - y0, z1 - z0) + .06
+        ang = math.degrees(math.atan2(z1 - z0, y1 - y0))
+        out.append(('Body', 'box', (1, length, thick), ((y0 + y1) / 2 * 0, (y0 + y1) / 2, (z0 + z1) / 2 + offset), cols[min(k, len(cols) - 1)], None, (ang, 0, 0)))
+    return out
+CURL = [(3.2, -.1), (2.4, .3), (1.6, .85), (.9, 1.45), (.25, 1.95), (-.35, 2.25), (-.85, 2.2), (-1.25, 1.95), (-1.5, 1.55), (-1.5, 1.15)]
 build('Breaker', [
-    ('Body', 'box', (1, 3.0, .5), (0, .9, .25), 'sea'),
-    ('Body', 'box', (1, 2.2, .7), (0, .3, .65), 'seaL', None, (-18, 0, 0)),
-    ('Body', 'box', (1, 1.2, .5), (0, -.4, 1.15), 'seaL', None, (-35, 0, 0)),
-    ('Body', 'box', (1, .9, .35), (0, -.85, 1.45), 'foam', None, (-60, 0, 0)),
-    ('Body', 'box', (1, .6, .25), (0, -1.15, 1.25), 'foam', None, (-110, 0, 0)),
-    ('Body', 'box', (1, 1.6, .18), (0, -1.6, .2), 'foam'),
+    *curl(CURL, .32, ['sea', 'sea', 'sea', 'seaL', 'seaL', 'foam', 'foam', 'foam', 'foam']),
+    *curl([(y - .12, z - .22) for y, z in CURL[3:]], .2, ['sea', 'seaL', 'seaL', 'seaL', 'seaL', 'seaL']),   # the darker inside of the tube
+    ('Body', 'box', (1, 1.4, .22), (0, -1.6, .25), 'foam'),                                                    # spill at the foot
+    *[('Body', 'ball', (.35, .35, .3), (x, -1.45, 1.0), 'foam') for x in (-.3, .05, .35)],                   # foam blobs on the lip
 ])
+build('Surfboard', [('Body', 'box', (.5, 1.8, .07), (0, 0, .035), 'white'), ('Body', 'cone', (.5, .5, .07), (0, -.98, .035), 'white', None, (90, 0, 0), 8),
+                    ('Body', 'box', (.08, 1.85, .075), (0, 0, .04), 'red'), ('Body', 'cone', (.1, .25, .2), (0, .75, -.08), 'greyD', None, (180, 0, 0), 4)])
+build('Pearl', [('Body', 'ball', (.32, .32, .32), (0, 0, .16), 'gold'), ('Body', 'ball', (.12, .12, .12), (-.06, -.08, .24), 'white')])
+
+# The giant clam: rare, drops golden pearls. Its lid (Limb_Lid) hinges at the back; open, it's soft inside.
+build('Clam', [
+    ('Body', 'ball', (1.3, 1.1, .5), (0, 0, .25), 'shellP'),
+    *[('Body', 'box', (.07, 1.05, .1), (x, 0, .45), 'shell') for x in (-.45, -.22, 0, .22, .45)],
+    ('Body', 'ball', (.9, .75, .25), (0, 0, .48), 'pink'),                      # the soft inside
+    ('Body', 'ball', (.3, .3, .3), (0, -.05, .62), 'gold'),                     # the pearl
+    ('Body', 'cyl', (.05, .05, .25), (-.16, -.38, .7), 'pink', None, None, 5), ('Body', 'cyl', (.05, .05, .25), (.16, -.38, .7), 'pink', None, None, 5),
+    ('Body', 'ball', (.1, .1, .1), (-.16, -.38, .85), 'white'), ('Body', 'ball', (.1, .1, .1), (.16, -.38, .85), 'white'),
+    ('Limb_Lid', 'ball', (1.3, 1.1, .5), (0, -.55, .1), 'shellP', (0, .55, .45)),
+    *[('Limb_Lid', 'box', (.07, 1.05, .1), (x, -.55, .32), 'shell', (0, .55, .45)) for x in (-.45, -.22, 0, .22, .45)],
+])
+
+# Buildable defences (paid in sand dollars and golden pearls)
+build('Barricade', [*[('Body', 'box', (.8, .45, .3), (x + (.2 if r % 2 else 0), 0, .15 + r * .28), 'sandD' if (r + k) % 2 else 'sand')
+                      for r in range(3) for k, x in enumerate((-1.0, -.2, .6)) if not (r == 2 and k == 2)],
+                    ('Body', 'cyl', (.05, .05, 1.2), (1.2, 0, .6), 'woodD', None, None, 5), ('Body', 'box', (.4, .02, .3), (1.4, 0, 1.05), 'red')])
+build('Spikes', [('Body', 'box', (2.2, 2.2, .08), (0, 0, .04), 'purpleD'),
+                 *[('Body', 'cone', (.14, .14, .5), (-.9 + (i % 5) * .45, -.9 + (i // 5) * .45, .3), 'purple', None, None, 4) for i in range(25)]])
+build('KelpSnare', [('Body', 'cyl', (2.6, 2.6, .06), (0, 0, .03), 'kelp', None, None, 10),
+                    *[('Body', 'box', (.1, .05, .7), (math.cos(a) * r, math.sin(a) * r, .35), 'kelp', None, (math.sin(a * 3) * 25, 0, math.degrees(a)))
+                      for i, (a, r) in enumerate([(k * .9, .4 + (k % 3) * .35) for k in range(12)])]])
+build('HarpoonTurret', [
+    ('Body', 'cyl', (1.2, 1.2, .4), (0, 0, .2), 'woodD', None, None, 8), ('Body', 'cyl', (.3, .3, .8), (0, 0, .7), 'greyD', None, None, 6),
+    ('Part_Head', 'box', (.5, .9, .35), (0, -.1, 0), 'wood', (0, 0, 1.2)), ('Part_Head', 'cyl', (.1, .1, 1.3), (0, -.7, .1), 'steel', (0, 0, 1.2), (90, 0, 0), 6),
+    ('Part_Head', 'cone', (.18, .18, .3), (0, -1.4, .1), 'steel', (0, 0, 1.2), (90, 0, 0), 4),
+], sockets=[('Muzzle', (0, -1.55, 1.3), 'Part_Head')])
+build('PearlCannon', [
+    ('Body', 'cyl', (1.6, 1.6, .5), (0, 0, .25), 'stoneD', None, None, 10), ('Body', 'ball', (1.0, 1.0, 1.0), (0, 0, .8), 'stone'),
+    ('Part_Head', 'cyl', (.5, .5, 1.6), (0, -.7, .1), 'greyD', (0, 0, 1.1), (80, 0, 0), 10),
+    ('Part_Head', 'cyl', (.6, .6, .12), (0, -1.45, .25), 'gold', (0, 0, 1.1), (80, 0, 0), 10),
+], sockets=[('Muzzle', (0, -1.6, 1.45), 'Part_Head')])
+build('BaitBucket', [('Body', 'cyl', (.6, .6, .6), (0, 0, .3), 'blue', None, None, 10), ('Body', 'tor', (.6, .6, .5), (0, 0, .62), 'steel', None, None, 10),
+                     *[('Body', 'cone', (.12, .3, .1), (math.cos(a) * .15, math.sin(a) * .15, .7), 'fishG', None, (70, 0, math.degrees(a))) for a in (0, 2.1, 4.2)]])
+
 build('SandDollar', [
     ('Body', 'cyl', (.36, .36, .05), (0, 0, .03), 'sandL', None, None, 12),
     *[('Body', 'box', (.05, .13, .012), (math.sin(a) * .09, math.cos(a) * .09, .06), 'sandD', None, (0, 0, -math.degrees(a))) for a in [k * 2 * math.pi / 5 for k in range(5)]],

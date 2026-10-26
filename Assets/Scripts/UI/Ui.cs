@@ -125,6 +125,28 @@ namespace TideWall
         }
 
         /// <summary>A soft radial texture (used for tunnel vision and ink splats).</summary>
+        static Sprite ring, dot;
+
+        /// <summary>A thin circle outline, and a solid disc (the reload widget's beat ring and pips).</summary>
+        public static Sprite Ring => ring ??= Circle(.78f);
+        public static Sprite Dot => dot ??= Circle(0);
+
+        static Sprite Circle(float inner, int size = 64)
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            var px = new Color[size * size];
+            float px1 = 2f / size;
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float d = Vector2.Distance(new Vector2(x + .5f, y + .5f), new Vector2(size / 2f, size / 2f)) / (size / 2f);
+                    float a = Mathf.Clamp01((1 - d) / px1) * (inner > 0 ? Mathf.Clamp01((d - inner) / px1) : 1);
+                    px[y * size + x] = new Color(1, 1, 1, a);
+                }
+            tex.SetPixels(px); tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(.5f, .5f));
+        }
+
         public static Sprite Radial(bool hole, int size = 128)
         {
             var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };

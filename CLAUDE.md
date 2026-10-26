@@ -27,6 +27,8 @@ The design documents in `docs/` define the game. These rules are binding for any
 - **R6 — The website models are imported, not redrawn.** Food, gas can, tire and Glizzy Monster come from `Blender/source/*.glb` (copied from the website) and are size-normalised by the script; heavy ones are welded and decimated to about 8k faces.
 
 ### Multiplayer & input
+- **R6a — Menus never stop you walking.** Menus are driven by `MenuNav` (d-pad / arrow keys / wheel), never by `Move`. New menus use the `Menu` data and one of its layouts; stall menus set an `Anchor`. Item cards that show a thing set `MenuItem.Icon` to its model (the picture comes from `Icons`).
+- **R6b — Reloads are optional minigames.** Every gun names a `reloadStyle`; doing nothing must still finish the reload in the gun's time, skill only speeds it up or earns a Perfect. Reload feedback goes at the reticle (`ReticleHud`), not in a screen corner.
 - **R7 — Every action has a gamepad and a keyboard/mouse binding**, defined in `PlayerControls.Build` with a binding group (`Keyboard` or `Gamepad`). The first binding of each group is the rebindable one; rebinds live in `Settings.bindings` and every `PlayerControls` re-applies them. Prompts show the player's own key with `Player.Glyph(Btn)`, never a hard-coded key name. Gameplay reads buttons through `Player.Held/Pressed(Btn)`, which works for local and online players alike. Never read `Gamepad.current`, `Keyboard.current` or `Mouse.current` in gameplay code (the main menu's own UI input is the one exception).
 - **R8 — Per-player things stay in the player's viewport.** HUDs, menus, overlays (ink, tunnel vision), the view model and camera effects belong to that player's camera/canvas. Team-wide state (coins, wall, phase, upgrades) is shared and shown to everyone.
 - **R9 — Test with virtual devices.** Play-mode tests join players with `InputSystem.AddDevice<Gamepad>()`. A feature that needs input is tested by queuing device state, not by calling private methods.
@@ -44,6 +46,7 @@ The design documents in `docs/` define the game. These rules are binding for any
 - **R18 — Saves are data too.** A save (`SaveData`) is a suspended run at a `saveOnStart` phase: day, phase, sand dollars, wall sections, powerplant, upgrades, active tidal cards, and each player slot's weapons, level, XP, stat points and mods. A run's save is deleted when the run ends (roguelike), never restored after a loss. If you add progress that should survive quitting, add it to `SaveData`, `SaveSystem.Capture` and the restore path (`GameManager.StartRun`, `Player.RestoreLoadout`), and keep old saves loading (new fields need sensible defaults).
 
 ### Feel & performance
+- **R9c — Animated, not static.** Players and vendors are jointed (`Part_*`) and every creature has its own animation; new characters need both a model with parts and a pose function. Melee hits land at the end of the wind-up (`MeleeDef.windup`), never instantly.
 - **R9b — Creatures arrive on the waves.** Anything that comes from the sea rides a `Breaker` in (flyers fly in); nothing pops into existence on the beach except boss summons and test/capture spawns.
 - **R10 — Wetness is always visible.** Drip count is proportional to wetness (`Fx.Drip`, `maxDripsPerSecond`). Anything that changes wetness must keep drips and gloss in sync.
 - **R10a — The money is sand dollars.** Never call it coins in anything a player sees; show the sand dollar icon (`Ui.SandDollarIcon`) or "SD" next to amounts.
@@ -60,4 +63,5 @@ The design documents in `docs/` define the game. These rules are binding for any
 |---|---|
 | `README.md` | What the game is, how to open, play, build and test it |
 | `docs/GDD.md` | Design: views, phases, enemies, limbs, wetness, weapons, food, condiments, ??? sauce, economy, controls, settings, saves, online, main menu, adding content |
+| `docs/TEXT.md` | Where every piece of game text lives (for editing it) |
 | `docs/TECH.md` | Architecture, player kinds, online protocol, saves and settings storage, file map, the Blender pipeline, data assets, tests, capture modes, builds |

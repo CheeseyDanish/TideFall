@@ -21,7 +21,7 @@ namespace TideWall
             get
             {
                 if (template != null) return template;
-                template = PlayerControls.Build(out _, out _, out _, out _, out _);
+                template = PlayerControls.Build(out _, out _, out _, out _, out _, out _);
                 return template;
             }
         }

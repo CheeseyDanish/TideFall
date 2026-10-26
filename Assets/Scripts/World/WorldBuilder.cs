@@ -58,6 +58,9 @@ namespace TideWall
             Interactable.Add<ShopKiosk>(Prop(town, "ShopKiosk", new Vector3(-12, 0, -8), 180, solid: new Vector3(2.4f, 2, 1)), "SHOP", 3.2f);
             Interactable.Add<Fishmonger>(Prop(town, "FishmongerCart", new Vector3(-20, 0, -12), 180, solid: new Vector3(2.2f, 2, 1)), "FISHMONGER", 2.8f);
             Interactable.Add<HotdogStand>(Prop(town, "HotdogStand", new Vector3(4, 0, -9), 180, solid: new Vector3(2, 2, 1.2f)), "HOTDOGS", 3.6f);
+            // The people behind the stalls (stalls face the camera, toward -Z, so they stand on the far side)
+            world.chef = Vendor.Create(town, "VendorChef", new Vector3(4, 0, -10.6f), 180, db.chefLines);
+            world.fishmonger = Vendor.Create(town, "VendorFish", new Vector3(-20, 0, -13.6f), 180, db.fishmongerLines);
             Interactable.Add<ReadyBell>(Prop(town, "Bell", new Vector3(0, 0, -4), 0, solid: new Vector3(.3f, 2, .3f)), "READY BELL", 2.8f);
 
             // --- lights: torches behind the wall and around town, the lighthouse beam

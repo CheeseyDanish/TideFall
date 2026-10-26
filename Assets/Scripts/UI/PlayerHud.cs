@@ -12,9 +12,14 @@ namespace TideWall
     {
         Player p;
         GameManager gm;
-        Image hpFill, wallFill, reloadFill, hurt, tunnel, hitMarker, menuPanel, crossH, crossV, xpFill, coinIcon;
-        Text nameText, hpText, coinText, phaseText, wallText, gunText, promptText, bannerTitle, bannerSub, statusText, toastText, menuTitle, menuBody, menuDetail, menuHelp, centerText, fpsText, levelText, cardsText, voteText;
+        Image hpFill, wallFill, hurt, tunnel, hitMarker, menuPanel, crossH, crossV, xpFill, coinIcon;
+        Text nameText, hpText, coinText, phaseText, wallText, gunText, promptText, bannerTitle, bannerSub, statusText, toastText, menuTitle, menuBody, menuDetail, menuHelp, centerText, fpsText, levelText, cardsText, voteText, previewText;
         readonly List<Image> inkBlots = new();
+        GridView grid;
+        CardsView cardsView;
+        Image killMarker;
+        ReticleHud reticle;
+        float killT;
         float bannerT, toastT, hitT, fpsT, fpsAcc; int fpsFrames;
         Sprite blob, hole;
 
@@ -80,13 +85,13 @@ namespace TideWall
             cardsText.rectTransform.pivot = tr;
             voteText = Ui.Text(c, "Vote", new Vector2(.5f, 1), new Vector2(0, -74), new Vector2(700, 24), 16, TextAnchor.UpperCenter, new Color(.6f, .95f, 1f));
             voteText.rectTransform.pivot = new Vector2(.5f, 1);
+            previewText = Ui.Text(c, "Preview", new Vector2(.5f, 1), new Vector2(0, -96), new Vector2(900, 22), 13, TextAnchor.UpperCenter, new Color(.85f, .9f, 1f, .9f));
+            previewText.rectTransform.pivot = new Vector2(.5f, 1);
 
             // Bottom-left: weapons
             var bl = new Vector2(0, 0);
             gunText = Ui.Text(c, "Gun", bl, new Vector2(18, 16), new Vector2(460, 70), 16, TextAnchor.LowerLeft, Color.white);
             gunText.rectTransform.pivot = bl;
-            reloadFill = Ui.Bar(c, "Reload", bl, new Vector2(18, 90), new Vector2(160, 8), new Color(.6f, .8f, 1));
-            reloadFill.transform.parent.GetComponent<RectTransform>().pivot = bl;
 
             // Bottom-centre: what Interact does here
             promptText = Ui.Text(c, "Prompt", new Vector2(.5f, 0), new Vector2(0, 24), new Vector2(700, 30), 18, TextAnchor.LowerCenter, new Color(1, .95f, .75f));
@@ -106,16 +111,25 @@ namespace TideWall
             fpsText.rectTransform.pivot = new Vector2(1, 0);
 
             // Menu panel
-            menuPanel = Ui.Image(c, "Menu", new Vector2(.5f, .5f), Vector2.zero, new Vector2(620, 470), new Color(.05f, .08f, .15f, .93f));
-            menuTitle = Ui.Text(menuPanel.transform, "Title", new Vector2(.5f, 1), new Vector2(0, -22), new Vector2(580, 34), 24, TextAnchor.MiddleCenter, new Color(1, .85f, .4f));
-            menuBody = Ui.Text(menuPanel.transform, "Body", new Vector2(.5f, .5f), new Vector2(0, 8), new Vector2(580, 340), 16, TextAnchor.MiddleLeft, Color.white);
-            menuDetail = Ui.Text(menuPanel.transform, "Detail", new Vector2(.5f, 0), new Vector2(0, 44), new Vector2(580, 50), 14, TextAnchor.MiddleCenter, new Color(.8f, .85f, 1));
-            menuHelp = Ui.Text(menuPanel.transform, "Help", new Vector2(.5f, 0), new Vector2(0, 14), new Vector2(580, 22), 13, TextAnchor.MiddleCenter, new Color(.6f, .65f, .8f));
+            // List menus sit to the right so you can see where you're walking
+            menuPanel = Ui.Image(c, "Menu", new Vector2(1, .5f), new Vector2(-300, -10), new Vector2(560, 440), new Color(.05f, .08f, .15f, .88f));
+            menuTitle = Ui.Text(menuPanel.transform, "Title", new Vector2(.5f, 1), new Vector2(0, -22), new Vector2(520, 34), 22, TextAnchor.MiddleCenter, new Color(1, .85f, .4f));
+            menuBody = Ui.Text(menuPanel.transform, "Body", new Vector2(.5f, .5f), new Vector2(0, 8), new Vector2(520, 320), 15, TextAnchor.MiddleLeft, Color.white);
+            menuDetail = Ui.Text(menuPanel.transform, "Detail", new Vector2(.5f, 0), new Vector2(0, 44), new Vector2(520, 50), 13, TextAnchor.MiddleCenter, new Color(.8f, .85f, 1));
+            menuHelp = Ui.Text(menuPanel.transform, "Help", new Vector2(.5f, 0), new Vector2(0, 14), new Vector2(520, 22), 12, TextAnchor.MiddleCenter, new Color(.6f, .65f, .8f));
+            grid = new GridView(c);
+            cardsView = new CardsView(c);
+            reticle = new ReticleHud(c);
+            killMarker = Ui.Image(c, "Kill", new Vector2(.5f, .5f), Vector2.zero, new Vector2(30, 30), new Color(1, .25f, .2f, 0));
+            killMarker.rectTransform.localRotation = Quaternion.Euler(0, 0, 45);
         }
 
         public void ShowBanner(string title, string sub) { bannerTitle.text = title; bannerSub.text = sub; bannerT = 3.2f; }
 
         public void Toast(string msg, Color color) { toastText.text = msg; toastText.color = color; toastT = 2.6f; }
+
+        /// <summary>A red X when your hit kills.</summary>
+        public void KillMarker() { killT = .35f; }
 
         public void HitMarker(bool crit) { hitT = .15f; hitMarker.color = crit ? new Color(1, .85f, .2f, 1) : new Color(1, 1, 1, .9f); }
 
@@ -166,11 +180,11 @@ namespace TideWall
             wallText.text = $"Powerplant {Mathf.CeilToInt(gm.Plant.Hp)}/{Mathf.RoundToInt(gm.Plant.MaxHp)} · Wall {sections - breached}/{sections}" +
                             (breached > 0 ? $" <color=#fca5a5>({breached} breached)</color>" : "");
 
-            gunText.text = $"<b>{p.Gun.displayName}</b>  {(p.ReloadProgress >= 0 ? "reloading…" : $"{p.Ammo}/{p.MagSize}")}\n" +
+            gunText.text = (p.GunsLocked ? $"<color=#94a3b8><b>{p.Gun.displayName}</b>  holstered until wave {gm.DB.gunsUnlockWave}</color>\n"
+                                         : $"<b>{p.Gun.displayName}</b>  {(p.ReloadProgress >= 0 ? "reloading…" : $"{p.Ammo}/{p.MagSize}")}" +
+                                           (p.PerfectBonus > 0 ? $"  <color=#fcd34d>PERFECT +{p.PerfectBonus * 100:0}%</color>" : "") + "\n") +
                            $"<color=#cbd5e1>{p.Melee.displayName}</color>" +
                            (p.CarryCount > 0 ? $"\n<color=#fde68a>Carrying {p.CarryCount} (weight {p.CarryWeight:0}/{Player.MaxCarry:0}) · {p.Glyph(Btn.Fire)} throw</color>" : "");
-            reloadFill.transform.parent.gameObject.SetActive(p.ReloadProgress >= 0);
-            if (p.ReloadProgress >= 0) reloadFill.fillAmount = p.ReloadProgress;
 
             promptText.text = Prompt();
 
@@ -178,6 +192,15 @@ namespace TideWall
             SetAlpha(bannerTitle, Mathf.Clamp01(bannerT)); SetAlpha(bannerSub, Mathf.Clamp01(bannerT));
             SetAlpha(toastText, Mathf.Clamp01(toastT));
             var hc = hitMarker.color; hc.a = Mathf.Clamp01(hitT / .15f); hitMarker.color = hc;
+            killT -= dt;
+            killMarker.color = new Color(1, .25f, .2f, Mathf.Clamp01(killT / .35f));
+            killMarker.rectTransform.localScale = Vector3.one * (1 + Mathf.Clamp01(killT / .35f) * .6f);
+            // The crosshair spreads as you fire, then settles
+            float spread = 14 + p.FireHeat * 16;
+            crossH.rectTransform.sizeDelta = new Vector2(spread, 2); crossV.rectTransform.sizeDelta = new Vector2(2, spread);
+            bool cardsOpen = p.ShownMenu != null && p.ShownMenu.Layout == MenuLayout.Cards;
+            previewText.text = cardsOpen ? "" : gm.Waves.Preview;
+            if (cardsOpen) voteText.text = "";
             bool cross = p.FirstPerson && !p.IsOut && p.ShownMenu == null && gm.State == GameState.Playing;
             crossH.enabled = crossV.enabled = cross;
             fpsText.enabled = Settings.Current.showFps;
@@ -186,11 +209,13 @@ namespace TideWall
                 fpsFrames++; fpsAcc += dt; fpsT -= dt;
                 if (fpsT <= 0) { fpsText.text = $"{fpsFrames / Mathf.Max(.001f, fpsAcc):0} fps"; fpsT = .5f; fpsFrames = 0; fpsAcc = 0; }
             }
-            if (hitT > 0 && p.Cam.Camera != null)
-            {
-                RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)transform, p.AimScreen, p.Cam.Camera, out var local);
-                hitMarker.rectTransform.anchoredPosition = local;
-            }
+            // The reticle: the screen centre in first person, the aim point from above
+            var reticlePos = Vector2.zero;
+            if (!p.FirstPerson && p.Cam.Camera != null)
+                RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)transform, p.AimScreen, p.Cam.Camera, out reticlePos);
+            if (hitT > 0) hitMarker.rectTransform.anchoredPosition = reticlePos;
+            killMarker.rectTransform.anchoredPosition = reticlePos;
+            reticle.Update(p, gm, reticlePos, !p.IsOut && !p.IsDowned && gm.State == GameState.Playing && (p.ShownMenu == null || p.ShownMenu.Layout == MenuLayout.List), dt);
 
             hurt.color = new Color(.8f, 0, 0, Mathf.Clamp01(p.HurtFlash) * .6f + (p.IsDowned ? .25f : 0));
             tunnel.color = new Color(0, 0, 0, p.Statuses.Has(StatusType.Tunnel) ? .97f : 0);
@@ -242,15 +267,17 @@ namespace TideWall
         void UpdateMenu()
         {
             var m = p.ShownMenu;
-            menuPanel.gameObject.SetActive(m != null);
-            if (m == null) return;
+            menuPanel.gameObject.SetActive(m != null && m.Layout == MenuLayout.List);
+            if (m != null && m.Layout == MenuLayout.Grid) grid.Show(m, p, gm); else grid.Hide();
+            if (m != null && m.Layout == MenuLayout.Cards) cardsView.Show(m, p, gm); else cardsView.Hide();
+            if (m == null || m.Layout != MenuLayout.List) return;
             menuTitle.text = m.System ? m.Title : $"{m.Title}   <size=16><color=#fde68a>{gm.SandDollars} sand dollars</color></size>";
             menuBody.text = Render(m, 14);
             var cur = m.Current;
             string why = cur?.Blocked?.Invoke();
             menuDetail.text = cur == null ? "" : m.System && why != null ? $"<color=#fca5a5>{why}</color>" : cur.Detail;
-            string nav = p.UsesMouse ? "W/S" : "Stick";
-            string adj = cur?.OnAdjust != null ? (p.UsesMouse ? " · A/D change" : " · left/right change") : "";
+            string nav = p.UsesMouse ? "Arrows / wheel" : "D-pad";
+            string adj = cur?.OnAdjust != null ? " · left/right change" : "";
             menuHelp.text = $"{nav} choose{adj} · {p.Glyph(Btn.Interact)} pick · {p.Glyph(Btn.Back)} {(m.Parent != null ? "back" : "close")}";
         }
 

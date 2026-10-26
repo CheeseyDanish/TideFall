@@ -1,6 +1,7 @@
-// TideWall 3D — menus as data: rows with labels, values and actions. Players navigate the in-game ones (shop,
-// hotdog stand, pause, settings) in their own viewport; the main menu draws the same Menu objects full screen.
-// Purchases come out of the shared team purse.
+// TideWall 3D — menus as data: items with labels, values and actions, drawn as a list, a grid of item cards (the
+// shop, like the 2D game's) or a row of big cards (tidal cards). Players navigate the in-game ones in their own
+// viewport with the d-pad / arrow keys while still walking; the main menu draws the same Menu objects full screen.
+// Purchases come out of the shared team purse (sand dollars, golden pearls).
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -18,7 +19,13 @@ namespace TideWall
         public Func<Menu> Open;
         /// <summary>Left/right on this row (sliders and toggles). Argument: -1 or +1.</summary>
         public Action<int> OnAdjust;
+        /// <summary>Grid and card layouts: a model shown as a picture (ModelFactory name), a stat line, a colour, a state.</summary>
+        public string Icon, Info;
+        public Color Tint = Color.clear;
+        public bool Owned, Equipped;
     }
+
+    public enum MenuLayout { List, Grid, Cards }
 
     public class Menu
     {
@@ -29,8 +36,19 @@ namespace TideWall
         public Func<Menu> Rebuild;
         /// <summary>Back goes here instead of closing (submenus).</summary>
         public Func<Menu> Parent;
-        /// <summary>Pause/settings menus: they pause an offline game, and Melee doesn't close them.</summary>
+        /// <summary>Pause/settings menus: they pause an offline game.</summary>
         public bool System;
+        /// <summary>How it's drawn: a list, a grid of item cards (shop), or a row of big cards (tidal cards).</summary>
+        public MenuLayout Layout;
+        public int Columns => Layout == MenuLayout.Grid ? 3 : 0;
+        public bool Horizontal => Layout == MenuLayout.Cards;
+        /// <summary>Tabs across the top (Swap / Reload switch them); OnTab builds the menu for tab Tab ± 1.</summary>
+        public string[] Tabs;
+        public int Tab;
+        public Func<int, Menu> OnTab;
+        /// <summary>A stall's menu closes when you walk this far from it.</summary>
+        public Vector3? Anchor;
+        public float AnchorRange = 6.5f;
 
         public MenuItem Current => Selected >= 0 && Selected < Items.Count && !Items[Selected].Header ? Items[Selected] : null;
 
@@ -42,6 +60,17 @@ namespace TideWall
                 Selected = (Selected + dir + Items.Count) % Items.Count;
                 if (!Items[Selected].Header) return;
             }
+        }
+
+        /// <summary>Grid navigation: a step left/right, or a row up/down.</summary>
+        public void MoveGrid(int dx, int dy)
+        {
+            if (Items.Count == 0) return;
+            int c = Mathf.Max(1, Columns);
+            int next = Selected + dx + dy * c;
+            if (dx != 0) next = (next % Items.Count + Items.Count) % Items.Count;
+            else if (next < 0 || next >= Items.Count) next = dy > 0 ? Mathf.Min(Items.Count - 1, (Selected % c)) : Items.Count - 1;
+            Selected = next;
         }
 
         public void FirstSelectable() { Selected = -1; Move(1); }
@@ -61,66 +90,122 @@ namespace TideWall
     {
         static MenuItem Header(string text) => new() { Label = text, Header = true };
 
-        public static Menu Shop(Player p)
+        // ------------------------------------------------------------------ the shop (like the 2D game's: tabs of item cards)
+        public enum ShopTab { Guns, Melee, Upgrades, Defences }
+        static readonly string[] ShopTabs = { "Guns", "Melee", "Upgrades", "Defences" };
+
+        /// <summary>The shop: a tab of item cards with pictures, prices and stats. Swap / Reload change tabs.</summary>
+        public static Menu Shop(Player p, ShopTab tab, Vector3 stall)
         {
             var gm = GameManager.I;
-            var m = new Menu { Title = "SHOP", Rebuild = () => Shop(p) };
-            m.Items.Add(Header("GUNS (yours)"));
-            foreach (var g in gm.DB.guns)
+            var m = new Menu { Title = "SHOP", Layout = MenuLayout.Grid, Tabs = ShopTabs, Tab = (int)tab, Anchor = stall, Rebuild = () => Shop(p, tab, stall) };
+            m.OnTab = d => Shop(p, (ShopTab)(((int)tab + d + ShopTabs.Length) % ShopTabs.Length), stall);
+            switch (tab)
             {
-                var gun = g;
-                bool owned = p.OwnsGun(gun.id), equipped = p.Gun == gun;
-                m.Items.Add(new MenuItem
-                {
-                    Label = gun.displayName, Detail = $"{gun.description}  ({gun.damage}{(gun.pellets > 1 ? "×" + gun.pellets : "")} dmg, {gun.magazine} rounds)",
-                    Right = equipped ? "Equipped" : owned ? "Equip" : $"{gun.price} SD",
-                    Blocked = () => equipped ? "Already equipped" : null,
-                    OnPick = () => { if (owned || gm.TrySpend(gun.price)) { p.GiveGun(gun.id); Sfx.Play("reload"); } },
-                });
+                case ShopTab.Guns:
+                    foreach (var g in gm.DB.guns)
+                    {
+                        var gun = g;
+                        bool owned = p.OwnsGun(gun.id), equipped = p.Gun == gun;
+                        m.Items.Add(new MenuItem
+                        {
+                            Label = gun.displayName, Icon = gun.model, Detail = gun.description, Owned = owned, Equipped = equipped,
+                            Info = $"{gun.damage:0}{(gun.pellets > 1 ? "×" + gun.pellets : "")} dmg · {gun.fireRate:0.#}/s · {gun.magazine} rounds",
+                            Right = equipped ? "Equipped" : owned ? "Equip" : $"{gun.price} SD",
+                            Blocked = () => equipped ? "Already equipped" : null,
+                            OnPick = () => { if (owned || gm.TrySpend(gun.price)) { p.GiveGun(gun.id); Sfx.Play("reload"); } },
+                        });
+                    }
+                    break;
+                case ShopTab.Melee:
+                    foreach (var w in gm.DB.melee)
+                    {
+                        var mel = w;
+                        bool owned = p.OwnsMelee(mel.id), equipped = p.Melee == mel;
+                        m.Items.Add(new MenuItem
+                        {
+                            Label = mel.displayName, Icon = mel.model, Detail = mel.description, Owned = owned, Equipped = equipped,
+                            Info = $"{mel.damage:0} dmg · {mel.arcDegrees:0}° · {mel.range:0.#} m · {mel.style}",
+                            Right = equipped ? "Equipped" : owned ? "Equip" : $"{mel.price} SD",
+                            Blocked = () => equipped ? "Already equipped" : null,
+                            OnPick = () => { if (owned || gm.TrySpend(mel.price)) { p.GiveMelee(mel.id); Sfx.Play("swing"); } },
+                        });
+                    }
+                    break;
+                case ShopTab.Upgrades:
+                    foreach (var u in gm.DB.upgrades)
+                    {
+                        var up = u;
+                        int lvl = gm.Team.Level(up.id), price = gm.Team.Price(up);
+                        m.Items.Add(new MenuItem
+                        {
+                            Label = up.displayName, Icon = UpgradeIcon(up.kind), Detail = up.description,
+                            Info = up.maxLevel > 0 ? $"Level {lvl}/{up.maxLevel}" : lvl > 0 ? $"Bought {lvl}×" : "Whole team",
+                            Right = gm.Team.Maxed(up) ? "Max" : $"{price} SD", Owned = gm.Team.Maxed(up),
+                            Blocked = () => gm.Team.Blocked(up),
+                            OnPick = () => { if (gm.TrySpend(price)) { gm.Team.Apply(up); Sfx.Play("bell", .5f, .2f); } },
+                        });
+                    }
+                    break;
+                default:
+                    AddDefences(m, p);
+                    break;
             }
-            m.Items.Add(Header("MELEE (yours)"));
-            foreach (var w in gm.DB.melee)
-            {
-                var mel = w;
-                bool equipped = p.Melee == mel;
-                m.Items.Add(new MenuItem
-                {
-                    Label = mel.displayName, Detail = mel.description, Right = equipped ? "Equipped" : p.OwnsMelee(mel.id) ? "Equip" : $"{mel.price} SD",
-                    Blocked = () => equipped ? "Already equipped" : null,
-                    OnPick = () => { if (p.OwnsMelee(mel.id) || gm.TrySpend(mel.price)) { p.GiveMelee(mel.id); Sfx.Play("swing"); } },
-                });
-            }
-            m.Items.Add(Header("UPGRADES (whole team)"));
-            foreach (var u in gm.DB.upgrades)
-            {
-                var up = u;
-                int lvl = gm.Team.Level(up.id), price = gm.Team.Price(up);
-                m.Items.Add(new MenuItem
-                {
-                    Label = up.maxLevel > 0 ? $"{up.displayName}  {lvl}/{up.maxLevel}" : up.displayName, Detail = up.description,
-                    Right = gm.Team.Maxed(up) ? "Max" : $"{price} SD",
-                    Blocked = () => gm.Team.Blocked(up),
-                    OnPick = () => { if (gm.TrySpend(price)) { gm.Team.Apply(up); Sfx.Play("bell", .5f, .2f); } },
-                });
-            }
-            m.FirstSelectable();
+            if (m.Items.Count > 0) m.Selected = 0;
             return m;
         }
 
-        public static Menu Hotdogs(Player p)
+        static string UpgradeIcon(UpgradeKind k) => k switch
+        {
+            UpgradeKind.RepairWall or UpgradeKind.WallMaxHp => "WallSegment",
+            UpgradeKind.PlantRepair or UpgradeKind.PlantMaxHp => "Powerplant",
+            UpgradeKind.PlayerMaxHp => "Sailor",
+            UpgradeKind.GunDamage or UpgradeKind.Magazine => "Revolver",
+            UpgradeKind.MeleeDamage => "Cutlass",
+            UpgradeKind.GasCans => "GasCan",
+            _ => "Crate",
+        };
+
+        static void AddDefences(Menu m, Player p)
         {
             var gm = GameManager.I;
-            var m = new Menu { Title = "HOTDOG STAND", Rebuild = () => Hotdogs(p) };
+            foreach (var st in gm.DB.structures)
+            {
+                var def = st;
+                int built = Structure.All.FindAll(s => s != null && !s.Dead && s.Def == def).Count;
+                m.Items.Add(new MenuItem
+                {
+                    Label = def.displayName, Icon = def.model, Detail = def.description,
+                    Info = (def.max > 0 ? $"{built}/{def.max} built · " : built > 0 ? $"{built} built · " : "") + $"{def.hp:0} HP",
+                    Right = def.pearls > 0 ? $"{def.sandDollars} SD + {def.pearls} pearl{(def.pearls > 1 ? "s" : "")}" : $"{def.sandDollars} SD",
+                    Blocked = () => gm.SandDollars < def.sandDollars ? "Not enough sand dollars" : gm.Pearls < def.pearls ? "Not enough golden pearls (giant clams drop them)"
+                                  : def.max > 0 && built >= def.max ? $"At most {def.max}" : null,
+                    OnPick = () => p.StartBuilding(def),
+                });
+            }
+        }
+
+        /// <summary>Build menu (Build button, any time): pick a defence, then place it where you aim.</summary>
+        public static Menu Build(Player p)
+        {
+            var m = new Menu { Title = "BUILD", Layout = MenuLayout.Grid, Rebuild = () => Build(p) };
+            AddDefences(m, p);
+            if (m.Items.Count > 0) m.Selected = 0;
+            return m;
+        }
+
+        public static Menu Hotdogs(Player p, Vector3 stall)
+        {
+            var gm = GameManager.I;
+            var m = new Menu { Title = "HOTDOG STAND", Layout = MenuLayout.Grid, Anchor = stall, Rebuild = () => Hotdogs(p, stall) };
             var hotdog = gm.DB.Food("hotdog");
             if (hotdog != null)
             {
-                m.Items.Add(Header("HOTDOGS (heal " + hotdog.heal + ")"));
                 m.Items.Add(Food(p, hotdog, null));
                 foreach (var c in gm.DB.condiments) m.Items.Add(Food(p, hotdog, c));
             }
-            m.Items.Add(Header("SIDES"));
             foreach (var f in gm.DB.foods) if (f.soldAtStand && f != hotdog) m.Items.Add(Food(p, f, null));
-            m.FirstSelectable();
+            if (m.Items.Count > 0) m.Selected = 0;
             return m;
         }
 
@@ -131,7 +216,9 @@ namespace TideWall
             return new MenuItem
             {
                 Label = sauce == null ? food.displayName : $"{food.displayName} + {sauce.displayName}",
+                Icon = food.model, Tint = sauce != null ? sauce.color : Color.clear,
                 Detail = sauce == null ? food.description : sauce.description,
+                Info = $"+{food.heal:0} HP",
                 Right = $"{price} SD",
                 Blocked = () => p.IsDowned ? "You're down" : null,
                 OnPick = () => { if (gm.TrySpend(price)) p.Eat(food, sauce); },
@@ -197,14 +284,44 @@ namespace TideWall
             Toggle(m, "Invert look up/down", () => s.invertY, v => s.invertY = v, "Mouse and stick.");
             Toggle(m, "Aim assist (controllers)", () => s.aimAssist, v => s.aimAssist = v, "Slows the stick over enemies and nudges shots onto bodies.");
             Step(m, "Screen shake", () => Pct(s.screenShake), d => s.screenShake += d * .25f, "Explosions, hits, the boss.");
-            Toggle(m, "Fullscreen", () => s.fullscreen, v => s.fullscreen = v, "Windowed or fullscreen.");
-            Step(m, "Graphics quality", () => $"< {QualityName(s.quality)} >", d =>
+            Toggle(m, "Damage numbers", () => s.damageNumbers, v => s.damageNumbers = v, "Numbers pop off creatures you hit (yellow = weak point).");
+            Toggle(m, "Show frame rate", () => s.showFps, v => s.showFps = v, "A small FPS counter in the corner.");
+
+            m.Header("GRAPHICS");
+            Step(m, "Display mode", () => $"< {GraphicsApply.DisplayModeNames[s.displayMode]} >", d => s.displayMode = ((s.displayMode + d) % 3 + 3) % 3,
+                 "Borderless fullscreen, exclusive fullscreen, or a window.");
+            Step(m, "Resolution", () => $"< {GraphicsApply.ResolutionName(s.resolution)} >", d =>
+            {
+                int n = GraphicsApply.Resolutions().Count + 1;   // + native
+                s.resolution = ((s.resolution + 1 + d) % n + n) % n - 1;
+            }, "Native uses your display's full resolution.");
+            Toggle(m, "VSync", () => s.vsync, v => s.vsync = v, "Match the monitor's refresh rate (no tearing).");
+            Step(m, "Frame rate limit", () => $"< {(s.fpsCap > 0 ? s.fpsCap + " fps" : "Unlimited")} >", d =>
+            {
+                int i = System.Array.IndexOf(GraphicsApply.FpsCaps, s.fpsCap); if (i < 0) i = 0;
+                int n = GraphicsApply.FpsCaps.Length;
+                s.fpsCap = GraphicsApply.FpsCaps[((i + d) % n + n) % n];
+            }, "Only when VSync is off.");
+            Step(m, "Render scale", () => Pct(s.renderScale), d => s.renderScale = Mathf.Round((s.renderScale + d * .1f) * 10) / 10,
+                 "Internal resolution. Above 100% is supersampling: sharper but slower. (Applies in the built game.)");
+            Step(m, "Anti-aliasing", () => $"< {GraphicsApply.AntiAliasingNames[s.antiAliasing]} >", d =>
+            {
+                int n = GraphicsApply.AntiAliasingNames.Length;
+                s.antiAliasing = ((s.antiAliasing + d) % n + n) % n;
+            }, "Smooths jagged edges. MSAA is the sharpest; FXAA the cheapest.");
+            Step(m, "Shadows", () => $"< {GraphicsApply.ShadowNames[s.shadows]} >", d => s.shadows = ((s.shadows + d) % 4 + 4) % 4,
+                 "Shadow quality and distance.");
+            Toggle(m, "Bloom", () => s.bloom, v => s.bloom = v, "Glow around bright things (torches, the reactor core).");
+            Toggle(m, "Post-processing", () => s.postProcessing, v => s.postProcessing = v, "Colour grading, bloom and vignette.");
+            Step(m, "Draw distance", () => $"< {s.drawDistance:0} m >", d => s.drawDistance += d * 20, "How far you can see out to sea.");
+            Step(m, "Particle density", () => Pct(s.particleDensity), d => s.particleDensity = Mathf.Round((s.particleDensity + d * .25f) * 4) / 4,
+                 "Drips, gore, sparks and smoke. Lower it on slower computers.");
+            Step(m, "Quality preset", () => $"< {QualityName(s.quality)} >", d =>
             {
                 int n = Mathf.Max(1, QualitySettings.names.Length);
                 int q = s.quality < 0 ? QualitySettings.GetQualityLevel() : s.quality;
                 s.quality = ((q + d) % n + n) % n;
-            }, "Lower it if the game stutters with four players.");
-            Toggle(m, "Show frame rate", () => s.showFps, v => s.showFps = v, "A small FPS counter in the corner.");
+            }, "Texture and detail level. Resolution, anti-aliasing and shadows are the options above.");
 
             m.Header("CONTROLS");
             m.Add("Keyboard & mouse", ">", "Rebind keys and mouse buttons.", open: () => Controls(PlayerControls.KeyboardGroup, () => Settings(back, p)));
@@ -317,22 +434,31 @@ namespace TideWall
         public static Menu CardVote(Player p)
         {
             var cards = GameManager.I.Cards;
-            var m = new Menu { Title = TidalCards.MenuTag, Rebuild = () => CardVote(p) };
-            if (cards.Draft == null) { m.Header("No vote right now."); m.Add("Close", null, null, pick: p.CloseMenu); m.FirstSelectable(); return m; }
-            m.Header($"Vote for the next tide · {Mathf.CeilToInt(cards.DraftLeft)}s");
-            for (int i = 0; i < cards.Draft.Count; i++)
+            var m = new Menu { Title = TidalCards.MenuTag, Layout = MenuLayout.Cards, Rebuild = () => CardVote(p) };
+            if (cards.Draft == null) { m.Add("No vote right now", null, "Tidal cards are drafted at the start of each fight.", pick: p.CloseMenu); m.Selected = 0; return m; }
+            int n = cards.Draft.Count;
+            for (int i = 0; i < n + (cards.RerollOffered ? 2 : 1); i++)
             {
                 int choice = i;
-                var c = cards.Draft[i];
                 int votes = 0;
                 foreach (var v in cards.Votes.Values) if (v == choice) votes++;
                 bool mine = cards.Votes.TryGetValue(p.Index, out var my) && my == choice;
-                string tag = c.exclusive == CardExclusive.Online ? " [ONLINE]" : c.exclusive == CardExclusive.SplitScreen ? " [SPLIT SCREEN]" : "";
-                m.Add($"{c.displayName}{tag}", $"{(mine ? "your vote · " : "")}{votes} vote{(votes == 1 ? "" : "s")}", $"{c.description} ({c.waves} waves)",
-                      pick: () => cards.Vote(p, choice));
+                string right = (mine ? "Your vote · " : "") + $"{votes} vote{(votes == 1 ? "" : "s")}";
+                if (i < n)
+                {
+                    var c = cards.Draft[i];
+                    string tag = c.exclusive == CardExclusive.Online ? "ONLINE ONLY" : c.exclusive == CardExclusive.SplitScreen ? "SPLIT SCREEN ONLY" : "";
+                    m.Items.Add(new MenuItem { Label = c.displayName, Detail = c.description, Info = $"{c.waves} waves" + (tag.Length > 0 ? $"\n{tag}" : ""),
+                                               Tint = c.color, Right = right, Equipped = mine, OnPick = () => cards.Vote(p, choice) });
+                }
+                else if (i == n)
+                    m.Items.Add(new MenuItem { Label = "???", Detail = "A random tidal card. Could be anything that can appear right now, good or bad.",
+                                               Info = "Random", Tint = new Color(.25f, .25f, .3f), Right = right, Equipped = mine, OnPick = () => cards.Vote(p, choice) });
+                else
+                    m.Items.Add(new MenuItem { Label = "Re-roll", Detail = "Rare! Throw these back and draw three new cards.",
+                                               Info = "New cards", Tint = new Color(.95f, .8f, .3f), Right = right, Equipped = mine, OnPick = () => cards.Vote(p, choice) });
             }
-            m.Add("Close (vote later with Stats)", null, null, pick: p.CloseMenu);
-            m.FirstSelectable();
+            m.Selected = cards.Votes.TryGetValue(p.Index, out var mv) ? Mathf.Clamp(mv, 0, m.Items.Count - 1) : 0;
             return m;
         }
     }

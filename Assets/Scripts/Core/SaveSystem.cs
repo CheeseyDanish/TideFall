@@ -11,11 +11,12 @@ namespace TideWall
     [Serializable]
     public class SaveData
     {
-        public int version = 2;
+        public int version = 3;
         public int slot;
         public string savedAt;          // ISO 8601, for "Continue" (most recent wins)
         public int day = 1, phaseIndex;
-        public int sandDollars;
+        public int sandDollars, pearls, runWave;
+        public List<StructureSave> structures = new();
         public float wallHp, wallMaxHp;                       // totals (for the summary)
         public List<float> wallSections = new(), wallSectionMax = new();
         public float plantHp, plantMaxHp;
@@ -30,6 +31,7 @@ namespace TideWall
     }
 
     [Serializable] public class UpgradeLevel { public string id; public int level; }
+    [Serializable] public class StructureSave { public string id; public float x, z, yaw, hp; }
 
     [Serializable]
     public class PlayerSave
@@ -87,11 +89,13 @@ namespace TideWall
         {
             var d = new SaveData
             {
-                slot = gm.SaveSlot, day = gm.Phases.Day, phaseIndex = Mathf.Max(0, gm.Phases.Index), sandDollars = gm.SandDollars,
+                slot = gm.SaveSlot, day = gm.Phases.Day, phaseIndex = Mathf.Max(0, gm.Phases.Index), sandDollars = gm.SandDollars, pearls = gm.Pearls, runWave = gm.Waves.RunWave,
                 wallHp = gm.Wall.Hp, wallMaxHp = gm.Wall.MaxHp, plantHp = gm.Plant.Hp, plantMaxHp = gm.Plant.MaxHp,
                 gunDamage = gm.Team.GunDamage, meleeDamage = gm.Team.MeleeDamage, magazine = gm.Team.Magazine,
                 playerHpBonus = gm.Team.PlayerHpBonus, extraGasCans = gm.Team.ExtraGasCans,
             };
+            foreach (var st in Structure.All)
+                if (st != null && !st.Dead) d.structures.Add(new StructureSave { id = st.Def.id, x = st.transform.position.x, z = st.transform.position.z, yaw = st.transform.eulerAngles.y, hp = st.Hp });
             foreach (var sec in gm.Wall.Sections) { d.wallSections.Add(sec.hp); d.wallSectionMax.Add(sec.max); }
             foreach (var a in gm.Cards.Actives) d.cards.Add(new CardSave { id = a.def.id, wavesLeft = a.wavesLeft });
             foreach (var u in gm.DB.upgrades) if (gm.Team.Level(u.id) > 0) d.upgrades.Add(new UpgradeLevel { id = u.id, level = gm.Team.Level(u.id) });

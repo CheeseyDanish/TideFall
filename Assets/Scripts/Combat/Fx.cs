@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace TideWall
 {
-    public enum FxKind : byte { Gore, Sparks, Smoke, Fire, Splash, Ink, Bubbles, Debris, Explosion, Tracer, Flash }
+    public enum FxKind : byte { Gore, Sparks, Smoke, Fire, Splash, Ink, Bubbles, Debris, Explosion, Tracer, Flash, Number }
 
     public static class Fx
     {
@@ -33,6 +33,7 @@ namespace TideWall
                 case FxKind.Explosion: Explosion(e.a, e.f1); break;
                 case FxKind.Tracer: Tracer(e.a, e.b, e.color, e.f1, e.f2); break;
                 case FxKind.Flash: Flash(e.a, e.color, e.f1, e.f2, e.f3); break;
+                case FxKind.Number: DamageNumber(e.a, e.f1, e.n == 1, null); break;
             }
         }
 
@@ -47,6 +48,7 @@ namespace TideWall
             // Pools are static, but their objects die with the scene (restart / tests): start clean.
             tracers.Clear();
             flashes.Clear();
+            numbers.Clear();
             root = new GameObject("Fx").transform;
             if (soft == null)
             {
@@ -96,6 +98,8 @@ namespace TideWall
         static void Emit(ParticleSystem ps, Vector3 p, Vector3 v, Color c, float size, float life)
         {
             if (ps == null) return;
+            float density = Settings.Current.particleDensity;
+            if (density < 1 && Random.value > density) return;   // Graphics setting: fewer particles
             ps.Emit(new ParticleSystem.EmitParams { position = p, velocity = v, startColor = c, startSize = size, startLifetime = life }, 1);
         }
 
@@ -202,8 +206,72 @@ namespace TideWall
             flashes.Add((l, life, life, intensity));
         }
 
+        // ------------------------------------------------------------------ damage numbers (pooled world-space text)
+        static readonly List<(TextMesh t, float life, Vector3 vel)> numbers = new();
+
+        /// <summary>A number pops off the target: white for normal hits, big and yellow for weak points.</summary>
+        public static void DamageNumber(Vector3 at, float amount, bool crit, Player source)
+        {
+            if (amount < .5f) return;
+            Relay(FxKind.Number, at, default, default, amount, n: crit ? 1 : 0);
+            if (root == null || Settings.Current.damageNumbers == false) return;
+            TextMesh tm = null;
+            for (int i = 0; i < numbers.Count; i++) if (numbers[i].t != null && !numbers[i].t.gameObject.activeSelf) { tm = numbers[i].t; numbers.RemoveAt(i); break; }
+            if (tm == null)
+            {
+                if (numbers.Count > 40) return;
+                tm = new GameObject("Number").AddComponent<TextMesh>();
+                tm.transform.SetParent(root, false);
+                tm.font = Ui.Font; tm.anchor = TextAnchor.MiddleCenter; tm.fontSize = 120;
+                tm.GetComponent<MeshRenderer>().sharedMaterial = Ui.Font.material;
+            }
+            tm.gameObject.SetActive(true);
+            tm.text = Mathf.RoundToInt(amount).ToString() + (crit ? "!" : "");
+            tm.color = crit ? new Color(1f, .85f, .2f) : Color.white;
+            tm.characterSize = crit ? .026f : .018f;
+            tm.transform.position = at + Random.insideUnitSphere * .2f;
+            numbers.Add((tm, .8f, new Vector3(Random.Range(-.6f, .6f), 2.4f, Random.Range(-.6f, .6f))));
+        }
+
+        /// <summary>A spent shell flips out of a gun (not sent online: every machine makes its own).</summary>
+        public static void Casing(Vector3 at, Vector3 right)
+        {
+            Emit(debris, at, right * Random.Range(2f, 3.5f) + Vector3.up * Random.Range(1.5f, 2.5f), new Color(.85f, .7f, .3f), .05f, .6f);
+        }
+
+        /// <summary>A glint trailing flying loot (local only).</summary>
+        public static void Sparkle(Vector3 at, bool pearl)
+        {
+            Emit(sparks, at + R(.1f), R(.4f), pearl ? new Color(1f, .85f, .35f) : new Color(1f, .95f, .8f), .07f, .25f);
+        }
+
+        /// <summary>Spray blown off a breaking wave's lip (local only).</summary>
+        public static void Spray(Vector3 at)
+        {
+            Emit(splash, at + R(.3f), new Vector3(Random.Range(-.6f, .6f), Random.Range(1.2f, 2.6f), Random.Range(-1.6f, -.4f)), new Color(.92f, .97f, 1, .8f), Random.Range(.1f, .2f), Random.Range(.5f, .8f));
+        }
+
+        static void TickNumbers(float dt)
+        {
+            var cam = Camera.main != null ? Camera.main : GameManager.I != null ? GameManager.I.Players.FirstViewCamera(null) : null;
+            for (int i = 0; i < numbers.Count; i++)
+            {
+                var (t, life, vel) = numbers[i];
+                if (t == null || !t.gameObject.activeSelf) continue;
+                life -= dt;
+                if (life <= 0) { t.gameObject.SetActive(false); numbers[i] = (t, 0, vel); continue; }
+                vel += Vector3.down * 5 * dt;
+                t.transform.position += vel * dt;
+                if (cam != null) t.transform.rotation = Quaternion.LookRotation(t.transform.position - cam.transform.position);
+                var c = t.color; c.a = Mathf.Clamp01(life / .3f); t.color = c;
+                numbers[i] = (t, life, vel);
+            }
+        }
+
         public static void Tick(float dt)
         {
+            numbers.RemoveAll(n => n.t == null);
+            TickNumbers(dt);
             tracers.RemoveAll(t => t.lr == null);
             flashes.RemoveAll(f => f.l == null);
             for (int i = 0; i < tracers.Count; i++)

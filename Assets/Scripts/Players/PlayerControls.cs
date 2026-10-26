@@ -10,14 +10,14 @@ using UnityEngine.InputSystem;
 namespace TideWall
 {
     /// <summary>The buttons gameplay reads. Order matters: it's also the bit order of network input packets.</summary>
-    public enum Btn { Fire, Melee, Interact, Back, Reload, Swap, Dash, Pause, View, Stats }
+    public enum Btn { Fire, Melee, Interact, Back, Reload, Swap, Dash, Pause, View, Stats, Build }
 
     public class PlayerControls : IDisposable
     {
         public const string KeyboardGroup = "Keyboard", GamepadGroup = "Gamepad";
 
         public readonly InputActionMap Map;
-        public readonly InputAction Move, Aim, Look, Point;
+        public readonly InputAction Move, Aim, Look, Point, MenuNav;
         readonly InputAction[] buttons;
         public readonly InputDevice[] Devices;
         public bool UsesMouse { get; }
@@ -28,7 +28,7 @@ namespace TideWall
         {
             ("Move", "up", "Move forward"), ("Move", "down", "Move back"), ("Move", "left", "Move left"), ("Move", "right", "Move right"),
             ("Fire", "", "Shoot / throw"), ("Melee", "", "Melee"), ("Interact", "", "Interact"), ("Dash", "", "Dash"),
-            ("Reload", "", "Reload"), ("Swap", "", "Swap gun"), ("View", "", "Switch view"), ("Stats", "", "Stats, mods and tidal cards"),
+            ("Reload", "", "Reload"), ("Swap", "", "Swap gun"), ("View", "", "Switch view"), ("Stats", "", "Stats, mods and tidal cards"), ("Build", "", "Build defences"),
             ("Back", "", "Back / close menu"), ("Pause", "", "Pause"),
         };
 
@@ -36,7 +36,7 @@ namespace TideWall
         {
             Devices = devices;
             UsesMouse = Array.Exists(devices, d => d is Mouse || d is Keyboard);
-            Map = Build(out Move, out Aim, out Look, out Point, out buttons);
+            Map = Build(out Move, out Aim, out Look, out Point, out MenuNav, out buttons);
             ApplyOverrides(Map);
             Map.devices = devices;
             Map.Enable();
@@ -44,16 +44,20 @@ namespace TideWall
         }
 
         /// <summary>The default bindings. Also used (without devices) as the template the rebinding UI edits.</summary>
-        public static InputActionMap Build(out InputAction move, out InputAction aim, out InputAction look, out InputAction point, out InputAction[] buttons)
+        public static InputActionMap Build(out InputAction move, out InputAction aim, out InputAction look, out InputAction point, out InputAction menuNav, out InputAction[] buttons)
         {
             var map = new InputActionMap("Player");
             move = map.AddAction("Move", InputActionType.Value, expectedControlLayout: "Vector2");
             move.AddBinding("<Gamepad>/leftStick", groups: GamepadGroup);
-            move.AddBinding("<Gamepad>/dpad", groups: GamepadGroup);
             move.AddBinding("<Joystick>/stick", groups: GamepadGroup);
             move.AddCompositeBinding("2DVector").With("Up", "<Keyboard>/w", KeyboardGroup).With("Down", "<Keyboard>/s", KeyboardGroup)
                 .With("Left", "<Keyboard>/a", KeyboardGroup).With("Right", "<Keyboard>/d", KeyboardGroup);
-            move.AddCompositeBinding("2DVector").With("Up", "<Keyboard>/upArrow", KeyboardGroup).With("Down", "<Keyboard>/downArrow", KeyboardGroup)
+
+            // Menus are driven by the d-pad / arrow keys (and the mouse wheel), so you can keep walking with a menu open
+            menuNav = map.AddAction("MenuNav", InputActionType.Value, expectedControlLayout: "Vector2");
+            menuNav.AddBinding("<Gamepad>/dpad", groups: GamepadGroup);
+            menuNav.AddBinding("<Joystick>/hat", groups: GamepadGroup);
+            menuNav.AddCompositeBinding("2DVector").With("Up", "<Keyboard>/upArrow", KeyboardGroup).With("Down", "<Keyboard>/downArrow", KeyboardGroup)
                 .With("Left", "<Keyboard>/leftArrow", KeyboardGroup).With("Right", "<Keyboard>/rightArrow", KeyboardGroup);
 
             aim = map.AddAction("Aim", InputActionType.Value, expectedControlLayout: "Vector2");      // right stick: look (first person) or aim (top-down)
@@ -74,6 +78,7 @@ namespace TideWall
             buttons[(int)Btn.Pause] = Button(map, "Pause", new[] { "<Gamepad>/start", "<Joystick>/button8" }, new[] { "<Keyboard>/escape", "<Keyboard>/p" });
             buttons[(int)Btn.View] = Button(map, "View", new[] { "<Gamepad>/rightStickPress" }, new[] { "<Keyboard>/v" });
             buttons[(int)Btn.Stats] = Button(map, "Stats", new[] { "<Gamepad>/select", "<Joystick>/button9" }, new[] { "<Keyboard>/tab", "<Keyboard>/c" });
+            buttons[(int)Btn.Build] = Button(map, "Build", new[] { "<Gamepad>/dpad/down", "<Joystick>/button10" }, new[] { "<Keyboard>/b" });
             return map;
         }
 
@@ -86,6 +91,14 @@ namespace TideWall
         }
 
         public bool Held(Btn b) => buttons[(int)b].IsPressed();
+
+        /// <summary>Menu navigation this frame: d-pad / arrows, plus the mouse wheel for up and down.</summary>
+        public Vector2 Nav()
+        {
+            var v = MenuNav.ReadValue<Vector2>();
+            if (UsesMouse && Mouse.current != null) { float w = Mouse.current.scroll.ReadValue().y; if (Mathf.Abs(w) > .1f) v.y = Mathf.Sign(w); }
+            return v;
+        }
         public bool Pressed(Btn b) => buttons[(int)b].WasPressedThisFrame();
 
         // ------------------------------------------------------------------ rebinding support
