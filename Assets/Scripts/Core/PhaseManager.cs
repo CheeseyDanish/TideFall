@@ -19,6 +19,7 @@ namespace TideWall
 
         const float BlendSeconds = 4f;
         PhaseDefinition from;
+        float baseFog, cardFog;
         float blend = 1;
         GameManager gm;
 
@@ -52,6 +53,7 @@ namespace TideWall
             gm.Players.OnPhaseStart(Current);
             gm.Banner($"{Current.displayName.ToUpperInvariant()} · DAY {Day}", Current.subtitle);
             Sfx.Play(Current.waves > 0 ? "horn" : "bell");
+            if (Current.tidalDraft) gm.Cards.OfferDraft();
             if (Current.saveOnStart && gm.SaveNow()) gm.Banner($"{Current.displayName.ToUpperInvariant()} · DAY {Day}", $"{Current.subtitle}\n<size=14>Game saved (slot {gm.SaveSlot})</size>");
             OnPhaseStart?.Invoke(Current);
         }
@@ -73,6 +75,9 @@ namespace TideWall
         {
             if (Current == null) return;
             if (blend < 1) { blend = Mathf.Min(1, blend + Time.deltaTime / BlendSeconds); ApplyLook(blend); }
+            // Tidal cards can thicken the fog (Fog Bank, Downpour)
+            cardFog = Mathf.MoveTowards(cardFog, gm.Cards.Fog, Time.deltaTime * .01f);
+            RenderSettings.fogDensity = baseFog + cardFog;
             if (gm.State != GameState.Playing || Net.IsClient) return;
             Elapsed += Time.deltaTime;
             if (ShouldEnd()) Advance();
@@ -91,6 +96,7 @@ namespace TideWall
 
         public void Advance()
         {
+            if (Current.waves > 0) gm.Cards.WaveFinished();   // the phase's last wave is over
             if (Current.advancesDay) Day++;
             Enter(Index + 1);
         }
@@ -109,7 +115,9 @@ namespace TideWall
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
             RenderSettings.fogColor = Color.Lerp(a.fogColor, b.fogColor, k);
-            RenderSettings.fogDensity = Mathf.Lerp(a.fogDensity, b.fogDensity, k);
+            baseFog = Mathf.Lerp(a.fogDensity, b.fogDensity, k);
+            RenderSettings.fogDensity = baseFog + cardFog;
+            gm.World.SetSky(Color.Lerp(a.skyColor, b.skyColor, k), Mathf.Lerp(a.sunIntensity, b.sunIntensity, k));
             gm.World.SetNightLights(Mathf.Lerp(a.torchesLit ? 1 : 0, b.torchesLit ? 1 : 0, k), Mathf.Lerp(a.lanterns ? 1 : 0, b.lanterns ? 1 : 0, k));
         }
 

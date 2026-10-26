@@ -263,7 +263,22 @@ namespace TideWall
             // Shared parts, built once
             var shared = new BinaryWriter(new MemoryStream(1024));
             shared.Write((byte)gm.State); shared.Write(gm.Phases.Index); shared.Write(gm.Phases.Day); shared.Write(gm.Phases.Elapsed);
-            shared.Write(gm.Coins); shared.Write(gm.Wall.Hp); shared.Write(gm.Wall.MaxHp);
+            shared.Write(gm.SandDollars);
+            shared.Write((byte)gm.Wall.Sections.Count);
+            foreach (var sec in gm.Wall.Sections) { shared.Write(sec.hp); shared.Write(sec.max); }
+            shared.Write(gm.Plant.Hp); shared.Write(gm.Plant.MaxHp);
+            // Tidal cards: the active ones, and any vote in progress
+            shared.Write((byte)gm.Cards.Actives.Count);
+            foreach (var a in gm.Cards.Actives) { shared.Write(a.def.id); shared.Write((byte)a.wavesLeft); }
+            var draft = gm.Cards.Draft;
+            shared.Write((byte)(draft?.Count ?? 0));
+            if (draft != null)
+            {
+                foreach (var c in draft) shared.Write(c.id);
+                shared.Write(gm.Cards.DraftLeft);
+                shared.Write((byte)gm.Cards.Votes.Count);
+                foreach (var kv in gm.Cards.Votes) { shared.Write((byte)kv.Key); shared.Write((byte)kv.Value); }
+            }
             shared.Write(gm.Waves.Wave); shared.Write(gm.Waves.WaveCount); shared.Write(gm.EnemiesLeft);
             shared.Write((byte)gm.Players.Count);
             foreach (var p in gm.Players.All) NetPlayerState.From(p).Write(shared);

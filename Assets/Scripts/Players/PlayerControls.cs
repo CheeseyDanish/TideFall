@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 namespace TideWall
 {
     /// <summary>The buttons gameplay reads. Order matters: it's also the bit order of network input packets.</summary>
-    public enum Btn { Fire, Melee, Interact, Back, Reload, Swap, Dash, Pause, View }
+    public enum Btn { Fire, Melee, Interact, Back, Reload, Swap, Dash, Pause, View, Stats }
 
     public class PlayerControls : IDisposable
     {
@@ -28,7 +28,7 @@ namespace TideWall
         {
             ("Move", "up", "Move forward"), ("Move", "down", "Move back"), ("Move", "left", "Move left"), ("Move", "right", "Move right"),
             ("Fire", "", "Shoot / throw"), ("Melee", "", "Melee"), ("Interact", "", "Interact"), ("Dash", "", "Dash"),
-            ("Reload", "", "Reload"), ("Swap", "", "Swap gun"), ("View", "", "Switch view"),
+            ("Reload", "", "Reload"), ("Swap", "", "Swap gun"), ("View", "", "Switch view"), ("Stats", "", "Stats, mods and tidal cards"),
             ("Back", "", "Back / close menu"), ("Pause", "", "Pause"),
         };
 
@@ -67,12 +67,13 @@ namespace TideWall
             buttons[(int)Btn.Fire] = Button(map, "Fire", new[] { "<Gamepad>/rightTrigger", "<Joystick>/trigger" }, new[] { "<Mouse>/leftButton" });
             buttons[(int)Btn.Melee] = Button(map, "Melee", new[] { "<Gamepad>/rightShoulder", "<Joystick>/button3" }, new[] { "<Mouse>/rightButton", "<Keyboard>/f" });
             buttons[(int)Btn.Interact] = Button(map, "Interact", new[] { "<Gamepad>/buttonSouth", "<Joystick>/button2" }, new[] { "<Keyboard>/e", "<Keyboard>/enter" });
-            buttons[(int)Btn.Back] = Button(map, "Back", new[] { "<Gamepad>/buttonEast", "<Joystick>/button4" }, new[] { "<Keyboard>/backspace", "<Keyboard>/tab" });
+            buttons[(int)Btn.Back] = Button(map, "Back", new[] { "<Gamepad>/buttonEast", "<Joystick>/button4" }, new[] { "<Keyboard>/backspace" });
             buttons[(int)Btn.Reload] = Button(map, "Reload", new[] { "<Gamepad>/buttonWest", "<Joystick>/button5" }, new[] { "<Keyboard>/r" });
             buttons[(int)Btn.Swap] = Button(map, "Swap", new[] { "<Gamepad>/buttonNorth", "<Joystick>/button6" }, new[] { "<Keyboard>/q", "<Mouse>/middleButton" });
             buttons[(int)Btn.Dash] = Button(map, "Dash", new[] { "<Gamepad>/leftShoulder", "<Gamepad>/leftTrigger", "<Joystick>/button7" }, new[] { "<Keyboard>/space", "<Keyboard>/leftShift" });
             buttons[(int)Btn.Pause] = Button(map, "Pause", new[] { "<Gamepad>/start", "<Joystick>/button8" }, new[] { "<Keyboard>/escape", "<Keyboard>/p" });
-            buttons[(int)Btn.View] = Button(map, "View", new[] { "<Gamepad>/rightStickPress", "<Gamepad>/select" }, new[] { "<Keyboard>/v" });
+            buttons[(int)Btn.View] = Button(map, "View", new[] { "<Gamepad>/rightStickPress" }, new[] { "<Keyboard>/v" });
+            buttons[(int)Btn.Stats] = Button(map, "Stats", new[] { "<Gamepad>/select", "<Joystick>/button9" }, new[] { "<Keyboard>/tab", "<Keyboard>/c" });
             return map;
         }
 

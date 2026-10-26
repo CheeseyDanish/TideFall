@@ -1,8 +1,8 @@
 // TideWall 3D — the shape of the playfield. Unity axes: +X along the shore, +Z out to sea, +Y up.
 //
-//   z  -24 ........ -2 | 0 | ......... 16 .... 20 ............ 60
-//      town (shop,      wall  dry beach      wet sand  sea (seabed slopes down;
-//      stand, bell)                                      enemies spawn ~z 48-56)
+//   z  -38 ... -24 ......... -2 | 0 | ........................ 34 ... 40 ....................... 100+
+//      keep   town (plant,       wall  dry beach (twice the old  wet    sea (seabed slopes down;
+//             shop, stand, bell)       size: 88 m wide, 40 deep) sand   breakers roll in from ~z 100)
 using UnityEngine;
 
 namespace TideWall
@@ -10,18 +10,19 @@ namespace TideWall
     public static class Arena
     {
         public const float WallZ = 0f;              // centre line of the wall
-        public const float WallFront = .6f;         // enemies stop here (+ their radius)
-        public const float WallHalfLength = 24f;    // segments span x = -24..24
+        public const float WallFront = .6f;         // enemies stop here (+ their radius) unless a section is breached
+        public const float WallHalfLength = 44f;    // sections span x = -44..44
         public const float SegmentLength = 4f;
-        public static readonly float[] GapCentres = { -10f, 10f };   // sally ports players can walk through
-        public const float ShoreZ = 20f;            // water line (ground dips below y = 0 here)
+        public static readonly float[] GapCentres = { -22f, 22f };   // sally ports: players walk through, creatures can't
+        public const float ShoreZ = 40f;            // water line (ground dips below y = 0 here)
         public const float WaterLevel = 0f;
         public const float TownMinZ = -23f;
-        public const float BoundX = 27f, MinZ = -23f, MaxZ = 31f;   // where players can walk
-        public const float SpawnMinZ = 46f, SpawnMaxZ = 56f;
+        public const float BoundX = 50f, MinZ = -23f, MaxZ = 54f;   // where players can walk
+        public static readonly Vector3 PlantPos = new(17, 0, -15);  // the Nuclear Sand Powerplant (east side of town, clear of the keep's window)
+        public const float PlantRadius = 5.5f;
 
         /// <summary>Ground height: flat sand and town, then the seabed sloping away from the shore.</summary>
-        public static float GroundY(float z) => z <= ShoreZ ? 0f : Mathf.Max(-5f, -(z - ShoreZ) * .12f);
+        public static float GroundY(float z) => z <= ShoreZ ? 0f : Mathf.Max(-6f, -(z - ShoreZ) * .12f);
 
         public static bool InWater(Vector3 p) => p.z > ShoreZ && GroundY(p.z) < WaterLevel - .05f;
 
@@ -33,6 +34,9 @@ namespace TideWall
             foreach (var g in GapCentres) if (Mathf.Abs(x - g) < SegmentLength / 2) return true;
             return false;
         }
+
+        /// <summary>Inside the walls (town side)?</summary>
+        public static bool Inside(Vector3 p) => p.z < WallZ - .4f;
 
         /// <summary>The spot on the wall an enemy at x should attack (gaps redirect to the nearest stone).</summary>
         public static Vector3 WallTarget(float x, float radius)

@@ -1,6 +1,8 @@
 // TideWall 3D — turns a phase's wave settings into spawns. The day's budget (GameDatabase.Budget) is spent on
 // packs of enemies, split into waves. Same rule as the 2D game: once half of the current wave is dead, the next
 // wave arrives a few seconds later instead of at its planned time.
+// Creatures arrive riding breakers: spawns due within a moment of each other share one wave rolling in from sea.
+// Active tidal cards scale the numbers (budget) as spawns come due, and count down as waves finish.
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -92,22 +94,51 @@ namespace TideWall
                 {
                     bool wasRushed = rushed[wave];
                     wave++; waveClock = 0; nextWaveIn = slice + gm.DB.waveGap;
+                    gm.Cards.WaveFinished();
                     gm.Banner($"WAVE {wave + 1}/{waveCount}", wasRushed ? "Half the last wave fell. The next one rushes in!" : "The tide brings more.");
                     Sfx.Play("horn");
                 }
             }
         }
 
+        Breaker forming;
+
         void Spawn(Entry e)
         {
-            var def = e.def;
-            float x = Random.Range(-Arena.WallHalfLength + 2, Arena.WallHalfLength - 2);
-            float z = Random.Range(Arena.SpawnMinZ, Arena.SpawnMaxZ);
-            var pos = def.behaviour == EnemyBehaviour.Flyer ? new Vector3(x, 8, 36) : new Vector3(x, Arena.GroundY(z), z);
-            if (e.boss) pos = new Vector3(0, Arena.GroundY(40), 40);
-            var en = Enemy.Spawn(def, pos, day, e.boss ? -1 : e.wave);
+            // Tidal cards: fewer creatures (some never come) or more (some bring a friend)
+            float budget = gm.Cards.Budget;
+            if (!e.boss && budget < 1 && Random.value > budget) { if (e.wave >= 0 && e.wave < killed.Length) killed[e.wave]++; return; }
+            SpawnOne(e.def, e.boss, e.wave);
+            if (!e.boss && budget > 1 && Random.value < budget - 1)
+            {
+                if (e.wave >= 0 && e.wave < totals.Length) totals[e.wave]++;
+                SpawnOne(e.def, false, e.wave);
+            }
+        }
+
+        void SpawnOne(EnemyDef def, bool boss, int waveIndex)
+        {
+            var db = gm.DB;
+            if (def.behaviour == EnemyBehaviour.Flyer)
+            {
+                // Gulls come in low over the water on their own
+                Enemy.Spawn(def, new Vector3(Random.Range(-Arena.WallHalfLength, Arena.WallHalfLength), 9, Arena.ShoreZ + 30), day, waveIndex);
+                Alive++;
+                return;
+            }
+            // Everyone else rides a breaker in. Join the one forming, or start a new one.
+            float releaseZ = Arena.ShoreZ + 1 - gm.Cards.BreakerReach;
+            if (boss || forming == null || forming.Broken || Time.time - forming.BornAt > db.breakerGroupSeconds || forming.Riders >= 8)
+            {
+                float width = boss ? 20 : Random.Range(12f, 20f);
+                float x = Random.Range(-Arena.WallHalfLength + width / 2, Arena.WallHalfLength - width / 2);
+                forming = Breaker.Launch(boss ? 0 : x, width, db.breakerStartZ, releaseZ, db.breakerSpeed);
+            }
+            float dx = Random.Range(-forming.Width / 2 + 1, forming.Width / 2 - 1), dz = Random.Range(-.3f, 1.2f);
+            var en = Enemy.Spawn(def, forming.RiderPosition(dx, dz), day, boss ? -1 : waveIndex);
+            forming.Carry(en, dx, dz);
             Alive++;
-            if (e.boss) gm.Banner(def.displayName.ToUpperInvariant() + " RISES", "Everyone on the wall!");
+            if (boss) { gm.Banner(def.displayName.ToUpperInvariant() + " RISES", "It's riding in on a monster wave. Everyone to the wall!"); forming = null; }
         }
 
         /// <summary>Spawn an extra enemy that isn't part of the plan (boss summons, tests). It still has to die to clear the phase.</summary>

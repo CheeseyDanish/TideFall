@@ -31,6 +31,7 @@ MonoBehaviour:
     corpseValue: 8
     cost: 1
     minDay: 1
+    xp: 0
     limbs:
     - part: ClawL
       hpFraction: 0.35
@@ -62,6 +63,7 @@ MonoBehaviour:
     corpseValue: 14
     cost: 2
     minDay: 1
+    xp: 0
     limbs:
     - part: ArmL
       hpFraction: 0.3
@@ -101,6 +103,7 @@ MonoBehaviour:
     corpseValue: 6
     cost: 2
     minDay: 1
+    xp: 0
     limbs:
     - part: WingL
       hpFraction: 0.3
@@ -128,6 +131,7 @@ MonoBehaviour:
     corpseValue: 15
     cost: 2
     minDay: 2
+    xp: 0
     limbs:
     - part: Shell
       hpFraction: 0.6
@@ -163,6 +167,7 @@ MonoBehaviour:
     corpseValue: 10
     cost: 3
     minDay: 2
+    xp: 0
     limbs: []
   - id: urchin
     displayName: Sea Urchin
@@ -182,6 +187,7 @@ MonoBehaviour:
     corpseValue: 12
     cost: 2
     minDay: 2
+    xp: 0
     limbs: []
   - id: jelly
     displayName: Jellyfish
@@ -201,6 +207,7 @@ MonoBehaviour:
     corpseValue: 10
     cost: 2
     minDay: 2
+    xp: 0
     limbs:
     - part: Tent1
       hpFraction: 0.2
@@ -236,6 +243,7 @@ MonoBehaviour:
     corpseValue: 45
     cost: 6
     minDay: 2
+    xp: 0
     limbs:
     - part: Fin
       hpFraction: 0.3
@@ -263,6 +271,7 @@ MonoBehaviour:
     corpseValue: 12
     cost: 2
     minDay: 3
+    xp: 0
     limbs:
     - part: Head
       hpFraction: 0.35
@@ -290,6 +299,7 @@ MonoBehaviour:
     corpseValue: 25
     cost: 5
     minDay: 3
+    xp: 0
     limbs:
     - part: Head
       hpFraction: 0.3
@@ -313,6 +323,7 @@ MonoBehaviour:
     corpseValue: 60
     cost: 8
     minDay: 4
+    xp: 0
     limbs:
     - part: Head
       hpFraction: 0.35
@@ -340,6 +351,7 @@ MonoBehaviour:
     corpseValue: 35
     cost: 6
     minDay: 4
+    xp: 0
     limbs:
     - part: Tent1
       hpFraction: 0.18
@@ -383,6 +395,7 @@ MonoBehaviour:
     corpseValue: 40
     cost: 10
     minDay: 5
+    xp: 0
     limbs:
     - part: ClawL
       hpFraction: 0.3
@@ -414,6 +427,7 @@ MonoBehaviour:
     corpseValue: 300
     cost: 0
     minDay: 5
+    xp: 0
     limbs: []
   guns:
   - id: revolver
@@ -432,6 +446,8 @@ MonoBehaviour:
     magazine: 6
     pierce: 0
     element: 0
+    lifesteal: 0
+    limbBonus: 0
   - id: scattergun
     displayName: Scattergun
     model: Scattergun
@@ -448,6 +464,8 @@ MonoBehaviour:
     magazine: 6
     pierce: 0
     element: 0
+    lifesteal: 0
+    limbBonus: 0
   - id: harpoon
     displayName: Harpoon Gun
     model: HarpoonGun
@@ -464,6 +482,8 @@ MonoBehaviour:
     magazine: 3
     pierce: 99
     element: 0
+    lifesteal: 0
+    limbBonus: 0
   - id: flare
     displayName: Flare Gun
     model: FlareGun
@@ -480,6 +500,8 @@ MonoBehaviour:
     magazine: 4
     pierce: 0
     element: 1
+    lifesteal: 0
+    limbBonus: 0
   melee:
   - id: spade
     displayName: Beach Spade
@@ -494,6 +516,8 @@ MonoBehaviour:
     stun: 0
     pull: 0
     element: 0
+    lifesteal: 0
+    limbBonus: 0
   - id: cutlass
     displayName: Cutlass
     model: Cutlass
@@ -507,6 +531,8 @@ MonoBehaviour:
     stun: 0
     pull: 0
     element: 0
+    lifesteal: 0
+    limbBonus: 0
   - id: oar
     displayName: Oar
     model: Oar
@@ -520,6 +546,8 @@ MonoBehaviour:
     stun: 0
     pull: 0
     element: 0
+    lifesteal: 0
+    limbBonus: 0
   - id: boathook
     displayName: Boat Hook
     model: BoatHook
@@ -534,6 +562,8 @@ MonoBehaviour:
     stun: 0
     pull: 3
     element: 2
+    lifesteal: 0
+    limbBonus: 0
   - id: anchor
     displayName: Anchor
     model: Anchor
@@ -547,6 +577,8 @@ MonoBehaviour:
     stun: 1
     pull: 0
     element: 0
+    lifesteal: 0
+    limbBonus: 0
   foods:
   - id: hotdog
     displayName: Hotdog
@@ -628,19 +660,35 @@ MonoBehaviour:
   upgrades:
   - id: repair
     displayName: Repair Wall
-    description: Restore 30% of the wall.
+    description: Restore 40% of every wall section, and rebuild breached ones.
     kind: 0
     price: 40
     priceGrowth: 1
     maxLevel: 0
-    amount: 0.3
+    amount: 0.4
   - id: reinforce
     displayName: Reinforce Wall
-    description: +20% wall max HP.
+    description: +20% HP for every wall section.
     kind: 1
     price: 80
     priceGrowth: 1.5
     maxLevel: 8
+    amount: 0.2
+  - id: coolcore
+    displayName: Cool the Core
+    description: 'Pour sea water on the reactor: +25% powerplant HP.'
+    kind: 7
+    price: 60
+    priceGrowth: 1.15
+    maxLevel: 0
+    amount: 0.25
+  - id: leadlining
+    displayName: Lead Lining
+    description: +20% powerplant max HP.
+    kind: 8
+    price: 120
+    priceGrowth: 1.5
+    maxLevel: 6
     amount: 0.2
   - id: vitality
     displayName: Sea Legs
@@ -682,6 +730,757 @@ MonoBehaviour:
     priceGrowth: 1.6
     maxLevel: 4
     amount: 2
+  stats:
+  - id: vigor
+    displayName: Vigor
+    description: +12 max HP per point.
+    kind: 0
+    perPoint: 12
+    maxPoints: 10
+  - id: brawn
+    displayName: Brawn
+    description: +8% melee damage per point.
+    kind: 1
+    perPoint: 0.08
+    maxPoints: 10
+  - id: aim
+    displayName: Aim
+    description: +6% gun damage per point.
+    kind: 2
+    perPoint: 0.06
+    maxPoints: 10
+  - id: swift
+    displayName: Swiftness
+    description: +4% move speed and faster dashes per point.
+    kind: 3
+    perPoint: 0.04
+    maxPoints: 10
+  - id: hands
+    displayName: Quick Hands
+    description: +7% reload speed and +3.5% fire rate per point.
+    kind: 4
+    perPoint: 0.07
+    maxPoints: 10
+  - id: fortune
+    displayName: Fortune
+    description: +8% sand dollars you pick up and +4% XP per point.
+    kind: 5
+    perPoint: 0.08
+    maxPoints: 10
+  mods:
+  - id: extmag
+    displayName: Extended Mag
+    description: +50% magazine.
+    gun: 1
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1.5
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: hairtrigger
+    displayName: Hair Trigger
+    description: +25% fire rate.
+    gun: 1
+    damage: 1
+    fireRate: 1.25
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: speedloader
+    displayName: Speed Loader
+    description: Reloads 30% faster.
+    gun: 1
+    damage: 1
+    fireRate: 1
+    reload: 0.7
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: barbed
+    displayName: Barbed Rounds
+    description: Shots pierce one more creature.
+    gun: 1
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 1
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: incendiary
+    displayName: Incendiary Rounds
+    description: Shots set dry targets alight.
+    gun: 1
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 1
+    element: 1
+  - id: livewire
+    displayName: Live Wire
+    description: Shots shock (x1.5 and chain on wet targets).
+    gun: 1
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 1
+    element: 2
+  - id: blastcaps
+    displayName: Blast Caps
+    description: Shots burst in a small splash.
+    gun: 1
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 1.5
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: slugs
+    displayName: Heavy Slugs
+    description: +30% damage, -15% fire rate.
+    gun: 1
+    damage: 1.3
+    fireRate: 0.85
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: leech
+    displayName: Leech Rounds
+    description: Heal 8% of the damage you deal.
+    gun: 1
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0.08
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: buckshot
+    displayName: Buckshot
+    description: +2 pellets per shot, a little wider.
+    gun: 1
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 4
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 2
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: serrated
+    displayName: Serrated Edge
+    description: +60% damage to limbs.
+    gun: 0
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0.6
+    setElement: 0
+    element: 0
+  - id: barnacles
+    displayName: Barnacle-Crusted
+    description: Hits stun for half a second.
+    gun: 0
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0.5
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: riptide
+    displayName: Riptide Edge
+    description: Hits knock creatures back hard.
+    gun: 0
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 4
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: longhandle
+    displayName: Long Handle
+    description: +30% reach.
+    gun: 0
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1.3
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: wideswing
+    displayName: Wide Swing
+    description: +35% swing arc.
+    gun: 0
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1.35
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: heavyhead
+    displayName: Heavy Head
+    description: +35% damage, swings 20% slower.
+    gun: 0
+    damage: 1.35
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1.2
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: eelgrip
+    displayName: Eel-Skin Grip
+    description: Swings 25% faster.
+    gun: 0
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 0.75
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: jellycoil
+    displayName: Jellyfish Coil
+    description: Swings shock (great on wet creatures).
+    gun: 0
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0
+    limbBonus: 0
+    setElement: 1
+    element: 2
+  - id: vampsquid
+    displayName: Vampire Squid
+    description: Heal 12% of the melee damage you deal.
+    gun: 0
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    arc: 1
+    cooldown: 1
+    spread: 0
+    splash: 0
+    knockback: 0
+    stun: 0
+    pierce: 0
+    pellets: 0
+    lifesteal: 0.12
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  cards:
+  - id: redtide
+    displayName: Red Tide
+    description: Creatures +40% HP. Sand dollars +60%.
+    waves: 3
+    exclusive: 0
+    weight: 1
+    color: {r: 0.85, g: 0.2, b: 0.2, a: 1}
+    enemyHp: 1.4
+    enemySpeed: 1
+    enemyDamage: 1
+    budget: 1
+    sandDollars: 1.6
+    xp: 1
+    playerDamage: 1
+    playerSpeed: 1
+    playerMaxHp: 1
+    corpseValue: 1
+    alwaysWet: 0
+    fogDensity: 0
+    breakerReach: 0
+    sandDollarLifetime: 0
+    special: 
+  - id: kingtide
+    displayName: King Tide
+    description: Breakers carry creatures far up the beach. +50% XP.
+    waves: 2
+    exclusive: 0
+    weight: 1
+    color: {r: 0.2, g: 0.5, b: 0.95, a: 1}
+    enemyHp: 1
+    enemySpeed: 1
+    enemyDamage: 1
+    budget: 1
+    sandDollars: 1
+    xp: 1.5
+    playerDamage: 1
+    playerSpeed: 1
+    playerMaxHp: 1
+    corpseValue: 1
+    alwaysWet: 0
+    fogDensity: 0
+    breakerReach: 14
+    sandDollarLifetime: 0
+    special: 
+  - id: riptide
+    displayName: Riptide
+    description: Creatures 25% faster. You're 15% faster too.
+    waves: 3
+    exclusive: 0
+    weight: 1
+    color: {r: 0.2, g: 0.75, b: 0.8, a: 1}
+    enemyHp: 1
+    enemySpeed: 1.25
+    enemyDamage: 1
+    budget: 1
+    sandDollars: 1
+    xp: 1
+    playerDamage: 1
+    playerSpeed: 1.15
+    playerMaxHp: 1
+    corpseValue: 1
+    alwaysWet: 0
+    fogDensity: 0
+    breakerReach: 0
+    sandDollarLifetime: 0
+    special: 
+  - id: downpour
+    displayName: Downpour
+    description: 'Everything stays soaked: shock hits hard, fire fizzles. Sand dollars
+      +30%.'
+    waves: 3
+    exclusive: 0
+    weight: 1
+    color: {r: 0.45, g: 0.55, b: 0.7, a: 1}
+    enemyHp: 1
+    enemySpeed: 1
+    enemyDamage: 1
+    budget: 1
+    sandDollars: 1.3
+    xp: 1
+    playerDamage: 1
+    playerSpeed: 1
+    playerMaxHp: 1
+    corpseValue: 1
+    alwaysWet: 1
+    fogDensity: 0.004
+    breakerReach: 0
+    sandDollarLifetime: 0
+    special: 
+  - id: fogbank
+    displayName: Fog Bank
+    description: Thick fog rolls in. Creatures -20% HP.
+    waves: 2
+    exclusive: 0
+    weight: 1
+    color: {r: 0.7, g: 0.72, b: 0.75, a: 1}
+    enemyHp: 0.8
+    enemySpeed: 1
+    enemyDamage: 1
+    budget: 1
+    sandDollars: 1
+    xp: 1
+    playerDamage: 1
+    playerSpeed: 1
+    playerMaxHp: 1
+    corpseValue: 1
+    alwaysWet: 0
+    fogDensity: 0.02
+    breakerReach: 0
+    sandDollarLifetime: 0
+    special: 
+  - id: frenzy
+    displayName: Feeding Frenzy
+    description: 30% more creatures. Corpses sell for 50% more.
+    waves: 3
+    exclusive: 0
+    weight: 1
+    color: {r: 0.6, g: 0.1, b: 0.15, a: 1}
+    enemyHp: 1
+    enemySpeed: 1
+    enemyDamage: 1
+    budget: 1.3
+    sandDollars: 1
+    xp: 1
+    playerDamage: 1
+    playerSpeed: 1
+    playerMaxHp: 1
+    corpseValue: 1.5
+    alwaysWet: 0
+    fogDensity: 0
+    breakerReach: 0
+    sandDollarLifetime: 0
+    special: 
+  - id: calm
+    displayName: Calm Waters
+    description: 30% fewer creatures, 30% less reward. The safe pick.
+    waves: 2
+    exclusive: 0
+    weight: 1
+    color: {r: 0.5, g: 0.85, b: 0.7, a: 1}
+    enemyHp: 1
+    enemySpeed: 1
+    enemyDamage: 1
+    budget: 0.7
+    sandDollars: 0.7
+    xp: 0.7
+    playerDamage: 1
+    playerSpeed: 1
+    playerMaxHp: 1
+    corpseValue: 1
+    alwaysWet: 0
+    fogDensity: 0
+    breakerReach: 0
+    sandDollarLifetime: 0
+    special: 
+  - id: glasscannon
+    displayName: Glass Cannon
+    description: +50% damage. -40% max HP.
+    waves: 3
+    exclusive: 0
+    weight: 1
+    color: {r: 0.95, g: 0.6, b: 0.2, a: 1}
+    enemyHp: 1
+    enemySpeed: 1
+    enemyDamage: 1
+    budget: 1
+    sandDollars: 1
+    xp: 1
+    playerDamage: 1.5
+    playerSpeed: 1
+    playerMaxHp: 0.6
+    corpseValue: 1
+    alwaysWet: 0
+    fogDensity: 0
+    breakerReach: 0
+    sandDollarLifetime: 0
+    special: 
+  - id: goldrush
+    displayName: Gold Rush
+    description: Double sand dollars, but they wash away after 8 seconds.
+    waves: 2
+    exclusive: 0
+    weight: 1
+    color: {r: 0.95, g: 0.8, b: 0.2, a: 1}
+    enemyHp: 1
+    enemySpeed: 1
+    enemyDamage: 1
+    budget: 1
+    sandDollars: 2
+    xp: 1
+    playerDamage: 1
+    playerSpeed: 1
+    playerMaxHp: 1
+    corpseValue: 1
+    alwaysWet: 0
+    fogDensity: 0
+    breakerReach: 0
+    sandDollarLifetime: 8
+    special: 
+  - id: bloom
+    displayName: Plankton Bloom
+    description: Double XP. Creatures hit 20% harder.
+    waves: 3
+    exclusive: 0
+    weight: 1
+    color: {r: 0.4, g: 0.95, b: 0.6, a: 1}
+    enemyHp: 1
+    enemySpeed: 1
+    enemyDamage: 1.2
+    budget: 1
+    sandDollars: 1
+    xp: 2
+    playerDamage: 1
+    playerSpeed: 1
+    playerMaxHp: 1
+    corpseValue: 1
+    alwaysWet: 0
+    fogDensity: 0
+    breakerReach: 0
+    sandDollarLifetime: 0
+    special: 
+  - id: buddybeam
+    displayName: Buddy Beam
+    description: ONLINE ONLY. A laser links teammates playing on different computers.
+      Creatures that cross it burn. 20% more creatures.
+    waves: 3
+    exclusive: 1
+    weight: 1
+    color: {r: 0.3, g: 1, b: 1, a: 1}
+    enemyHp: 1
+    enemySpeed: 1
+    enemyDamage: 1
+    budget: 1.2
+    sandDollars: 1
+    xp: 1
+    playerDamage: 1
+    playerSpeed: 1
+    playerMaxHp: 1
+    corpseValue: 1
+    alwaysWet: 0
+    fogDensity: 0
+    breakerReach: 0
+    sandDollarLifetime: 0
+    special: buddybeam
+  - id: bottle
+    displayName: Message in a Bottle
+    description: ONLINE ONLY. Every wave, each player gets a condiment boost sent
+      by a teammate on another computer.
+    waves: 3
+    exclusive: 1
+    weight: 1
+    color: {r: 0.6, g: 0.9, b: 0.5, a: 1}
+    enemyHp: 1
+    enemySpeed: 1
+    enemyDamage: 1
+    budget: 1
+    sandDollars: 1
+    xp: 1
+    playerDamage: 1
+    playerSpeed: 1
+    playerMaxHp: 1
+    corpseValue: 1
+    alwaysWet: 0
+    fogDensity: 0
+    breakerReach: 0
+    sandDollarLifetime: 0
+    special: bottle
+  - id: screenswap
+    displayName: Screen Swap
+    description: SPLIT SCREEN ONLY. Every 20 seconds your viewports shuffle. +40%
+      damage for everyone sharing a screen.
+    waves: 2
+    exclusive: 2
+    weight: 1
+    color: {r: 0.95, g: 0.4, b: 0.9, a: 1}
+    enemyHp: 1
+    enemySpeed: 1
+    enemyDamage: 1
+    budget: 1
+    sandDollars: 1
+    xp: 1
+    playerDamage: 1
+    playerSpeed: 1
+    playerMaxHp: 1
+    corpseValue: 1
+    alwaysWet: 0
+    fogDensity: 0
+    breakerReach: 0
+    sandDollarLifetime: 0
+    special: screenswap
+  - id: snacks
+    displayName: Shared Snacks
+    description: SPLIT SCREEN ONLY. Food heals everyone on your screen, and you revive
+      each other twice as fast.
+    waves: 3
+    exclusive: 2
+    weight: 1
+    color: {r: 1, g: 0.7, b: 0.4, a: 1}
+    enemyHp: 1
+    enemySpeed: 1
+    enemyDamage: 1
+    budget: 1
+    sandDollars: 1
+    xp: 1
+    playerDamage: 1
+    playerSpeed: 1
+    playerMaxHp: 1
+    corpseValue: 1
+    alwaysWet: 0
+    fogDensity: 0
+    breakerReach: 0
+    sandDollarLifetime: 0
+    special: snacks
   playerMaxHp: 100
   playerSpeed: 5.5
   playerWaterSpeedMult: 0.6
@@ -694,8 +1493,24 @@ MonoBehaviour:
   reviveHpFraction: 0.4
   startGun: revolver
   startMelee: spade
-  startCoins: 40
-  wallMaxHp: 600
+  startSandDollars: 40
+  xpBase: 60
+  xpGrowth: 1.35
+  statPointsPerLevel: 1
+  modEveryLevels: 5
+  modChoices: 3
+  sharedXp: 0.5
+  respecPerLevel: 15
+  sandDollarLifetime: 30
+  sandDollarMagnet: 4.5
+  wallSegmentHp: 140
+  plantMaxHp: 1000
+  breakerSpeed: 9
+  breakerGroupSeconds: 1.5
+  breakerStartZ: 100
+  cardChoices: 3
+  cardVoteSeconds: 15
+  exclusiveCardChance: 0.6
   wetDrainPerSecond: 0.12
   maxDripsPerSecond: 28
   shockWetMultiplier: 1.5
@@ -709,7 +1524,7 @@ MonoBehaviour:
   waveRushDelay: 3
   waveGap: 8
   sauceJackpotChance: 0.0001
-  sauceJackpotCoins: 10000
+  sauceJackpotSandDollars: 10000
   gasCanBulletChance: 0.6
   gasCanThrowChance: 0.7
   gasCanDamage: 90

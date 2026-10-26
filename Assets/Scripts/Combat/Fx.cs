@@ -120,6 +120,13 @@ namespace TideWall
             Relay(FxKind.Smoke, p, default, c ?? new Color(.55f, .55f, .58f, .6f), spread, n: n);
             for (int i = 0; i < n; i++) Emit(smoke, p + R(spread), R(.6f) + Vector3.up * .8f, c ?? new Color(.55f, .55f, .58f, .6f), Random.Range(.5f, 1.1f), Random.Range(1.1f, 1.8f));
         }
+        /// <summary>Steam from the powerplant's cooling towers. Not sent online: every machine makes its own scenery.</summary>
+        public static void Steam(Vector3 p, float danger)
+        {
+            var c = Color.Lerp(new Color(.95f, .97f, 1f, .5f), new Color(.6f, .95f, .55f, .6f), danger);
+            for (int i = 0; i < 2; i++) Emit(smoke, p + R(.6f), R(.3f) + Vector3.up * (1.6f + danger * 1.5f), c, Random.Range(1.2f, 2.2f), Random.Range(2.2f, 3.2f));
+        }
+
         public static void Fire(Vector3 p, int n = 3, float spread = .3f)
         {
             Relay(FxKind.Fire, p, default, default, spread, n: n);

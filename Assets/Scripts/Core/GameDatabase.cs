@@ -39,7 +39,13 @@ namespace TideWall
         Burning, Stunned, Grabbed,
     }
 
-    public enum UpgradeKind { RepairWall, WallMaxHp, PlayerMaxHp, GunDamage, MeleeDamage, Magazine, GasCans }
+    public enum UpgradeKind { RepairWall, WallMaxHp, PlayerMaxHp, GunDamage, MeleeDamage, Magazine, GasCans, PlantRepair, PlantMaxHp }
+
+    /// <summary>What a stat point improves (amount per point is StatDef.perPoint).</summary>
+    public enum StatKind { MaxHp, MeleeDamage, GunDamage, MoveSpeed, Handling, Fortune }
+
+    /// <summary>Tidal cards that only exist in some kinds of game. Exclusive cards have effects nothing else has.</summary>
+    public enum CardExclusive { None, Online, SplitScreen }
 
     [Serializable]
     public class LimbDef
@@ -66,7 +72,10 @@ namespace TideWall
         [Tooltip("Chases players within this many metres instead of attacking the wall")] public float aggroRange = 6f;
         [Tooltip("Damage dealt back to anyone who melees it (urchin spines)")] public float thorns;
         [Header("Economy & spawning")]
-        public int bounty = 2, corpseValue = 8, cost = 1, minDay = 1;
+        [Tooltip("Sand dollars it drops when killed")] public int bounty = 2;
+        public int corpseValue = 8, cost = 1, minDay = 1;
+        [Tooltip("XP for the killer (0 = 10 + 12 x cost)")] public int xp;
+        public int Xp => xp > 0 ? xp : 10 + 12 * cost;
         public List<LimbDef> limbs = new();
     }
 
@@ -78,6 +87,7 @@ namespace TideWall
         public float damage = 20, fireRate = 3, spreadDegrees = 2, range = 30, reload = 1.4f, knockback, splash;
         public int pellets = 1, magazine = 6, pierce;
         public Element element;
+        [Tooltip("Set by weapon mods: share of damage healed, extra limb damage")] public float lifesteal, limbBonus;
     }
 
     [Serializable]
@@ -87,6 +97,7 @@ namespace TideWall
         public int price;
         public float damage = 18, arcDegrees = 100, range = 1.8f, cooldown = .45f, knockback = 2, stun, pull;
         public Element element;
+        [Tooltip("Set by weapon mods: share of damage healed, extra limb damage")] public float lifesteal, limbBonus;
     }
 
     [Serializable]
@@ -122,6 +133,53 @@ namespace TideWall
         public float amount;
     }
 
+    /// <summary>A stat players put level-up points into (Stats menu).</summary>
+    [Serializable]
+    public class StatDef
+    {
+        public string id, displayName, description;
+        public StatKind kind;
+        [Tooltip("Effect per point: +HP for MaxHp, a fraction (0.08 = +8%) for the others")] public float perPoint;
+        public int maxPoints = 10;
+    }
+
+    /// <summary>A weapon mod, offered every few levels. Applies to the gun or melee weapon it was taken on.</summary>
+    [Serializable]
+    public class ModDef
+    {
+        public string id, displayName, description;
+        [Tooltip("Gun mod (else a melee mod)")] public bool gun = true;
+        [Header("Multipliers (1 = no change)")]
+        public float damage = 1, fireRate = 1, reload = 1, magazine = 1, range = 1, arc = 1, cooldown = 1;
+        [Header("Additions")]
+        public float spread, splash, knockback, stun;
+        public int pierce, pellets;
+        [Tooltip("Fraction of damage dealt returned as HP")] public float lifesteal;
+        [Tooltip("Extra damage to limbs (0.6 = +60%)")] public float limbBonus;
+        public bool setElement;
+        public Element element;
+    }
+
+    /// <summary>A tidal card: a modifier the team drafts, lasting a number of waves.</summary>
+    [Serializable]
+    public class TidalCardDef
+    {
+        public string id, displayName;
+        [TextArea] public string description;
+        [Tooltip("How many waves it lasts (it can carry over into the next phase)")] public int waves = 3;
+        public CardExclusive exclusive;
+        public float weight = 1;
+        public Color color = new(.3f, .7f, .9f);
+        [Header("Multipliers (1 = no change)")]
+        public float enemyHp = 1, enemySpeed = 1, enemyDamage = 1, budget = 1, sandDollars = 1, xp = 1, playerDamage = 1, playerSpeed = 1, playerMaxHp = 1, corpseValue = 1;
+        [Header("Other")]
+        public bool alwaysWet;
+        public float fogDensity;
+        [Tooltip("How far up the beach breakers carry enemies (metres past the shoreline)")] public float breakerReach;
+        [Tooltip("Sand dollars wash away after this many seconds (0 = normal)")] public float sandDollarLifetime;
+        [Tooltip("Exclusive behaviour handled in TidalCards.cs: buddybeam, bottle, screenswap, snacks")] public string special;
+    }
+
     [CreateAssetMenu(menuName = "TideWall/Game Database")]
     public class GameDatabase : ScriptableObject
     {
@@ -131,16 +189,39 @@ namespace TideWall
         public List<FoodDef> foods = new();
         public List<CondimentDef> condiments = new();
         public List<UpgradeDef> upgrades = new();
+        public List<StatDef> stats = new();
+        public List<ModDef> mods = new();
+        public List<TidalCardDef> cards = new();
 
         [Header("Players")]
         public float playerMaxHp = 100, playerSpeed = 5.5f, playerWaterSpeedMult = .6f, carrySpeedMult = .8f;
         public float dashSpeed = 14, dashSeconds = .18f, dashCooldown = .8f;
         public float bleedOutSeconds = 30, reviveSeconds = 2f, reviveHpFraction = .4f;
         public string startGun = "revolver", startMelee = "spade";
-        public int startCoins = 40;
+        public int startSandDollars = 40;
 
-        [Header("Wall")]
-        public float wallMaxHp = 600;
+        [Header("Levels, stats and mods")]
+        [Tooltip("XP for the next level = xpBase x level^xpGrowth")] public float xpBase = 60, xpGrowth = 1.35f;
+        public int statPointsPerLevel = 1;
+        [Tooltip("A weapon mod is offered every this many levels")] public int modEveryLevels = 5;
+        public int modChoices = 3;
+        [Tooltip("Teammates get this share of a kill's XP")] public float sharedXp = .5f;
+        [Tooltip("Respec price = this x the player's level")] public int respecPerLevel = 15;
+
+        [Header("Sand dollars on the beach")]
+        public float sandDollarLifetime = 30, sandDollarMagnet = 4.5f;
+
+        [Header("Defences")]
+        [Tooltip("HP of each wall section; a section at 0 is breached")] public float wallSegmentHp = 140;
+        [Tooltip("The Nuclear Sand Powerplant: at 0 it melts down and the run ends")] public float plantMaxHp = 1000;
+
+        [Header("Breakers (enemies arrive riding waves)")]
+        public float breakerSpeed = 9, breakerGroupSeconds = 1.5f, breakerStartZ = 100;
+
+        [Header("Tidal cards")]
+        public int cardChoices = 3;
+        public float cardVoteSeconds = 15;
+        [Tooltip("When exclusive cards are possible, chance one of the choices is exclusive")] public float exclusiveCardChance = .6f;
 
         [Header("Wet / elements")]
         [Tooltip("Wetness lost per second on dry land (1 = soaked)")] public float wetDrainPerSecond = .12f;
@@ -156,7 +237,7 @@ namespace TideWall
 
         [Header("??? Sauce")]
         [Tooltip("Chance of the jackpot, as a fraction (0.0001 = 0.01%)")] public float sauceJackpotChance = .0001f;
-        public int sauceJackpotCoins = 10000;
+        public int sauceJackpotSandDollars = 10000;
 
         [Header("Gas cans")]
         [Tooltip("Chance a bullet hit makes a gas can blow (otherwise it starts leaking; the next hit always blows)")]
@@ -168,6 +249,10 @@ namespace TideWall
         public GunDef Gun(string id) => guns.Find(g => g.id == id);
         public MeleeDef Melee(string id) => melee.Find(m => m.id == id);
         public FoodDef Food(string id) => foods.Find(f => f.id == id);
+        public StatDef Stat(string id) => stats.Find(s => s.id == id);
+        public ModDef Mod(string id) => mods.Find(m => m.id == id);
+        public TidalCardDef Card(string id) => cards.Find(c => c.id == id);
+        public int XpForLevel(int level) => Mathf.RoundToInt(xpBase * Mathf.Pow(Mathf.Max(1, level), xpGrowth));
         public float HpScale(int day) => 1 + hpPerDay * (day - 1);
         public float DamageScale(int day) => 1 + damagePerDay * (day - 1);
         public float Budget(int day) => budget.x + budget.y * day + budget.z * day * day;
@@ -271,14 +356,87 @@ namespace TideWall
 
             upgrades = new List<UpgradeDef>
             {
-                new() { id = "repair", displayName = "Repair Wall", kind = UpgradeKind.RepairWall, price = 40, priceGrowth = 1, amount = .3f, description = "Restore 30% of the wall." },
-                new() { id = "reinforce", displayName = "Reinforce Wall", kind = UpgradeKind.WallMaxHp, price = 80, maxLevel = 8, amount = .2f, description = "+20% wall max HP." },
+                new() { id = "repair", displayName = "Repair Wall", kind = UpgradeKind.RepairWall, price = 40, priceGrowth = 1, amount = .4f,
+                        description = "Restore 40% of every wall section, and rebuild breached ones." },
+                new() { id = "reinforce", displayName = "Reinforce Wall", kind = UpgradeKind.WallMaxHp, price = 80, maxLevel = 8, amount = .2f, description = "+20% HP for every wall section." },
+                new() { id = "coolcore", displayName = "Cool the Core", kind = UpgradeKind.PlantRepair, price = 60, priceGrowth = 1.15f, amount = .25f,
+                        description = "Pour sea water on the reactor: +25% powerplant HP." },
+                new() { id = "leadlining", displayName = "Lead Lining", kind = UpgradeKind.PlantMaxHp, price = 120, maxLevel = 6, amount = .2f, description = "+20% powerplant max HP." },
                 new() { id = "vitality", displayName = "Sea Legs", kind = UpgradeKind.PlayerMaxHp, price = 70, priceGrowth = 1.4f, maxLevel = 6, amount = 25, description = "+25 max HP for every player." },
                 new() { id = "gundmg", displayName = "Heavier Rounds", kind = UpgradeKind.GunDamage, price = 90, maxLevel = 8, amount = .15f, description = "+15% gun damage." },
                 new() { id = "meleedmg", displayName = "Whetstone", kind = UpgradeKind.MeleeDamage, price = 70, maxLevel = 8, amount = .15f, description = "+15% melee damage." },
                 new() { id = "pockets", displayName = "Deep Pockets", kind = UpgradeKind.Magazine, price = 80, maxLevel = 4, amount = .3f, description = "+30% magazine size." },
                 new() { id = "gascans", displayName = "Gas Delivery", kind = UpgradeKind.GasCans, price = 50, priceGrowth = 1.6f, maxLevel = 4, amount = 2,
                         description = "+2 gas cans dropped on the beach each morning." },
+            };
+
+            stats = new List<StatDef>
+            {
+                new() { id = "vigor", displayName = "Vigor", kind = StatKind.MaxHp, perPoint = 12, description = "+12 max HP per point." },
+                new() { id = "brawn", displayName = "Brawn", kind = StatKind.MeleeDamage, perPoint = .08f, description = "+8% melee damage per point." },
+                new() { id = "aim", displayName = "Aim", kind = StatKind.GunDamage, perPoint = .06f, description = "+6% gun damage per point." },
+                new() { id = "swift", displayName = "Swiftness", kind = StatKind.MoveSpeed, perPoint = .04f, description = "+4% move speed and faster dashes per point." },
+                new() { id = "hands", displayName = "Quick Hands", kind = StatKind.Handling, perPoint = .07f, description = "+7% reload speed and +3.5% fire rate per point." },
+                new() { id = "fortune", displayName = "Fortune", kind = StatKind.Fortune, perPoint = .08f, description = "+8% sand dollars you pick up and +4% XP per point." },
+            };
+
+            mods = new List<ModDef>
+            {
+                // guns
+                new() { id = "extmag", displayName = "Extended Mag", gun = true, magazine = 1.5f, description = "+50% magazine." },
+                new() { id = "hairtrigger", displayName = "Hair Trigger", gun = true, fireRate = 1.25f, description = "+25% fire rate." },
+                new() { id = "speedloader", displayName = "Speed Loader", gun = true, reload = .7f, description = "Reloads 30% faster." },
+                new() { id = "barbed", displayName = "Barbed Rounds", gun = true, pierce = 1, description = "Shots pierce one more creature." },
+                new() { id = "incendiary", displayName = "Incendiary Rounds", gun = true, setElement = true, element = Element.Fire, description = "Shots set dry targets alight." },
+                new() { id = "livewire", displayName = "Live Wire", gun = true, setElement = true, element = Element.Shock, description = "Shots shock (x1.5 and chain on wet targets)." },
+                new() { id = "blastcaps", displayName = "Blast Caps", gun = true, splash = 1.5f, description = "Shots burst in a small splash." },
+                new() { id = "slugs", displayName = "Heavy Slugs", gun = true, damage = 1.3f, fireRate = .85f, description = "+30% damage, -15% fire rate." },
+                new() { id = "leech", displayName = "Leech Rounds", gun = true, lifesteal = .08f, description = "Heal 8% of the damage you deal." },
+                new() { id = "buckshot", displayName = "Buckshot", gun = true, pellets = 2, spread = 4, description = "+2 pellets per shot, a little wider." },
+                // melee
+                new() { id = "serrated", displayName = "Serrated Edge", gun = false, limbBonus = .6f, description = "+60% damage to limbs." },
+                new() { id = "barnacles", displayName = "Barnacle-Crusted", gun = false, stun = .5f, description = "Hits stun for half a second." },
+                new() { id = "riptide", displayName = "Riptide Edge", gun = false, knockback = 4, description = "Hits knock creatures back hard." },
+                new() { id = "longhandle", displayName = "Long Handle", gun = false, range = 1.3f, description = "+30% reach." },
+                new() { id = "wideswing", displayName = "Wide Swing", gun = false, arc = 1.35f, description = "+35% swing arc." },
+                new() { id = "heavyhead", displayName = "Heavy Head", gun = false, damage = 1.35f, cooldown = 1.2f, description = "+35% damage, swings 20% slower." },
+                new() { id = "eelgrip", displayName = "Eel-Skin Grip", gun = false, cooldown = .75f, description = "Swings 25% faster." },
+                new() { id = "jellycoil", displayName = "Jellyfish Coil", gun = false, setElement = true, element = Element.Shock, description = "Swings shock (great on wet creatures)." },
+                new() { id = "vampsquid", displayName = "Vampire Squid", gun = false, lifesteal = .12f, description = "Heal 12% of the melee damage you deal." },
+            };
+
+            cards = new List<TidalCardDef>
+            {
+                new() { id = "redtide", displayName = "Red Tide", waves = 3, enemyHp = 1.4f, sandDollars = 1.6f, color = new Color(.85f, .2f, .2f),
+                        description = "Creatures +40% HP. Sand dollars +60%." },
+                new() { id = "kingtide", displayName = "King Tide", waves = 2, breakerReach = 14, xp = 1.5f, color = new Color(.2f, .5f, .95f),
+                        description = "Breakers carry creatures far up the beach. +50% XP." },
+                new() { id = "riptide", displayName = "Riptide", waves = 3, enemySpeed = 1.25f, playerSpeed = 1.15f, color = new Color(.2f, .75f, .8f),
+                        description = "Creatures 25% faster. You're 15% faster too." },
+                new() { id = "downpour", displayName = "Downpour", waves = 3, alwaysWet = true, sandDollars = 1.3f, fogDensity = .004f, color = new Color(.45f, .55f, .7f),
+                        description = "Everything stays soaked: shock hits hard, fire fizzles. Sand dollars +30%." },
+                new() { id = "fogbank", displayName = "Fog Bank", waves = 2, fogDensity = .02f, enemyHp = .8f, color = new Color(.7f, .72f, .75f),
+                        description = "Thick fog rolls in. Creatures -20% HP." },
+                new() { id = "frenzy", displayName = "Feeding Frenzy", waves = 3, budget = 1.3f, corpseValue = 1.5f, color = new Color(.6f, .1f, .15f),
+                        description = "30% more creatures. Corpses sell for 50% more." },
+                new() { id = "calm", displayName = "Calm Waters", waves = 2, budget = .7f, sandDollars = .7f, xp = .7f, color = new Color(.5f, .85f, .7f),
+                        description = "30% fewer creatures, 30% less reward. The safe pick." },
+                new() { id = "glasscannon", displayName = "Glass Cannon", waves = 3, playerDamage = 1.5f, playerMaxHp = .6f, color = new Color(.95f, .6f, .2f),
+                        description = "+50% damage. -40% max HP." },
+                new() { id = "goldrush", displayName = "Gold Rush", waves = 2, sandDollars = 2, sandDollarLifetime = 8, color = new Color(.95f, .8f, .2f),
+                        description = "Double sand dollars, but they wash away after 8 seconds." },
+                new() { id = "bloom", displayName = "Plankton Bloom", waves = 3, xp = 2, enemyDamage = 1.2f, color = new Color(.4f, .95f, .6f),
+                        description = "Double XP. Creatures hit 20% harder." },
+                // Online only
+                new() { id = "buddybeam", displayName = "Buddy Beam", waves = 3, exclusive = CardExclusive.Online, budget = 1.2f, special = "buddybeam", color = new Color(.3f, 1f, 1f),
+                        description = "ONLINE ONLY. A laser links teammates playing on different computers. Creatures that cross it burn. 20% more creatures." },
+                new() { id = "bottle", displayName = "Message in a Bottle", waves = 3, exclusive = CardExclusive.Online, special = "bottle", color = new Color(.6f, .9f, .5f),
+                        description = "ONLINE ONLY. Every wave, each player gets a condiment boost sent by a teammate on another computer." },
+                // Split screen only
+                new() { id = "screenswap", displayName = "Screen Swap", waves = 2, exclusive = CardExclusive.SplitScreen, special = "screenswap", color = new Color(.95f, .4f, .9f),
+                        description = "SPLIT SCREEN ONLY. Every 20 seconds your viewports shuffle. +40% damage for everyone sharing a screen." },
+                new() { id = "snacks", displayName = "Shared Snacks", waves = 3, exclusive = CardExclusive.SplitScreen, special = "snacks", color = new Color(1f, .7f, .4f),
+                        description = "SPLIT SCREEN ONLY. Food heals everyone on your screen, and you revive each other twice as fast." },
             };
         }
     }

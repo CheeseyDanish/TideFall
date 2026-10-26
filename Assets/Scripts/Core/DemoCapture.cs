@@ -68,21 +68,46 @@ namespace TideWall
             yield return new WaitForSecondsRealtime(3f);
             yield return Shot("03-morning-first-person-two-players");
 
-            p1.OpenMenu(Menus.Hotdogs(p1));
-            p2.OpenMenu(Menus.Pause(p2));
+            while (p1.Level < 5) p1.GainXp(p1.XpNext);   // a level-5 sailor with a mod to choose
+            p1.OpenMenu(Menus.Stats(p1));
+            p2.OpenMenu(Menus.Hotdogs(p2));
             yield return new WaitForSecondsRealtime(.5f);
-            yield return Shot("04-hotdog-and-pause-menus");
-            p1.CloseMenu(); p2.CloseMenu();
+            yield return Shot("04-stats-and-hotdog-menus");
+            p1.CloseMenu(); p2.OpenMenu(Menus.Pause(p2));
+            yield return new WaitForSecondsRealtime(.3f);
+            yield return Shot("04b-pause-menu");
+            p2.CloseMenu();
 
-            gm.Phases.Advance();   // evening
+            gm.Phases.Advance();   // evening: the tidal card vote opens
+            yield return new WaitForSecondsRealtime(.6f);
+            yield return Shot("05a-tidal-card-vote");
+            gm.Cards.Vote(p1, 0); gm.Cards.Vote(p2, 0);
+            var section = gm.Wall.Sections.Find(sec => Mathf.Abs(sec.x - 10) < 3);
+            if (section != null) gm.Wall.Damage(section.max + 1, new Vector3(section.x, 0, 1));   // a breach to show
             Teleport(p1, new Vector3(-3, 0, 4)); Teleport(p2, new Vector3(4, 0, -2));
             foreach (var id in new[] { "crab", "crab", "drowner", "hermit", "jelly", "urchin", "gull" })
                 gm.Waves.SpawnExtra(gm.DB.Enemy(id), new Vector3(UnityEngine.Random.Range(-6f, 6f), 0, UnityEngine.Random.Range(10f, 16f)));
-            gm.Waves.SpawnExtra(gm.DB.Enemy("shark"), new Vector3(0, -1, 26));
+            gm.Waves.SpawnExtra(gm.DB.Enemy("shark"), new Vector3(0, -1, Arena.ShoreZ + 8));
             yield return new WaitForSecondsRealtime(4f);
             fire = true;
             yield return new WaitForSecondsRealtime(1.2f);
             yield return Shot("05-evening-fight-first-person");
+
+            // From the wall's tower: breakers rolling in with creatures aboard
+            var b = Breaker.Launch(-8, 18, Arena.ShoreZ + 34, Arena.ShoreZ + 1, 7);
+            foreach (var id in new[] { "crab", "drowner", "hermit", "croc", "octopus" })
+                b.Carry(gm.Waves.SpawnExtra(gm.DB.Enemy(id), b.RiderPosition(UnityEngine.Random.Range(-8f, 8f), 0)), UnityEngine.Random.Range(-8f, 8f), .3f);
+            var view = new GameObject("TowerCam").AddComponent<Camera>();
+            view.depth = 40; view.fieldOfView = 55;
+            World.SetupCameraSky(view, gm.Phases.SkyColor);
+            view.transform.SetPositionAndRotation(new Vector3(-20, 14, -4), Quaternion.LookRotation(new Vector3(-6, 0, 36) - new Vector3(-20, 14, -4)));
+            yield return new WaitForSecondsRealtime(1.5f);
+            yield return Shot("05b-breakers-rolling-in");
+            var plantView = Arena.PlantPos + new Vector3(-15, 7, 11);
+            view.transform.SetPositionAndRotation(plantView, Quaternion.LookRotation(Arena.PlantPos + Vector3.up * 2.5f - plantView));
+            yield return new WaitForSecondsRealtime(.4f);
+            yield return Shot("05c-nuclear-sand-powerplant");
+            Destroy(view.gameObject);
 
             gm.Phases.Advance();   // night (enemies still alive keep fighting)
             p2.SwitchView();       // player 2 goes top-down
@@ -182,7 +207,7 @@ namespace TideWall
             yield return Shot("net-02-client-top-down");
             int enemies = 0;
             foreach (var e in FindObjectsByType<Enemy>()) if (e.Proxy) enemies++;
-            Debug.Log($"TIDEWALL_CLIENT_OK players={gm.Players.Count} enemyProxies={enemies} coins={gm.Coins} phase={gm.Phases.Current?.id}");
+            Debug.Log($"TIDEWALL_CLIENT_OK players={gm.Players.Count} enemyProxies={enemies} sandDollars={gm.SandDollars} phase={gm.Phases.Current?.id}");
             Net.Shutdown(null);
             Application.Quit();
         }

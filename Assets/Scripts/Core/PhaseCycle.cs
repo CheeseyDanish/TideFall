@@ -30,6 +30,7 @@ namespace TideWall
         public string bossId = "glizzy";
         [Tooltip("Picnic leftovers appear on the beach when the phase starts")] public bool spawnFood;
         [Tooltip("Gas cans dropped on the beach when the phase starts (plus upgrades)")] public bool spawnGasCans;
+        [Tooltip("The team drafts a tidal card when the phase starts")] public bool tidalDraft;
 
         [Header("Look")]
         public Color skyColor = new(.55f, .75f, .95f);
@@ -70,7 +71,7 @@ namespace TideWall
                 new()
                 {
                     id = "evening", displayName = "Evening", subtitle = "The tide turns. Something is coming ashore.",
-                    endWhenWavesCleared = true, waves = 2, budgetMultiplier = .55f,
+                    endWhenWavesCleared = true, waves = 2, budgetMultiplier = .55f, tidalDraft = true,
                     enemyPool = new List<string> { "crab", "drowner", "gull", "hermit", "puffer", "jelly", "urchin", "eel", "shark" },
                     skyColor = new Color(.95f, .55f, .35f), sunColor = new Color(1f, .6f, .35f), sunIntensity = 1.0f, sunPitch = 10, sunYaw = 110,
                     ambientColor = new Color(.55f, .4f, .38f), fogColor = new Color(.9f, .55f, .4f), fogDensity = .006f, torchesLit = true,
@@ -78,7 +79,7 @@ namespace TideWall
                 new()
                 {
                     id = "night", displayName = "Night", subtitle = "Hold the wall until dawn.",
-                    endWhenWavesCleared = true, advancesDay = true, waves = 3, budgetMultiplier = 1f, bossEveryDays = 5,
+                    endWhenWavesCleared = true, advancesDay = true, waves = 3, budgetMultiplier = 1f, bossEveryDays = 5, tidalDraft = true,
                     skyColor = new Color(.04f, .06f, .14f), sunColor = new Color(.55f, .65f, 1f), sunIntensity = .35f, sunPitch = 45, sunYaw = 160,
                     ambientColor = new Color(.13f, .15f, .25f), fogColor = new Color(.05f, .07f, .15f), fogDensity = .012f, torchesLit = true, lanterns = true,
                 },

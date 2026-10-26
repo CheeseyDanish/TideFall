@@ -1,6 +1,6 @@
 # TideWall 3D — rules for Claude
 
-This repo is **TideWall 3D**, a Unity 6 (6000.5.10f1, URP) co-op wall-defense game: 1–4 players, in split screen and/or online, hold a sea wall through a day of phases (Morning → Evening → Night). It's first person by default, with a top-down view one button away. It grew out of **Tidewall 2D**, which now lives in the website repo (`Website/tidewall/`, with its own rules). The 3D game keeps the 2D game's core idea, the **wet/dry beach**, and builds on it.
+This repo is **TideWall 3D**, a Unity 6 (6000.5.10f1, URP) co-op wall-defense **roguelike**: 1–4 players, in split screen and/or online, defend the Nuclear Sand Powerplant behind a breachable sea wall through days of phases (Morning → Evening → Night) until it melts down. It's first person by default, with a top-down view one button away. It grew out of **Tidewall 2D**, which now lives in the website repo (`Website/tidewall/`, with its own rules). The 3D game keeps the 2D game's core idea, the **wet/dry beach**, and builds on it.
 
 The design documents in `docs/` define the game. These rules are binding for any change you make here. If a request conflicts with a rule, say which rule and ask before breaking it; if the user confirms, update the docs in the same change.
 
@@ -8,15 +8,18 @@ The design documents in `docs/` define the game. These rules are binding for any
 1. **Co-op first, couch or online.** Everything works for 1, 2, 3 or 4 players in split screen, online, or both mixed, with any controller or keyboard + mouse.
 2. **Where you hit matters.** Shots go to the 3D point under your crosshair (first person) or reticle (top-down); limbs come off where you hit them, and that changes the enemy and what its corpse is worth.
 3. **The tide is the game.** Enemies come out of the sea wet and dry off on the sand. Wetness is always visible (drips) and always matters (shock, fire).
-4. **A day has a rhythm.** Mornings are calm and about economy (sell, buy, eat). Evenings and nights are fights. Phases are data.
-5. **Silly but readable.** Hotdog condiments, ??? sauce, exploding gas cans: chaos is welcome, but you always know who you are, where you're aiming, and how the wall is doing.
+4. **A day has a rhythm.** Mornings are calm and about economy (sell, buy, eat, spend points). Evenings and nights are fights, each opened by a tidal card vote. Phases are data.
+5. **Every run is different, every loss is final.** Tidal cards, weapon mods and stat builds make runs diverge; a meltdown ends the run (no reloading a loss).
+6. **Silly but readable.** Hotdog condiments, ??? sauce, exploding gas cans: chaos is welcome, but you always know who you are, where you're aiming, and how the wall is doing.
 
 ## Hard rules
 
 ### Data
 - **R1 — Numbers live in data, not code.** Enemies, weapons, melee, food, condiments, upgrades and balance coefficients are in `GameDatabase` (`Assets/Scripts/Core/GameDatabase.cs` defaults → `Assets/Resources/Data/GameDatabase.asset`). Phases are in `PhaseCycle` (`PhaseCycle.cs` defaults → `Assets/Resources/Data/PhaseCycle.asset`). When you change a default in code, also update the asset (menu **TideWall → Reset Data To Defaults**, or edit it) so they agree.
 - **R2 — Phases are pure data.** Code must never branch on a phase id or name (`"morning"`, `"night"`…). Behaviour comes from `PhaseDefinition` fields (`shopOpen`, `waves`, `endWhenAllReady`, `saveOnStart`, `lanterns`…). Adding a phase means adding a list entry, not code. If a new phase needs new behaviour, add a field to `PhaseDefinition`, document it in `docs/GDD.md`, and default it to "off".
-- **R3 — New content fills the checklist** in `docs/GDD.md` → *Adding content* (model, behaviour, limbs, question it asks, counter, corpse value, wet behaviour).
+- **R3 — New content fills the checklist** in `docs/GDD.md` → *Adding content* (model, behaviour, limbs, its own animation, question it asks, counter, corpse value, wet behaviour, what it does behind a breach).
+- **R3a — Tidal cards, stats and mods are data.** Cards (`TidalCardDef`), stats (`StatDef`) and mods (`ModDef`) live in `GameDatabase`. A card that only changes numbers needs no code. A card lasts a number of **waves**, never seconds or phases.
+- **R3b — Exclusive cards must be unique to their mode.** An Online card must need players on different computers, and a Split Screen card people sharing a screen. Its effect must be something no other card does. Availability goes through `TidalCards.Allowed` (`OnlineEligible` / `SplitEligible`); never offer an exclusive card outside its mode.
 
 ### Models (Blender)
 - **R4 — `Blender/generate_models.py` is the source of truth for models.** Never hand-edit FBX files. Change the script and re-run it (see `docs/TECH.md`). Keep models low-poly: primitives, flat colours, no textures. Front faces **-Y** in Blender (= +Z in Unity). Each model's root is named after it.
@@ -38,10 +41,12 @@ The design documents in `docs/` define the game. These rules are binding for any
 
 ### Saves & settings
 - **R17 — Never touch the player's files from tests or tools.** Settings and saves go through `Storage` (its `Root` is `Application.persistentDataPath`); tests point `Storage.Root` at a temp folder. The capture tour never saves or changes settings.
-- **R18 — Saves are data too.** A save (`SaveData`) is the team's state at a `saveOnStart` phase: day, phase, coins, wall, upgrades, each player slot's weapons. If you add progress that should survive quitting, add it to `SaveData`, `SaveSystem.Capture` and the restore path (`GameManager.StartRun`, `Player.RestoreLoadout`), and keep old saves loading (new fields need sensible defaults).
+- **R18 — Saves are data too.** A save (`SaveData`) is a suspended run at a `saveOnStart` phase: day, phase, sand dollars, wall sections, powerplant, upgrades, active tidal cards, and each player slot's weapons, level, XP, stat points and mods. A run's save is deleted when the run ends (roguelike), never restored after a loss. If you add progress that should survive quitting, add it to `SaveData`, `SaveSystem.Capture` and the restore path (`GameManager.StartRun`, `Player.RestoreLoadout`), and keep old saves loading (new fields need sensible defaults).
 
 ### Feel & performance
+- **R9b — Creatures arrive on the waves.** Anything that comes from the sea rides a `Breaker` in (flyers fly in); nothing pops into existence on the beach except boss summons and test/capture spawns.
 - **R10 — Wetness is always visible.** Drip count is proportional to wetness (`Fx.Drip`, `maxDripsPerSecond`). Anything that changes wetness must keep drips and gloss in sync.
+- **R10a — The money is sand dollars.** Never call it coins in anything a player sees; show the sand dollar icon (`Ui.SandDollarIcon`) or "SD" next to amounts.
 - **R11 — Feedback for every hit**: hit flash, gore/sparks, a sound, a hit marker for the shooter; severed limbs fly off with physics; big events shake the cameras of nearby players (scaled by the screen-shake setting).
 - **R12 — Shared effects, pooled objects.** Particles go through the shared systems in `Fx` (no per-enemy `ParticleSystem`). Tracers and light flashes are pooled. Enemies alive at once are capped by `GameDatabase.maxAlive`.
 - **R13 — Runtime-built world.** `GameManager` boots itself into any scene and builds the level in code (`WorldBuilder`). Don't add gameplay objects to scenes by hand; the scene only holds post-processing.

@@ -5,7 +5,8 @@
 //   host → client   Welcome(clientId) · Assigned(token, player) · Refused(token, reason) · Snapshot · Events
 //                   · GameOver(reason) · Reload · Bye(reason)
 //
-// Snapshots (20 Hz) carry the shared state (phase, coins, wall), every player, the asking client's private
+// Snapshots (20 Hz) carry the shared state (phase, sand dollars, wall sections, powerplant, tidal cards and any
+// vote in progress), every player, the asking client's private
 // player data (prompt, open menu), and the replicated things that changed since the last snapshot sent to that
 // client (TCP is reliable and ordered, so deltas are safe). Events (every frame) carry effects, sounds, banners
 // and per-player feedback (toasts, shakes, hit markers, pushes, teleports).
@@ -26,7 +27,7 @@ namespace TideWall
 
     public static class NetProtocol
     {
-        public const int Version = 1;
+        public const int Version = 2;
         public const int DefaultPort = 7777;
         public const int DiscoveryPort = 47777;
         public const string DiscoveryTag = "TIDEWALL1";
@@ -63,6 +64,8 @@ namespace TideWall
         public float yaw, pitch, hp, maxHp, bleedLeft, revive, wet, reload, swing, carryWeight;
         public bool downed, isOut, ready, firstPerson;
         public int ammo, mag, carryCount, kills;
+        public int level = 1, xp, xpNext = 60, statPoints, pendingMods;
+        public float speedBonus = 1;
         public string gun = "", melee = "";
         public readonly List<(StatusType, float)> statuses = new();
 
@@ -75,6 +78,7 @@ namespace TideWall
                 swing = Mathf.Max(0, p.SwingT), carryWeight = p.CarryWeight, downed = p.IsDowned, isOut = p.IsOut, ready = p.Ready,
                 firstPerson = p.FirstPerson, ammo = p.Ammo, mag = p.MagSize, carryCount = p.CarryCount, kills = p.Kills,
                 gun = p.Gun.id, melee = p.Melee.id,
+                level = p.Level, xp = p.Xp, xpNext = p.XpNext, statPoints = p.StatPoints, pendingMods = p.PendingMods, speedBonus = p.SpeedBonus,
             };
             foreach (var kv in p.Statuses.Active) s.statuses.Add((kv.Key, kv.Value));
             return s;
@@ -88,6 +92,7 @@ namespace TideWall
             w.Write((byte)((downed ? 1 : 0) | (isOut ? 2 : 0) | (ready ? 4 : 0) | (firstPerson ? 8 : 0)));
             w.Write((short)ammo); w.Write((short)mag); w.Write((byte)carryCount); w.Write(kills);
             w.Write(gun); w.Write(melee);
+            w.Write((short)level); w.Write(xp); w.Write(xpNext); w.Write((short)statPoints); w.Write((byte)pendingMods); w.Write(speedBonus);
             w.Write((byte)statuses.Count);
             foreach (var (t, left) in statuses) { w.Write((byte)t); w.Write(left); }
         }
@@ -105,6 +110,7 @@ namespace TideWall
             s.downed = (f & 1) != 0; s.isOut = (f & 2) != 0; s.ready = (f & 4) != 0; s.firstPerson = (f & 8) != 0;
             s.ammo = r.ReadInt16(); s.mag = r.ReadInt16(); s.carryCount = r.ReadByte(); s.kills = r.ReadInt32();
             s.gun = r.ReadString(); s.melee = r.ReadString();
+            s.level = r.ReadInt16(); s.xp = r.ReadInt32(); s.xpNext = r.ReadInt32(); s.statPoints = r.ReadInt16(); s.pendingMods = r.ReadByte(); s.speedBonus = r.ReadSingle();
             int n = r.ReadByte();
             for (int i = 0; i < n; i++) s.statuses.Add(((StatusType)r.ReadByte(), r.ReadSingle()));
             return s;

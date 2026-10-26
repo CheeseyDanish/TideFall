@@ -103,7 +103,7 @@ namespace TideWall
             var logo = Ui.Text(panel, "Logo", new Vector2(.5f, 1), new Vector2(0, -22), new Vector2(440, 70), 54, TextAnchor.MiddleCenter, new Color(.98f, .9f, .7f));
             logo.text = "<b>TIDEWALL</b>"; logo.rectTransform.pivot = new Vector2(.5f, 1);
             var tag = Ui.Text(panel, "Tag", new Vector2(.5f, 1), new Vector2(0, -88), new Vector2(440, 24), 15, TextAnchor.MiddleCenter, new Color(.85f, .8f, .7f));
-            tag.text = "Hold the sea wall. 1–4 players, split screen or online."; tag.rectTransform.pivot = new Vector2(.5f, 1);
+            tag.text = "A sea-wall roguelike. 1–4 players, split screen or online."; tag.rectTransform.pivot = new Vector2(.5f, 1);
             title = Ui.Text(panel, "Title", new Vector2(.5f, 1), new Vector2(0, -126), new Vector2(420, 30), 20, TextAnchor.MiddleLeft, new Color(1, .82f, .4f));
             title.rectTransform.pivot = new Vector2(.5f, 1);
             listRect = Ui.Rect(panel, "List", new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -162), new Vector2(420, Rows * 27));
@@ -146,16 +146,20 @@ namespace TideWall
             var m = new Menu { Title = "" };
             var latest = SaveSystem.Latest();
             if (latest != null)
-                m.Add("Continue", $"Day {latest.day}", $"Slot {latest.slot}: {latest.Summary}.", pick: () => StartOffline(latest, latest.slot));
-            m.Add("New game", ">", "Start a new defence. Each game saves to a slot every morning.", open: () => Slots("NEW GAME", true, (save, slot) => StartOffline(null, slot)));
+                m.Add("Continue run", $"Day {latest.day}", $"Slot {latest.slot}: {latest.Summary}.", pick: () => StartOffline(latest, latest.slot));
+            m.Add("New run", ">", "Start a new run. It saves every morning so you can stop and come back, but when the powerplant melts down the run (and its save) is over.",
+                  open: () => Slots("NEW RUN", true, (save, slot) => StartOffline(null, slot)));
             if (latest != null)
-                m.Add("Load game", ">", "Pick up a saved game.", open: () => Slots("LOAD GAME", false, (save, slot) => StartOffline(save, slot)));
+                m.Add("Other runs", ">", "Continue a run from another slot.", open: () => Slots("CONTINUE A RUN", false, (save, slot) => StartOffline(save, slot)));
             m.Add("Host online game", ">", "Play with friends on other computers. You host; they join with your address (or find you on the same network).", open: HostMenu);
             m.Add("Join online game", ">", "Join a friend's game on your network or by address.", open: JoinMenu);
             m.Add("Settings", ">", "Audio, game and controls (rebind keyboard and controller).", open: () => Menus.Settings(Root, null));
             if (latest != null) m.Add("Delete a save", ">", "Free up a slot.", open: DeleteMenu);
             m.Add("Quit", null, "Close TideWall.", pick: Application.Quit);
+            var legacy = Legacy.Load();
             m.Header("");
+            m.Header(legacy.runs > 0 ? $"<size=13>Runs: {legacy.runs} · best: day {legacy.bestDay}, level {legacy.bestLevel}</size>"
+                                     : "<size=13>Protect the Nuclear Sand Powerplant. Good luck.</size>");
             m.Header("<size=13>Others join any time: press a button on a free controller (or any key).</size>");
             m.FirstSelectable();
             return m;
@@ -214,9 +218,9 @@ namespace TideWall
         {
             var s = Settings.Current;
             var m = new Menu { Title = "HOST ONLINE GAME", Parent = Root, Rebuild = HostMenu };
-            m.Add("Host a new game", ">", "Saves to a slot like a normal game.", open: () => Slots("HOST A NEW GAME", true, (save, slot) => StartHost(null, slot)));
+            m.Add("Host a new run", ">", "Saves to a slot like a normal run.", open: () => Slots("HOST A NEW RUN", true, (save, slot) => StartHost(null, slot)));
             if (SaveSystem.Latest() != null)
-                m.Add("Host a saved game", ">", "Continue a save with friends.", open: () => Slots("HOST A SAVED GAME", false, (save, slot) => StartHost(save, slot)));
+                m.Add("Host a saved run", ">", "Continue a run with friends.", open: () => Slots("HOST A SAVED RUN", false, (save, slot) => StartHost(save, slot)));
             m.Add("Your name", s.playerName, "Shown above your sailor. Pick to type.", pick: () => Type(s.playerName, v => { s.playerName = Clean(v, 16, "Sailor"); Settings.Changed(); Open(HostMenu()); }));
             var port = m.Add("Port", $"< {s.port} >", "The TCP port friends connect to (default 7777). Internet play needs it forwarded on your router.");
             port.OnAdjust = d => { s.port = Mathf.Clamp(s.port + d, 1024, 65535); Settings.Changed(); port.Right = $"< {s.port} >"; };
@@ -306,7 +310,7 @@ namespace TideWall
         {
             if (!shown) return;
             if (gm.State != GameState.MainMenu) { Hide(); return; }
-            cam.backgroundColor = gm.Phases.SkyColor;
+            World.SetupCameraSky(cam, gm.Phases.SkyColor);
             NetDiscovery.Poll();
             if (Net.IsClient && Net.Client.Status == NetClient.State.Failed)
             {
@@ -475,7 +479,7 @@ namespace TideWall
             for (int i = 0; i < 2; i++)
             {
                 var shark = ModelFactory.Spawn("Shark", root.transform, Vector3.zero);
-                s.circlers.Add((shark.root.transform, 5 + i * 3, .25f + i * .08f, i * 2.5f, new Vector3(-8 + i * 16, Arena.WaterLevel - .62f, 38 + i * 6)));
+                s.circlers.Add((shark.root.transform, 6 + i * 3, .25f + i * .08f, i * 2.5f, new Vector3(-10 + i * 18, Arena.WaterLevel - .62f, Arena.ShoreZ + 14 + i * 8)));
             }
             for (int i = 0; i < 3; i++)
             {

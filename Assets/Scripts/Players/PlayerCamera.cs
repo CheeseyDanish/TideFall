@@ -69,7 +69,7 @@ namespace TideWall
             if (player == null) { Destroy(gameObject); return; }
             float dt = Time.unscaledDeltaTime;
             var st = player.Statuses;
-            Camera.backgroundColor = GameManager.I.Phases.SkyColor;
+            World.SetupCameraSky(Camera, GameManager.I.Phases.SkyColor);
             shake = Mathf.MoveTowards(shake, 0, dt * 2.5f);
             bool fp = player.FirstPerson && !player.IsOut;
             Camera.cullingMask = Mask(fp);

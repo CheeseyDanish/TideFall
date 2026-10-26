@@ -79,7 +79,7 @@ namespace TideWall
 
         public static void Sell(Corpse c)
         {
-            GameManager.I.AddCoins(c.Value, c.transform.position, "sold " + c.Def.displayName);
+            GameManager.I.AddSandDollars(c.Value, c.transform.position, "sold " + c.Def.displayName);
             Fx.Splash(c.transform.position, 6);
             Destroy(c.gameObject);
         }

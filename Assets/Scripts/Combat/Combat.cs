@@ -14,6 +14,7 @@ namespace TideWall
         public Player source;
         public Vector3 point, dir;
         public float knockback, stun, pull;
+        public float limbBonus;   // weapon mods: extra damage to limbs (0.6 = +60%)
     }
 
     public static class Combat
@@ -47,7 +48,7 @@ namespace TideWall
                         e.TakeHit(new DamageInfo
                         {
                             amount = g.damage * damageMult, element = g.element, source = p, point = h.point, dir = dir,
-                            knockback = g.knockback, ignoreArmor = g.pierce > 0,
+                            knockback = g.knockback, ignoreArmor = g.pierce > 0, limbBonus = g.limbBonus,
                         }, c.GetComponentInParent<Limb>());
                         if (g.splash > 0) Explode(h.point, g.splash, g.damage * damageMult * .5f, g.element, p, false, e);
                         if (pierce-- <= 0) { end = h.point; break; }
@@ -86,7 +87,7 @@ namespace TideWall
                 e.TakeHit(new DamageInfo
                 {
                     amount = m.damage * damageMult, element = m.element, melee = true, source = p, point = c.bounds.ClosestPoint(blade),
-                    dir = dir, knockback = m.knockback, stun = m.stun, pull = m.pull,
+                    dir = dir, knockback = m.knockback, stun = m.stun, pull = m.pull, limbBonus = m.limbBonus,
                 }, limb);
                 if (e.Def.thorns > 0) p.TakeDamage(e.Def.thorns, e, "spines");
                 landed++;

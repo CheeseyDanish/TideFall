@@ -40,6 +40,7 @@ namespace TideWall.EditorTools
             Mat("Unlit", "Universal Render Pipeline/Unlit", false, false);
             Mat("Particle", "Universal Render Pipeline/Particles/Unlit", true, false);
             Mat("ParticleAdditive", "Universal Render Pipeline/Particles/Unlit", true, true);
+            Mat("Sky", "Skybox/Procedural", false, false);   // the sky (tinted per phase by World.SetSky)
         }
 
         static void Mat(string name, string shader, bool transparent, bool additive)

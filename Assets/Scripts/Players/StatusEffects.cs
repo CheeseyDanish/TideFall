@@ -63,7 +63,7 @@ namespace TideWall
             (StatusType.Invincible, 8, .6f, "Nothing can touch you!"),
             (StatusType.DoubleDamage, 15, 1, "Double damage!"),
             (StatusType.None, 0, .8f, "HEAL"),           // full heal
-            (StatusType.None, 0, .8f, "COINS"),          // a handful of coins
+            (StatusType.None, 0, .8f, "CASH"),          // a handful of sand dollars
             (StatusType.UpsideDown, 12, 1, "The world flips over."),
             (StatusType.ReverseControls, 10, 1, "Left is right. Right is left."),
             (StatusType.Tiny, 20, 1, "You shrink!"),
@@ -82,9 +82,9 @@ namespace TideWall
             var gm = GameManager.I;
             if (Random.value < gm.DB.sauceJackpotChance)
             {
-                gm.AddCoins(gm.DB.sauceJackpotCoins, p.transform.position, "SAUCE JACKPOT");
+                gm.AddSandDollars(gm.DB.sauceJackpotSandDollars, p.transform.position, "SAUCE JACKPOT");
                 Sfx.Play("jackpot");
-                gm.Banner("SAUCE JACKPOT!", $"{p.Name} found {gm.DB.sauceJackpotCoins} coins at the bottom of the bottle");
+                gm.Banner("SAUCE JACKPOT!", $"{p.Name} found {gm.DB.sauceJackpotSandDollars} sand dollars at the bottom of the bottle");
                 return "JACKPOT!";
             }
             float total = 0;
@@ -95,7 +95,7 @@ namespace TideWall
                 r -= e.weight;
                 if (r > 0) continue;
                 if (e.line == "HEAL") { p.Heal(9999); return "It tastes like a full recovery."; }
-                if (e.line == "COINS") { int c = Random.Range(25, 151); gm.AddCoins(c, p.transform.position, "sauce"); return $"There were {c} coins in it."; }
+                if (e.line == "CASH") { int c = Random.Range(25, 151); gm.AddSandDollars(c, p.transform.position, "sauce"); return $"There were {c} sand dollars in it."; }
                 p.Statuses.Add(e.status, e.seconds);
                 return e.line;
             }

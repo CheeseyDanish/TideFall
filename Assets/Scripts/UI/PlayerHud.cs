@@ -1,5 +1,6 @@
 // TideWall 3D — one player's HUD, drawn by their camera so it sits inside their split-screen viewport:
-// health, wall, phase, weapons, prompts (with the player's own key glyphs), crosshair (first person), menus.
+// health, level/XP, the powerplant and wall, phase, sand dollars, tidal cards, weapons, prompts (with the
+// player's own key glyphs), crosshair (first person), menus.
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
@@ -11,8 +12,8 @@ namespace TideWall
     {
         Player p;
         GameManager gm;
-        Image hpFill, wallFill, reloadFill, hurt, tunnel, hitMarker, menuPanel, crossH, crossV;
-        Text nameText, hpText, coinText, phaseText, wallText, gunText, promptText, bannerTitle, bannerSub, statusText, toastText, menuTitle, menuBody, menuDetail, menuHelp, centerText, fpsText;
+        Image hpFill, wallFill, reloadFill, hurt, tunnel, hitMarker, menuPanel, crossH, crossV, xpFill, coinIcon;
+        Text nameText, hpText, coinText, phaseText, wallText, gunText, promptText, bannerTitle, bannerSub, statusText, toastText, menuTitle, menuBody, menuDetail, menuHelp, centerText, fpsText, levelText, cardsText, voteText;
         readonly List<Image> inkBlots = new();
         float bannerT, toastT, hitT, fpsT, fpsAcc; int fpsFrames;
         Sprite blob, hole;
@@ -52,14 +53,18 @@ namespace TideWall
             hpFill.transform.parent.GetComponent<RectTransform>().pivot = tl;
             hpText = Ui.Text(c, "HPText", tl, new Vector2(266, -36), new Vector2(120, 22), 14, TextAnchor.UpperLeft, Color.white);
             hpText.rectTransform.pivot = tl;
-            statusText = Ui.Text(c, "Status", tl, new Vector2(18, -60), new Vector2(420, 60), 14, TextAnchor.UpperLeft, Color.white);
+            xpFill = Ui.Bar(c, "XP", tl, new Vector2(18, -58), new Vector2(240, 6), new Color(1f, .82f, .3f));
+            xpFill.transform.parent.GetComponent<RectTransform>().pivot = tl;
+            levelText = Ui.Text(c, "Level", tl, new Vector2(266, -53), new Vector2(220, 18), 13, TextAnchor.UpperLeft, new Color(1f, .9f, .55f));
+            levelText.rectTransform.pivot = tl;
+            statusText = Ui.Text(c, "Status", tl, new Vector2(18, -72), new Vector2(420, 60), 14, TextAnchor.UpperLeft, Color.white);
             statusText.rectTransform.pivot = tl;
 
             // Top-centre: phase, waves, wall
             var tc = new Vector2(.5f, 1);
             phaseText = Ui.Text(c, "Phase", tc, new Vector2(0, -10), new Vector2(560, 26), 19, TextAnchor.UpperCenter, Color.white);
             phaseText.rectTransform.pivot = tc;
-            wallFill = Ui.Bar(c, "Wall", tc, new Vector2(-130, -40), new Vector2(260, 12), new Color(.75f, .72f, .65f));
+            wallFill = Ui.Bar(c, "Plant", tc, new Vector2(-130, -40), new Vector2(260, 12), new Color(.4f, .95f, .45f));
             wallFill.transform.parent.GetComponent<RectTransform>().pivot = tc;
             wallFill.transform.parent.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, -40);
             wallText = Ui.Text(c, "WallText", tc, new Vector2(0, -54), new Vector2(300, 20), 13, TextAnchor.UpperCenter, new Color(.9f, .88f, .8f));
@@ -67,8 +72,14 @@ namespace TideWall
 
             // Top-right: the team purse
             var tr = new Vector2(1, 1);
-            coinText = Ui.Text(c, "Coins", tr, new Vector2(-18, -12), new Vector2(260, 30), 22, TextAnchor.UpperRight, new Color(1, .85f, .3f));
+            coinText = Ui.Text(c, "SandDollars", tr, new Vector2(-18, -12), new Vector2(200, 30), 22, TextAnchor.UpperRight, new Color(1f, .93f, .75f));
             coinText.rectTransform.pivot = tr;
+            coinIcon = Ui.Image(c, "SandDollarIcon", tr, new Vector2(-18, -12), new Vector2(26, 26), Color.white);
+            coinIcon.sprite = Ui.SandDollarIcon; coinIcon.rectTransform.pivot = tr;
+            cardsText = Ui.Text(c, "Cards", tr, new Vector2(-18, -44), new Vector2(300, 120), 13, TextAnchor.UpperRight, Color.white);
+            cardsText.rectTransform.pivot = tr;
+            voteText = Ui.Text(c, "Vote", new Vector2(.5f, 1), new Vector2(0, -74), new Vector2(700, 24), 16, TextAnchor.UpperCenter, new Color(.6f, .95f, 1f));
+            voteText.rectTransform.pivot = new Vector2(.5f, 1);
 
             // Bottom-left: weapons
             var bl = new Vector2(0, 0);
@@ -127,7 +138,20 @@ namespace TideWall
             }
             if (p.Wet > .2f) sb.Append("<color=#93c5fd>WET</color>");
             statusText.text = sb.ToString();
-            coinText.text = $"{gm.Coins} coins";
+            coinText.text = $"{gm.SandDollars}";
+            // The icon sits just left of the number
+            coinIcon.rectTransform.anchoredPosition = new Vector2(-24 - coinText.preferredWidth, -14);
+            xpFill.fillAmount = Mathf.Clamp01(p.Xp / (float)Mathf.Max(1, p.XpNext));
+            levelText.text = $"Lv {p.Level}" + (p.StatPoints > 0 ? $"  <color=#fde68a>+{p.StatPoints} pt {p.Glyph(Btn.Stats)}</color>" : "") +
+                             (p.PendingMods > 0 ? "  <color=#86efac>MOD!</color>" : "");
+            var cards = new StringBuilder();
+            foreach (var a in gm.Cards.Actives)
+                cards.Append($"<color=#{ColorUtility.ToHtmlStringRGB(Color.Lerp(a.def.color, Color.white, .35f))}>{a.def.displayName}</color> <color=#cbd5e1>{a.wavesLeft} wave{(a.wavesLeft == 1 ? "" : "s")}</color>\n");
+            cardsText.text = cards.ToString();
+            bool voting = gm.Cards.Draft != null && gm.State == GameState.Playing;
+            voteText.text = !voting ? "" : gm.Cards.Votes.ContainsKey(p.Index)
+                ? $"Tidal card vote: {gm.Cards.Votes.Count}/{gm.Players.Count} voted · {Mathf.CeilToInt(gm.Cards.DraftLeft)}s"
+                : $"TIDAL CARD VOTE · {Mathf.CeilToInt(gm.Cards.DraftLeft)}s · {p.Glyph(Btn.Stats)} to vote";
 
             if (ph != null && gm.State != GameState.MainMenu)
             {
@@ -135,8 +159,12 @@ namespace TideWall
                 string waves = gm.Waves.WaveCount > 0 ? $" · Wave {Mathf.Min(gm.Waves.Wave + 1, gm.Waves.WaveCount)}/{gm.Waves.WaveCount} · {gm.EnemiesLeft} left" : "";
                 phaseText.text = $"<b>Day {phases.Day} · {ph.displayName}</b>{timing}{waves}";
             }
-            wallFill.fillAmount = gm.Wall.Hp / gm.Wall.MaxHp;
-            wallText.text = $"Wall {Mathf.CeilToInt(gm.Wall.Hp)}/{Mathf.RoundToInt(gm.Wall.MaxHp)}";
+            float plant = gm.Plant.Fraction;
+            wallFill.fillAmount = plant;
+            wallFill.color = plant > .5f ? new Color(.4f, .95f, .45f) : plant > .3f ? new Color(.95f, .8f, .2f) : new Color(1f, .3f, .25f);
+            int breached = gm.Wall.BreachCount, sections = gm.Wall.Sections.Count;
+            wallText.text = $"Powerplant {Mathf.CeilToInt(gm.Plant.Hp)}/{Mathf.RoundToInt(gm.Plant.MaxHp)} · Wall {sections - breached}/{sections}" +
+                            (breached > 0 ? $" <color=#fca5a5>({breached} breached)</color>" : "");
 
             gunText.text = $"<b>{p.Gun.displayName}</b>  {(p.ReloadProgress >= 0 ? "reloading…" : $"{p.Ammo}/{p.MagSize}")}\n" +
                            $"<color=#cbd5e1>{p.Melee.displayName}</color>" +
@@ -183,9 +211,10 @@ namespace TideWall
                 return $"<b>Press the new key or button</b>\n{Rebinder.Listening}\n<size=16>Esc cancels</size>";
             if (gm.State == GameState.GameOver)
             {
-                string retry = Net.IsClient ? "Waiting for the host to try again" :
-                               gm.SaveSlot > 0 ? $"{p.Glyph(Btn.Interact)} Try again from the last save" : $"{p.Glyph(Btn.Interact)} Try again";
-                return $"<size=44><b>THE WALL HAS FALLEN</b></size>\n{gm.GameOverReason}\nYou held out until day {gm.Phases.Day}.\n\n" +
+                string retry = Net.IsClient ? "Waiting for the host to start a new run" : $"{p.Glyph(Btn.Interact)} New run";
+                var rec = gm.RunRecord;
+                string best = rec != null ? $"\n<size=16>Runs: {rec.runs} · best day {rec.bestDay} · best level {rec.bestLevel}</size>" : "";
+                return $"<size=44><b>RUN OVER</b></size>\n{gm.GameOverReason}\nYou held out until day {gm.Phases.Day} (level {p.Level}).{best}\n\n" +
                        $"<size=20>{retry} · {p.Glyph(Btn.Back)} {(Net.IsClient ? "Leave" : "Main menu")}</size>";
             }
             if (Net.IsClient && !Net.Client.Connected) return "<b>Connection lost</b>\nReturning to the main menu…";
@@ -215,7 +244,7 @@ namespace TideWall
             var m = p.ShownMenu;
             menuPanel.gameObject.SetActive(m != null);
             if (m == null) return;
-            menuTitle.text = m.System ? m.Title : $"{m.Title}   <size=16><color=#fde68a>{gm.Coins} coins</color></size>";
+            menuTitle.text = m.System ? m.Title : $"{m.Title}   <size=16><color=#fde68a>{gm.SandDollars} sand dollars</color></size>";
             menuBody.text = Render(m, 14);
             var cur = m.Current;
             string why = cur?.Blocked?.Invoke();

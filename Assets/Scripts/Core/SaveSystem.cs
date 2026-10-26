@@ -1,6 +1,7 @@
-// TideWall 3D — save slots. A run autosaves when a phase with `saveOnStart` begins (Morning in the shipped cycle),
+// TideWall 3D — save slots (a suspended roguelike run; deleted when the run ends). A run autosaves when a phase with `saveOnStart` begins (Morning in the shipped cycle),
 // and players can save again during that phase from the pause menu. A save is the team's state at that point:
-// day, phase, coins, wall, upgrades and each player slot's weapons. Files: <Storage.Root>/saves/slot<N>.json.
+// day, phase, sand dollars, wall sections, powerplant, upgrades, active tidal cards, and each player slot's weapons,
+// level, stats and mods. Files: <Storage.Root>/saves/slot<N>.json.
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -10,19 +11,22 @@ namespace TideWall
     [Serializable]
     public class SaveData
     {
-        public int version = 1;
+        public int version = 2;
         public int slot;
         public string savedAt;          // ISO 8601, for "Continue" (most recent wins)
         public int day = 1, phaseIndex;
-        public int coins;
-        public float wallHp, wallMaxHp;
+        public int sandDollars;
+        public float wallHp, wallMaxHp;                       // totals (for the summary)
+        public List<float> wallSections = new(), wallSectionMax = new();
+        public float plantHp, plantMaxHp;
+        public List<CardSave> cards = new();
         public List<UpgradeLevel> upgrades = new();
         public float gunDamage = 1, meleeDamage = 1, magazine = 1, playerHpBonus;
         public int extraGasCans;
         public List<PlayerSave> players = new();
         public int kills, severs;
 
-        public string Summary => $"Day {day} · {coins} coins · wall {Mathf.CeilToInt(wallHp)}/{Mathf.RoundToInt(wallMaxHp)}";
+        public string Summary => $"Day {day} · {sandDollars} sand dollars · powerplant {Mathf.CeilToInt(plantHp)}/{Mathf.RoundToInt(plantMaxHp)}";
     }
 
     [Serializable] public class UpgradeLevel { public string id; public int level; }
@@ -34,6 +38,9 @@ namespace TideWall
         public string gun, melee;
         public List<string> guns = new(), melees = new();
         public int kills, severs;
+        public int level = 1, xp, statPoints, pendingMods, respecs;
+        public List<UpgradeLevel> stats = new();          // stat id → points
+        public List<string> mods = new();                 // "weaponId/modId"
     }
 
     public static class SaveSystem
@@ -80,15 +87,23 @@ namespace TideWall
         {
             var d = new SaveData
             {
-                slot = gm.SaveSlot, day = gm.Phases.Day, phaseIndex = Mathf.Max(0, gm.Phases.Index), coins = gm.Coins,
-                wallHp = gm.Wall.Hp, wallMaxHp = gm.Wall.MaxHp,
+                slot = gm.SaveSlot, day = gm.Phases.Day, phaseIndex = Mathf.Max(0, gm.Phases.Index), sandDollars = gm.SandDollars,
+                wallHp = gm.Wall.Hp, wallMaxHp = gm.Wall.MaxHp, plantHp = gm.Plant.Hp, plantMaxHp = gm.Plant.MaxHp,
                 gunDamage = gm.Team.GunDamage, meleeDamage = gm.Team.MeleeDamage, magazine = gm.Team.Magazine,
                 playerHpBonus = gm.Team.PlayerHpBonus, extraGasCans = gm.Team.ExtraGasCans,
             };
+            foreach (var sec in gm.Wall.Sections) { d.wallSections.Add(sec.hp); d.wallSectionMax.Add(sec.max); }
+            foreach (var a in gm.Cards.Actives) d.cards.Add(new CardSave { id = a.def.id, wavesLeft = a.wavesLeft });
             foreach (var u in gm.DB.upgrades) if (gm.Team.Level(u.id) > 0) d.upgrades.Add(new UpgradeLevel { id = u.id, level = gm.Team.Level(u.id) });
             foreach (var p in gm.Players.All)
             {
-                var ps = new PlayerSave { index = p.Index, gun = p.Gun.id, melee = p.Melee.id, kills = p.Kills, severs = p.Severs };
+                var ps = new PlayerSave
+                {
+                    index = p.Index, gun = p.Gun.id, melee = p.Melee.id, kills = p.Kills, severs = p.Severs,
+                    level = p.Level, xp = p.Xp, statPoints = p.StatPoints, pendingMods = p.PendingMods, respecs = p.Respecs,
+                };
+                foreach (var kv in p.Allocated) ps.stats.Add(new UpgradeLevel { id = kv.Key, level = kv.Value });
+                foreach (var kv in p.Mods) foreach (var m in kv.Value) ps.mods.Add(kv.Key + "/" + m);
                 foreach (var g in gm.DB.guns) if (p.OwnsGun(g.id)) ps.guns.Add(g.id);
                 foreach (var m in gm.DB.melee) if (p.OwnsMelee(m.id)) ps.melees.Add(m.id);
                 d.players.Add(ps);

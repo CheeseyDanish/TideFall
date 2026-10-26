@@ -124,6 +124,16 @@ namespace TideWall
 
         public Player ByIndex(int index) => All.Find(p => p.Index == index);
 
+        /// <summary>XP for a kill: the killer gets it all, everyone else a share (it's co-op). No killer (fire, gas): everyone gets the share.</summary>
+        public void AwardKill(Player killer, int xp)
+        {
+            foreach (var p in All)
+            {
+                if (!p.Simulated || p.IsOut) continue;
+                p.GainXp(p == killer ? xp : xp * gm.DB.sharedXp);
+            }
+        }
+
         /// <summary>The camera a name tag should face: another local player's view, or the first one.</summary>
         public Camera FirstViewCamera(Player except)
         {
@@ -136,6 +146,8 @@ namespace TideWall
         {
             var views = All.FindAll(p => p.Cam != null);
             int n = views.Count;
+            // Screen Swap (split-screen tidal card): everyone's viewport moves along one place every 20 seconds
+            if (swapStep > 0 && n > 1) { var rotated = new List<Player>(); for (int i = 0; i < n; i++) rotated.Add(views[(i + swapStep) % n]); views = rotated; }
             Rect[] rects = n switch
             {
                 0 => new Rect[0],
@@ -147,17 +159,26 @@ namespace TideWall
             overview.rect = n == 3 ? new Rect(.5f, 0, .5f, .5f) : new Rect(0, 0, 1, 1);
         }
 
+        int swapStep;
+
         void Update()
         {
+            int step = gm.Cards.Has("screenswap") ? Mathf.FloorToInt(gm.Cards.SwapClock / 20f) : 0;
+            if (step != swapStep)
+            {
+                swapStep = step;
+                Relayout();
+                if (step > 0) foreach (var p in All) if (p.Hud != null) p.Toast("SCREEN SWAP! Find yourself!", new Color(.95f, .4f, .9f));
+            }
             int views = LocalCount;
             // The overview: an online client still waiting to join, or the empty 4th quarter with three players.
             overview.enabled = gm.State != GameState.MainMenu && (views == 0 || views == 3);
             if (overview.enabled)
             {
-                overview.backgroundColor = gm.Phases.SkyColor;
+                World.SetupCameraSky(overview, gm.Phases.SkyColor);
                 overview.transform.SetPositionAndRotation(new Vector3(0, 42, -20), Quaternion.Euler(58, 0, 0));
                 var ph = gm.Phases.Current;
-                string status = ph == null ? "" : $"<size=30><b>Day {gm.Phases.Day} · {ph.displayName}</b></size>\nWall {Mathf.CeilToInt(gm.Wall.Hp)}/{Mathf.RoundToInt(gm.Wall.MaxHp)} · {gm.Coins} coins\n";
+                string status = ph == null ? "" : $"<size=30><b>Day {gm.Phases.Day} · {ph.displayName}</b></size>\nWall {Mathf.CeilToInt(gm.Wall.Hp)}/{Mathf.RoundToInt(gm.Wall.MaxHp)} · {gm.SandDollars} sand dollars\n";
                 info.text = views == 0
                     ? status + (pendingJoins.Count > 0 ? "Joining…" : Net.IsClient && !Net.Client.Connected ? "Connecting…" : "<b>Press any button or key to join</b>")
                     : status + "<size=16>A 4th player can join here</size>";

@@ -1,12 +1,12 @@
-// TideWall 3D — builds the level from code: ground, sea, wall, town stalls, lights and decoration.
-// Layout constants are in Arena.cs.
+// TideWall 3D — builds the level from code: ground, sea, the wall (breachable sections), the Nuclear Sand
+// Powerplant, town stalls, the keep, lights, clouds and beach decoration. Layout constants are in Arena.cs.
 using UnityEngine;
 
 namespace TideWall
 {
     public static class WorldBuilder
     {
-        static readonly Color Sand = new(.93f, .82f, .6f), WetSand = new(.72f, .6f, .42f), Seabed = new(.5f, .45f, .35f), Cobble = new(.52f, .5f, .46f), Grass = new(.42f, .58f, .3f);
+        static readonly Color Sand = new(.93f, .82f, .6f), WetSand = new(.7f, .58f, .41f), Seabed = new(.5f, .45f, .35f), Cobble = new(.52f, .5f, .46f), Grass = new(.42f, .58f, .3f);
 
         public static World Build(Transform parent)
         {
@@ -14,6 +14,7 @@ namespace TideWall
             root.transform.SetParent(parent, false);
             var world = root.AddComponent<World>();
             var t = root.transform;
+            var db = GameManager.I.DB;
 
             // --- sun
             var sunGo = new GameObject("Sun");
@@ -23,25 +24,24 @@ namespace TideWall
             world.sun.shadows = LightShadows.Soft;
             world.sun.shadowStrength = .8f;
 
-            // --- ground: town (cobbles + grass), dry sand, wet sand, sloping seabed
-            Strip(t, "Grass", -60, 60, -40, -24, Grass);
-            Strip(t, "Town", -60, 60, -24, -1, Cobble);
-            Strip(t, "Beach", -60, 60, -1, Arena.ShoreZ - 4, Sand);
-            Strip(t, "WetSand", -60, 60, Arena.ShoreZ - 4, Arena.ShoreZ + .5f, WetSand);
-            Strip(t, "Seabed", -60, 60, Arena.ShoreZ + .5f, 110, Seabed, 2f);
-            Water.Build(t, new Rect(-80, Arena.ShoreZ - 2, 160, 100), 2f);
+            // --- ground: town (cobbles + grass), dry sand, wet sand (glossy), sloping seabed
+            Strip(t, "Grass", -140, 140, -70, -24, Grass);
+            Strip(t, "Town", -140, 140, -24, -1, Cobble);
+            Strip(t, "Beach", -140, 140, -1, Arena.ShoreZ - 6, Sand);
+            Strip(t, "WetSand", -140, 140, Arena.ShoreZ - 6, Arena.ShoreZ + .5f, WetSand, smooth: .45f);
+            Strip(t, "Seabed", -140, 140, Arena.ShoreZ + .5f, 190, Seabed, 3f);
+            Water.Build(t, new Rect(-140, Arena.ShoreZ - 3, 280, 150), 2.5f);
 
-            // --- the wall
+            // --- the wall: sections with their own HP (breachable); sally ports for players
             var wallGo = new GameObject("Wall");
             wallGo.transform.SetParent(t, false);
             world.wall = wallGo.AddComponent<Wall>();
-            world.wall.Init(GameManager.I.DB.wallMaxHp);
             for (float x = -Arena.WallHalfLength + Arena.SegmentLength / 2; x < Arena.WallHalfLength; x += Arena.SegmentLength)
             {
                 if (Arena.IsGap(x)) { Prop(wallGo.transform, "Crate", new Vector3(x - 1.7f, 0, -1), 20); continue; }
                 var seg = ModelFactory.Spawn("WallSegment", wallGo.transform, new Vector3(x, 0, Arena.WallZ));
-                Solid(seg.root, new Vector3(0, 1.4f, 0), new Vector3(Arena.SegmentLength, 2.8f, 1f));
-                world.wall.AddSegment(seg.root.transform);
+                var col = Solid(seg.root, new Vector3(0, 1.4f, 0), new Vector3(Arena.SegmentLength, 2.8f, 1f));
+                world.wall.Add(seg.root.transform, col, db.wallSegmentHp);
             }
             foreach (float sx in new[] { -1f, 1f })
             {
@@ -49,23 +49,26 @@ namespace TideWall
                 Solid(tower.root, new Vector3(0, 2, 0), new Vector3(2.4f, 4, 2.4f));
             }
 
+            // --- the Nuclear Sand Powerplant, centre of town
+            world.plant = PowerPlant.Build(t, Arena.PlantPos, db.plantMaxHp);
+
             // --- town: stalls face the camera (toward -Z)
             var town = new GameObject("Town").transform;
             town.SetParent(t, false);
-            Interactable.Add<ShopKiosk>(Prop(town, "ShopKiosk", new Vector3(-9, 0, -10), 180, solid: new Vector3(2.4f, 2, 1)), "SHOP", 3.2f);
-            Interactable.Add<Fishmonger>(Prop(town, "FishmongerCart", new Vector3(0, 0, -13), 180, solid: new Vector3(2.2f, 2, 1)), "FISHMONGER", 2.8f);
-            Interactable.Add<HotdogStand>(Prop(town, "HotdogStand", new Vector3(9, 0, -10), 180, solid: new Vector3(2, 2, 1.2f)), "HOTDOGS", 3.6f);
-            Interactable.Add<ReadyBell>(Prop(town, "Bell", new Vector3(0, 0, -5), 0, solid: new Vector3(.3f, 2, .3f)), "READY BELL", 2.8f);
+            Interactable.Add<ShopKiosk>(Prop(town, "ShopKiosk", new Vector3(-12, 0, -8), 180, solid: new Vector3(2.4f, 2, 1)), "SHOP", 3.2f);
+            Interactable.Add<Fishmonger>(Prop(town, "FishmongerCart", new Vector3(-20, 0, -12), 180, solid: new Vector3(2.2f, 2, 1)), "FISHMONGER", 2.8f);
+            Interactable.Add<HotdogStand>(Prop(town, "HotdogStand", new Vector3(4, 0, -9), 180, solid: new Vector3(2, 2, 1.2f)), "HOTDOGS", 3.6f);
+            Interactable.Add<ReadyBell>(Prop(town, "Bell", new Vector3(0, 0, -4), 0, solid: new Vector3(.3f, 2, .3f)), "READY BELL", 2.8f);
 
             // --- lights: torches behind the wall and around town, the lighthouse beam
-            foreach (var p in new[] { new Vector3(-18, 0, -1.4f), new Vector3(-6, 0, -1.4f), new Vector3(6, 0, -1.4f), new Vector3(18, 0, -1.4f),
-                                      new Vector3(-14, 0, -14), new Vector3(14, 0, -14), new Vector3(-4, 0, -18), new Vector3(4, 0, -18) })
+            foreach (var p in new[] { new Vector3(-36, 0, -1.4f), new Vector3(-12, 0, -1.4f), new Vector3(12, 0, -1.4f), new Vector3(36, 0, -1.4f),
+                                      new Vector3(-24, 0, -16), new Vector3(30, 0, -9), new Vector3(-8, 0, -21), new Vector3(6, 0, -19) })
             {
                 var torch = ModelFactory.Spawn("Torch", town, p);
                 var l = new GameObject("TorchLight").AddComponent<Light>();
                 l.transform.SetParent(torch.root.transform, false);
                 l.transform.localPosition = new Vector3(0, 2.3f, 0);
-                l.type = LightType.Point; l.range = 10; l.color = new Color(1, .62f, .3f); l.shadows = LightShadows.None;
+                l.type = LightType.Point; l.range = 12; l.color = new Color(1, .62f, .3f); l.shadows = LightShadows.None;
                 world.torches.Add(l);
             }
             // The keep behind the town: its upper room is the main menu's view out to sea
@@ -79,43 +82,68 @@ namespace TideWall
                     l.type = LightType.Point; l.color = new Color(1, .65f, .35f); l.shadows = LightShadows.None;
                     l.range = s == "Candle" ? 3 : 9; l.intensity = s == "Candle" ? 1.5f : 5;
                 }
-            var lh = ModelFactory.Spawn("Lighthouse", t, new Vector3(-32, 0, -4));
+            var lh = ModelFactory.Spawn("Lighthouse", t, new Vector3(-58, 0, -4));
             world.lighthouseLamp = new GameObject("Beam").transform;
             world.lighthouseLamp.SetParent(lh.root.transform, false);
             world.lighthouseLamp.localPosition = new Vector3(0, 10.2f, 0);
             world.lighthouseBeam = world.lighthouseLamp.gameObject.AddComponent<Light>();
-            world.lighthouseBeam.type = LightType.Spot; world.lighthouseBeam.spotAngle = 22; world.lighthouseBeam.range = 90;
+            world.lighthouseBeam.type = LightType.Spot; world.lighthouseBeam.spotAngle = 22; world.lighthouseBeam.range = 120;
             world.lighthouseBeam.color = new Color(1, .95f, .8f); world.lighthouseBeam.shadows = LightShadows.None;
 
-            // --- beach decoration (no colliders except tree trunks and rocks)
+            // --- beach decoration (no colliders except tree trunks, rocks and sandcastles)
             var deco = new GameObject("Beach").transform;
             deco.SetParent(t, false);
             foreach (var (name, pos, rot) in new (string, Vector3, float)[]
             {
-                ("PalmTree", new(-21, 0, 7), 0), ("PalmTree", new(19, 0, 5), 140), ("PalmTree", new(-4, 0, 13), 260), ("PalmTree", new(-30, 0, 2), 60),
-                ("PalmTree", new(30, 0, -6), 200), ("BeachUmbrella", new(-14, 0, 9), 0), ("Towel", new(-13, 0, 10.5f), 15), ("BeachUmbrella", new(8, 0, 11), 0),
-                ("Towel", new(9.5f, 0, 12), -10), ("Towel", new(-1, 0, 6), 80), ("Rock", new(24, 0, 15), 30), ("Rock", new(-24, 0, 16), 110),
-                ("Rock", new(12, 0, 17), 200), ("Crate", new(-12, 0, -2.2f), 10), ("Crate", new(13, 0, -2), -15), ("PalmTree", new(-16, 0, -20), 90),
-                ("PalmTree", new(18, 0, -19), 10),
+                ("PalmTree", new(-42, 0, 14), 0), ("PalmTree", new(38, 0, 10), 140), ("PalmTree", new(-8, 0, 26), 260), ("PalmTree", new(-54, 0, 4), 60),
+                ("PalmTree", new(54, 0, -6), 200), ("PalmTree", new(20, 0, 30), 30), ("PalmTree", new(-30, 0, 32), 300),
+                ("BeachUmbrella", new(-28, 0, 18), 0), ("Towel", new(-26, 0, 21), 15), ("BeachUmbrella", new(16, 0, 22), 0),
+                ("Towel", new(19, 0, 24), -10), ("Towel", new(-2, 0, 12), 80), ("BeachUmbrella", new(34, 0, 28), 0), ("Towel", new(36, 0, 30), 40),
+                ("Rock", new(46, 0, 30), 30), ("Rock", new(-48, 0, 32), 110), ("Rock", new(24, 0, 34), 200), ("Rock", new(-14, 0, 36), 70),
+                ("Sandcastle", new(-18, 0, 10), 15), ("Sandcastle", new(28, 0, 14), -20), ("Sandcastle", new(6, 0, 33), 40),
+                ("Crate", new(-24, 0, -2.2f), 10), ("Crate", new(26, 0, -2), -15),
+                ("PalmTree", new(-32, 0, -20), 90), ("PalmTree", new(36, 0, -19), 10), ("PalmTree", new(-60, 0, -14), 45), ("PalmTree", new(60, 0, -12), 160),
             })
             {
                 var go = Prop(deco, name, pos, rot);
                 if (name == "PalmTree") Solid(go, new Vector3(0, 1.5f, 0), new Vector3(.5f, 3, .5f));
                 if (name == "Rock") Solid(go, new Vector3(0, .4f, 0), new Vector3(1.4f, .8f, 1.1f));
+                if (name == "Sandcastle") Solid(go, new Vector3(0, .6f, 0), new Vector3(1.6f, 1.2f, 1.6f));
+            }
+            // Shells, starfish and kelp along the tide line (scenery only)
+            var rng = new System.Random(7);
+            for (int i = 0; i < 70; i++)
+            {
+                string m = i % 3 == 0 ? "Starfish" : i % 3 == 1 ? "Shell" : "Kelp";
+                float x = (float)(rng.NextDouble() * 96 - 48);
+                float z = m == "Kelp" ? Arena.ShoreZ + 14 + (float)rng.NextDouble() * 30 : Arena.ShoreZ - 9 + (float)rng.NextDouble() * 9;
+                // Kelp stays under the surface: sized to the depth where it grows
+                float size = m == "Kelp" ? Mathf.Clamp(Arena.Depth(new Vector3(x, 0, z)) / 3.6f, .3f, 1.4f) * (.7f + .3f * (float)rng.NextDouble()) : 1.2f;
+                var mi = ModelFactory.Spawn(m, deco, new Vector3(x, Arena.GroundY(z), z), size);
+                mi.root.transform.rotation = Quaternion.Euler(0, (float)rng.NextDouble() * 360, 0);
+                foreach (var r in mi.renderers) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            // Clouds drifting high over the sea
+            for (int i = 0; i < 14; i++)
+            {
+                var c = ModelFactory.Spawn("Cloud", t, new Vector3((float)(rng.NextDouble() * 440 - 220), 55 + (float)rng.NextDouble() * 25, 60 + (float)rng.NextDouble() * 150),
+                                           1.5f + (float)rng.NextDouble() * 2);
+                foreach (var r in c.renderers) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false; }
+                world.clouds.Add((c.root.transform, 1.5f + (float)rng.NextDouble() * 2));
             }
 
             // --- invisible bounds for players
             var bounds = new GameObject("Bounds").transform;
             bounds.SetParent(t, false);
-            Solid(bounds.gameObject, new Vector3(-Arena.BoundX - .5f, 2, 4), new Vector3(1, 4, 60));
-            Solid(bounds.gameObject, new Vector3(Arena.BoundX + .5f, 2, 4), new Vector3(1, 4, 60));
-            Solid(bounds.gameObject, new Vector3(0, 2, Arena.MinZ - .5f), new Vector3(60, 4, 1));
-            Solid(bounds.gameObject, new Vector3(0, 2, Arena.MaxZ + .5f), new Vector3(60, 4, 1));
+            Solid(bounds.gameObject, new Vector3(-Arena.BoundX - .5f, 2, 15), new Vector3(1, 4, 80));
+            Solid(bounds.gameObject, new Vector3(Arena.BoundX + .5f, 2, 15), new Vector3(1, 4, 80));
+            Solid(bounds.gameObject, new Vector3(0, 2, Arena.MinZ - .5f), new Vector3(110, 4, 1));
+            Solid(bounds.gameObject, new Vector3(0, 2, Arena.MaxZ + .5f), new Vector3(110, 4, 1));
             return world;
         }
 
         /// <summary>A flat-shaded ground strip from z0 to z1 that follows Arena.GroundY (sea floor slopes).</summary>
-        static void Strip(Transform parent, string name, float x0, float x1, float z0, float z1, Color c, float step = 4f)
+        static void Strip(Transform parent, string name, float x0, float x1, float z0, float z1, Color c, float step = 4f, float smooth = -1)
         {
             int n = Mathf.Max(1, Mathf.CeilToInt((z1 - z0) / step));
             var v = new Vector3[(n + 1) * 2]; var tris = new int[n * 6];
@@ -134,7 +162,9 @@ namespace TideWall
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            go.AddComponent<MeshRenderer>().sharedMaterial = Mats.Lit(c);
+            var mat = Mats.Lit(c);
+            if (smooth >= 0) { mat = new Material(mat) { name = name }; if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smooth); }
+            go.AddComponent<MeshRenderer>().sharedMaterial = mat;
             go.AddComponent<MeshCollider>().sharedMesh = mesh;
         }
 
@@ -146,10 +176,11 @@ namespace TideWall
             return mi.root;
         }
 
-        static void Solid(GameObject go, Vector3 centre, Vector3 size)
+        static BoxCollider Solid(GameObject go, Vector3 centre, Vector3 size)
         {
             var bc = go.AddComponent<BoxCollider>();
             bc.center = centre; bc.size = size;
+            return bc;
         }
     }
 }

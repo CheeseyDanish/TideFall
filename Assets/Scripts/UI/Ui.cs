@@ -87,6 +87,43 @@ namespace TideWall
             return f;
         }
 
+        static Sprite sandDollar;
+
+        /// <summary>The money icon: a sand dollar (pale disc, five-petal flower, a little hole in the middle). Drawn in code.</summary>
+        public static Sprite SandDollarIcon
+        {
+            get
+            {
+                if (sandDollar != null) return sandDollar;
+                const int n = 64;
+                var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+                var px = new Color[n * n];
+                Color body = new(.97f, .91f, .76f), rim = new(.82f, .7f, .5f), petal = new(.74f, .6f, .4f);
+                for (int y = 0; y < n; y++)
+                    for (int x = 0; x < n; x++)
+                    {
+                        var d = new Vector2(x - n / 2f + .5f, y - n / 2f + .5f) / (n / 2f);
+                        float r = d.magnitude;
+                        if (r > 1) { px[y * n + x] = Color.clear; continue; }
+                        Color c = r > .86f ? rim : body;
+                        // Five petals: narrow ellipses pointing out from the centre
+                        float a = Mathf.Atan2(d.y, d.x) + Mathf.PI / 2;
+                        for (int k = 0; k < 5; k++)
+                        {
+                            float pa = k * Mathf.PI * 2 / 5;
+                            var dir = new Vector2(Mathf.Cos(pa + Mathf.PI / 2), Mathf.Sin(pa + Mathf.PI / 2));
+                            float along = Vector2.Dot(d, dir), across = Mathf.Abs(d.x * dir.y - d.y * dir.x);
+                            if (along > .16f && along < .62f && across < .085f * Mathf.Sin(Mathf.PI * (along - .16f) / .46f) + .01f) c = petal;
+                        }
+                        if (r < .08f) c = petal;
+                        c.a = Mathf.Clamp01((1 - r) * n / 3f);   // soft edge
+                        px[y * n + x] = c;
+                    }
+                tex.SetPixels(px); tex.Apply();
+                return sandDollar = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(.5f, .5f));
+            }
+        }
+
         /// <summary>A soft radial texture (used for tunnel vision and ink splats).</summary>
         public static Sprite Radial(bool hole, int size = 128)
         {

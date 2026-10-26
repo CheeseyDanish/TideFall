@@ -73,7 +73,7 @@ namespace TideWall
                 m.Items.Add(new MenuItem
                 {
                     Label = gun.displayName, Detail = $"{gun.description}  ({gun.damage}{(gun.pellets > 1 ? "×" + gun.pellets : "")} dmg, {gun.magazine} rounds)",
-                    Right = equipped ? "Equipped" : owned ? "Equip" : $"{gun.price}c",
+                    Right = equipped ? "Equipped" : owned ? "Equip" : $"{gun.price} SD",
                     Blocked = () => equipped ? "Already equipped" : null,
                     OnPick = () => { if (owned || gm.TrySpend(gun.price)) { p.GiveGun(gun.id); Sfx.Play("reload"); } },
                 });
@@ -85,7 +85,7 @@ namespace TideWall
                 bool equipped = p.Melee == mel;
                 m.Items.Add(new MenuItem
                 {
-                    Label = mel.displayName, Detail = mel.description, Right = equipped ? "Equipped" : p.OwnsMelee(mel.id) ? "Equip" : $"{mel.price}c",
+                    Label = mel.displayName, Detail = mel.description, Right = equipped ? "Equipped" : p.OwnsMelee(mel.id) ? "Equip" : $"{mel.price} SD",
                     Blocked = () => equipped ? "Already equipped" : null,
                     OnPick = () => { if (p.OwnsMelee(mel.id) || gm.TrySpend(mel.price)) { p.GiveMelee(mel.id); Sfx.Play("swing"); } },
                 });
@@ -98,7 +98,7 @@ namespace TideWall
                 m.Items.Add(new MenuItem
                 {
                     Label = up.maxLevel > 0 ? $"{up.displayName}  {lvl}/{up.maxLevel}" : up.displayName, Detail = up.description,
-                    Right = gm.Team.Maxed(up) ? "Max" : $"{price}c",
+                    Right = gm.Team.Maxed(up) ? "Max" : $"{price} SD",
                     Blocked = () => gm.Team.Blocked(up),
                     OnPick = () => { if (gm.TrySpend(price)) { gm.Team.Apply(up); Sfx.Play("bell", .5f, .2f); } },
                 });
@@ -132,7 +132,7 @@ namespace TideWall
             {
                 Label = sauce == null ? food.displayName : $"{food.displayName} + {sauce.displayName}",
                 Detail = sauce == null ? food.description : sauce.description,
-                Right = $"{price}c",
+                Right = $"{price} SD",
                 Blocked = () => p.IsDowned ? "You're down" : null,
                 OnPick = () => { if (gm.TrySpend(price)) p.Eat(food, sauce); },
             };
@@ -146,9 +146,11 @@ namespace TideWall
             m.Add("Resume", pick: p.CloseMenu);
             m.Add(p.PrefersFirstPerson ? "Switch to top-down view" : "Switch to first person", Glyph(p, Btn.View), "You can also switch any time with the View button.",
                   pick: () => { p.CloseMenu(); p.SwitchView(); });
+            m.Add("Stats & mods", p.StatPoints > 0 || p.PendingMods > 0 ? "!" : ">", "Spend stat points, choose weapon mods, respec.",
+                  pick: () => { if (p.Kind == PlayerKind.LocalProxy) p.RequestStats(); else p.OpenMenu(Stats(p)); });
             m.Add("Settings", ">", "Audio, game and controls.", open: () => Settings(() => Pause(p), p));
             if (!Net.IsClient && gm.SaveSlot > 0)
-                m.Add("Save game", $"slot {gm.SaveSlot}", "Saves the team's coins, upgrades, wall and weapons.",
+                m.Add("Save game", $"slot {gm.SaveSlot}", "Saves the team's sand dollars, upgrades, wall and weapons.",
                       pick: () => { if (gm.SaveNow()) { p.Toast("Game saved", new Color(.7f, 1, .7f)); Sfx.Play("bell", .4f, .2f); } },
                       blocked: () => gm.CanSaveNow ? null : $"You can save during {SavePhaseName()} (it also autosaves then)");
             if (Net.IsHost) m.Add("Hosting", $"{Net.Host.ClientCount} online", Net.Host.Addresses);
@@ -184,7 +186,7 @@ namespace TideWall
             m.Header("AUDIO");
             Slider(m, "Master volume", () => s.master, v => s.master = v, "Everything.");
             Slider(m, "Effects", () => s.effects, v => s.effects = v, "Guns, hits, creatures, explosions.");
-            Slider(m, "Interface", () => s.interfaceVolume, v => s.interfaceVolume = v, "Menu clicks, bells and coins.");
+            Slider(m, "Interface", () => s.interfaceVolume, v => s.interfaceVolume = v, "Menu clicks, bells and sand dollars.");
             Slider(m, "Ambience", () => s.ambience, v => s.ambience = v, "Surf and wind.");
 
             m.Header("GAME");
@@ -257,6 +259,79 @@ namespace TideWall
             }
             m.Header(kb ? "Mouse look and the cursor aren't rebindable." : "Left stick moves; right stick looks or aims.");
             m.Add("Back", null, null, open: back);
+            m.FirstSelectable();
+            return m;
+        }
+        // ------------------------------------------------------------------ stats, mods, respec
+        public const string StatsTitle = "STATS & MODS";
+
+        /// <summary>Level, stat points to spend, weapon mods to choose, and a respec. Runs on the host for online players.</summary>
+        public static Menu Stats(Player p)
+        {
+            var gm = GameManager.I;
+            var m = new Menu { Title = StatsTitle, Rebuild = () => Stats(p) };
+            m.Header($"LEVEL {p.Level}   XP {p.Xp}/{p.XpNext}   ·   {p.StatPoints} point{(p.StatPoints == 1 ? "" : "s")} to spend");
+            foreach (var st in gm.DB.stats)
+            {
+                var stat = st;
+                int pts = p.Points(stat.id);
+                string bonus = stat.kind == StatKind.MaxHp ? $"+{pts * stat.perPoint:0} HP" : $"+{pts * stat.perPoint * 100:0}%";
+                m.Add($"{stat.displayName}  {pts}/{stat.maxPoints}", p.StatPoints > 0 && pts < stat.maxPoints ? "+1" : bonus,
+                      $"{stat.description} Now: {bonus}.", pick: () => p.SpendPoint(stat.id), blocked: () => p.WhyCantSpend(stat.id));
+            }
+            if (p.ModOffer != null)
+            {
+                m.Header($"CHOOSE A WEAPON MOD{(p.PendingMods > 1 ? $" ({p.PendingMods} waiting)" : "")}");
+                foreach (var mod in p.ModOffer)
+                {
+                    var md = mod;
+                    m.Add(md.displayName, md.gun ? p.Gun.displayName : p.Melee.displayName, md.description, pick: () => p.TakeMod(md));
+                }
+            }
+            else m.Header($"<size=13>Next weapon mod at level {NextModLevel(p, gm)}</size>");
+            m.Header("YOUR MODS");
+            var gunMods = string.Join(", ", ModNames(p, p.Gun.id, gm));
+            var meleeMods = string.Join(", ", ModNames(p, p.Melee.id, gm));
+            m.Header($"<size=13>{p.Gun.displayName}: {(gunMods.Length > 0 ? gunMods : "none")}</size>");
+            m.Header($"<size=13>{p.Melee.displayName}: {(meleeMods.Length > 0 ? meleeMods : "none")}</size>");
+            m.Add("Respec", $"{p.RespecPrice} SD", "Take back every stat point to spend again. Costs more each time (paid from the team's sand dollars).",
+                  pick: () => p.Respec(), blocked: () => p.SpentPoints == 0 ? "No points to take back" : gm.SandDollars < p.RespecPrice ? "Not enough sand dollars" : null);
+            m.Add("Close", null, null, pick: p.CloseMenu);
+            m.FirstSelectable();
+            return m;
+        }
+
+        static int NextModLevel(Player p, GameManager gm)
+        {
+            int every = Mathf.Max(1, gm.DB.modEveryLevels);
+            return (p.Level / every + 1) * every;
+        }
+
+        static IEnumerable<string> ModNames(Player p, string weapon, GameManager gm)
+        {
+            foreach (var id in p.ModsOn(weapon)) if (gm.DB.Mod(id) is { } md) yield return md.displayName;
+        }
+
+        // ------------------------------------------------------------------ tidal cards
+        /// <summary>The draft vote: pick one of the offered cards. Everyone votes; ties and no-shows are decided at random.</summary>
+        public static Menu CardVote(Player p)
+        {
+            var cards = GameManager.I.Cards;
+            var m = new Menu { Title = TidalCards.MenuTag, Rebuild = () => CardVote(p) };
+            if (cards.Draft == null) { m.Header("No vote right now."); m.Add("Close", null, null, pick: p.CloseMenu); m.FirstSelectable(); return m; }
+            m.Header($"Vote for the next tide · {Mathf.CeilToInt(cards.DraftLeft)}s");
+            for (int i = 0; i < cards.Draft.Count; i++)
+            {
+                int choice = i;
+                var c = cards.Draft[i];
+                int votes = 0;
+                foreach (var v in cards.Votes.Values) if (v == choice) votes++;
+                bool mine = cards.Votes.TryGetValue(p.Index, out var my) && my == choice;
+                string tag = c.exclusive == CardExclusive.Online ? " [ONLINE]" : c.exclusive == CardExclusive.SplitScreen ? " [SPLIT SCREEN]" : "";
+                m.Add($"{c.displayName}{tag}", $"{(mine ? "your vote · " : "")}{votes} vote{(votes == 1 ? "" : "s")}", $"{c.description} ({c.waves} waves)",
+                      pick: () => cards.Vote(p, choice));
+            }
+            m.Add("Close (vote later with Stats)", null, null, pick: p.CloseMenu);
             m.FirstSelectable();
             return m;
         }

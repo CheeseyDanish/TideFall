@@ -1,7 +1,8 @@
 // TideWall 3D — the root object. Boots itself into any scene (no scene setup required), builds the world,
-// and owns the shared state: coins, team upgrades, game state, pause, the current save slot.
-// It boots into the main menu. A run starts from the menu (new game, continue, load, host) or when a player
-// joins directly (tests, capture tour). Online clients don't simulate: they mirror the host (see Net/).
+// and owns the shared state: sand dollars (the money), team upgrades, game state, pause, the current save slot.
+// It boots into the main menu. A run starts from the menu (new run, continue, host) or when a player joins
+// directly (tests, capture tour). Runs are roguelike: when the powerplant melts down (or everyone falls), the run
+// is over and its save is deleted; the Legacy record keeps the best. Online clients mirror the host (see Net/).
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -31,10 +32,14 @@ namespace TideWall
         public PhaseCycle Cycle { get; private set; }
         public GameState State { get; private set; } = GameState.MainMenu;
         public bool Paused { get; private set; }
-        public int Coins { get; private set; }
+        public int SandDollars { get; private set; }
         public readonly TeamStats Team = new();
         public World World { get; private set; }
         public Wall Wall => World.wall;
+        public PowerPlant Plant => World.plant;
+        public TidalCards Cards { get; private set; }
+        /// <summary>The record this run's game over produced (null until then).</summary>
+        public Legacy RunRecord { get; private set; }
         public PhaseManager Phases { get; private set; }
         public WaveDirector Waves { get; private set; }
         public PlayerManager Players { get; private set; }
@@ -50,8 +55,8 @@ namespace TideWall
 
         /// <summary>(title, subtitle): big centre-screen message for every player.</summary>
         public event Action<string, string> OnBanner;
-        /// <summary>(delta, where or null, reason): coin changes, for floating "+12" popups.</summary>
-        public event Action<int, Vector3?, string> OnCoins;
+        /// <summary>(delta, where or null, reason): sand dollar changes, for floating "+12" popups.</summary>
+        public event Action<int, Vector3?, string> OnSandDollars;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
@@ -69,7 +74,7 @@ namespace TideWall
             Time.timeScale = 1;
             DB = GameDatabase.Load();
             Cycle = PhaseCycle.Load();
-            Coins = DB.startCoins;
+            SandDollars = DB.startSandDollars;
             // The scene's own camera/sun are replaced by ours (players get their own cameras).
             foreach (var c in FindObjectsByType<Camera>(FindObjectsInactive.Include)) Destroy(c.gameObject);
             foreach (var l in FindObjectsByType<Light>(FindObjectsInactive.Include))
@@ -78,6 +83,7 @@ namespace TideWall
             Settings.Changed(save: false);
             Fx.Init(transform);
             Sfx.Init(gameObject);
+            Cards = gameObject.AddComponent<TidalCards>();
             World = WorldBuilder.Build(transform);
             Phases = gameObject.AddComponent<PhaseManager>();
             Waves = gameObject.AddComponent<WaveDirector>();
@@ -117,9 +123,11 @@ namespace TideWall
             Menu.Hide();
             if (save != null)
             {
-                Coins = save.coins;
+                SandDollars = save.sandDollars;
                 Team.Restore(save);
-                Wall.Restore(save.wallHp, save.wallMaxHp);
+                Wall.Restore(save.wallSections, save.wallSectionMax);
+                if (save.plantMaxHp > 0) Plant.Restore(save.plantHp, save.plantMaxHp);
+                Cards.Restore(save.cards);
                 Phases.SetDay(save.day);
                 Phases.Enter(save.phaseIndex);
             }
@@ -154,19 +162,19 @@ namespace TideWall
             if (Net.IsHost) Net.Host.Banner(title, subtitle);
         }
 
-        public void AddCoins(int amount, Vector3? where = null, string reason = null)
+        public void AddSandDollars(int amount, Vector3? where = null, string reason = null)
         {
             if (amount == 0) return;
-            Coins += amount;
-            OnCoins?.Invoke(amount, where, reason);
+            SandDollars += amount;
+            OnSandDollars?.Invoke(amount, where, reason);
             if (amount > 0) Sfx.Play("coin", .6f, .06f);
         }
 
         public bool TrySpend(int amount)
         {
-            if (Coins < amount) { Sfx.Play("deny"); return false; }
-            Coins -= amount;
-            OnCoins?.Invoke(-amount, null, null);
+            if (SandDollars < amount) { Sfx.Play("deny"); return false; }
+            SandDollars -= amount;
+            OnSandDollars?.Invoke(-amount, null, null);
             return true;
         }
 
@@ -177,7 +185,12 @@ namespace TideWall
             GameOverReason = reason;
             Time.timeScale = .25f;   // slow-motion fall; HUDs show the game-over panel
             Sfx.Play("horn");
-            Banner("THE WALL HAS FALLEN", reason);
+            Banner("RUN OVER", reason);
+            // Roguelike: the run's save goes with it; the legacy record keeps the best
+            if (SaveSlot > 0) SaveSystem.Delete(SaveSlot);
+            int level = 0, kills = 0;
+            foreach (var p in Players.All) { level = Mathf.Max(level, p.Level); kills += p.Kills; }
+            RunRecord = Legacy.Record(Phases.Day, level, kills);
             if (Net.IsHost) Net.Host.SendGameOver(reason);
         }
 
@@ -188,11 +201,11 @@ namespace TideWall
             State = GameState.GameOver; GameOverReason = reason;
         }
 
-        /// <summary>Game over → try again from the last save (or a new game if this run wasn't saved).</summary>
-        public void RetryFromSave()
+        /// <summary>Game over → a fresh run in the same slot, with the same players (and the same online group).</summary>
+        public void NewRun()
         {
             if (Net.IsClient) return;   // the host decides
-            var req = new RunRequest { slot = SaveSlot, save = SaveSlot > 0 ? SaveSystem.Load(SaveSlot) : null };
+            var req = new RunRequest { slot = SaveSlot, save = null };
             foreach (var p in Players.All) if (p.Controls != null) req.devices.Add(p.Controls.Devices);
             Pending = req;
             if (Net.IsHost) Net.Host.SendReload();
@@ -215,10 +228,10 @@ namespace TideWall
         }
 
         // ------------------------------------------------------------------ client mirror
-        public void ApplyNet(int coins, int enemiesLeft)
+        public void ApplyNet(int sandDollars, int enemiesLeft)
         {
-            if (coins != Coins) OnCoins?.Invoke(coins - Coins, null, null);
-            Coins = coins;
+            if (sandDollars != SandDollars) OnSandDollars?.Invoke(sandDollars - SandDollars, null, null);
+            SandDollars = sandDollars;
             netEnemiesLeft = enemiesLeft;
         }
     }
@@ -238,7 +251,8 @@ namespace TideWall
         public string Blocked(UpgradeDef u)
         {
             if (Maxed(u)) return "Maxed";
-            if (u.kind == UpgradeKind.RepairWall && GameManager.I.Wall.Hp >= GameManager.I.Wall.MaxHp) return "Wall is full";
+            if (u.kind == UpgradeKind.RepairWall && !GameManager.I.Wall.Damaged) return "The wall is in one piece";
+            if (u.kind == UpgradeKind.PlantRepair && GameManager.I.Plant.Hp >= GameManager.I.Plant.MaxHp - .5f) return "The core is cool";
             return null;
         }
 
@@ -248,9 +262,11 @@ namespace TideWall
             var gm = GameManager.I;
             switch (u.kind)
             {
-                case UpgradeKind.RepairWall: gm.Wall.Heal(gm.Wall.MaxHp * u.amount); break;
+                case UpgradeKind.RepairWall: gm.Wall.Repair(u.amount); break;
+                case UpgradeKind.PlantRepair: gm.Plant.Repair(u.amount); break;
+                case UpgradeKind.PlantMaxHp: gm.Plant.Grow(1 + u.amount); break;
                 case UpgradeKind.WallMaxHp: gm.Wall.Grow(1 + u.amount); break;
-                case UpgradeKind.PlayerMaxHp: PlayerHpBonus += u.amount; foreach (var p in gm.Players.All) p.RefreshMaxHp(); break;
+                case UpgradeKind.PlayerMaxHp: PlayerHpBonus += u.amount; foreach (var p in gm.Players.All) p.Heal(u.amount); break;
                 case UpgradeKind.GunDamage: GunDamage += u.amount; break;
                 case UpgradeKind.MeleeDamage: MeleeDamage += u.amount; break;
                 case UpgradeKind.Magazine: Magazine += u.amount; break;

@@ -436,6 +436,63 @@ build('VolleyNet', [
 build('Volleyball', [('Body', 'ball', (.32, .32, .32), (0, 0, 0), 'white'), ('Body', 'tor', (.42, .42, .5), (0, 0, 0), 'yellow', None, (90, 0, 0), 8),
                      ('Body', 'tor', (.42, .42, .5), (0, 0, 0), 'blue', None, (0, 90, 0), 8)])
 
+COL.update({'sandD': (.8, .66, .44), 'sandL': (.97, .9, .72), 'core': (.35, 1, .45), 'sea': (.14, .42, .66), 'seaL': (.38, .72, .84),
+            'foam': (.95, .98, 1), 'shellP': (.98, .75, .7), 'star': (.95, .5, .25), 'kelp': (.3, .45, .18), 'hazard': (1, .82, .1)})
+
+# The Nuclear Sand Powerplant: what the team defends. A sandcastle reactor: dome, two cooling towers, a glowing core.
+def tower(cx):
+    out = []
+    for i in range(8):
+        z = .3 + i * .75
+        r = 1.15 + .55 * ((z - 3.4) / 3.2) ** 2          # hyperboloid waist
+        out.append(('Body', 'cyl', (r * 2, r * 2, .78), (cx, 1.2, z), 'sandL' if i % 2 else 'sand', None, None, 10))
+    out.append(('Body', 'cyl', (2.9, 2.9, .2), (cx, 1.2, 6.2), 'sandD', None, None, 10))
+    return out
+build('Powerplant', [
+    ('Body', 'box', (12, 8, .6), (0, 0, .3), 'sandD'),                                   # foundation
+    *[('Body', 'box', (.6, .6, .7), (x, -3.9, .9), 'sand') for x in (-5.4, -3.6, -1.8, 0, 1.8, 3.6, 5.4)],   # little crenellations
+    ('Body', 'cyl', (5.2, 5.2, 2.2), (0, -1.0, 1.7), 'sand', None, None, 14),             # reactor drum
+    ('Body', 'ball', (5.2, 5.2, 4.4), (0, -1.0, 2.8), 'sandL'),                           # dome
+    ('Body', 'cyl', (1.5, 1.5, .25), (0, -3.55, 2.6), 'hazard', None, (90, 0, 0), 12),    # radiation sign
+    *[('Body', 'box', (.32, .08, .5), (math.cos(a) * .35, -3.7, 2.6 + math.sin(a) * .35), 'black', None, (0, -math.degrees(a) + 90, 0))
+      for a in (math.pi / 2, math.pi / 2 + 2 * math.pi / 3, math.pi / 2 + 4 * math.pi / 3)],
+    ('Body', 'ball', (.3, .3, .3), (0, -3.72, 2.6), 'black'),
+    ('Body', 'box', (1.6, .2, 1.2), (0, -3.25, 1.2), 'core'),                             # glowing hatch
+    *tower(-4.0), *tower(4.0),
+    ('Body', 'cyl', (.5, .5, 3.2), (-2.4, 1.2, 2.2), 'steel', None, (0, 90, 0), 8),       # pipes
+    ('Body', 'cyl', (.5, .5, 3.2), (2.4, 1.2, 2.2), 'steel', None, (0, 90, 0), 8),
+    ('Body', 'cyl', (.08, .08, 2.2), (0, -1, 6.1), 'woodD', None, None, 5),               # flag
+    ('Body', 'box', (1.1, .05, .7), (.55, -1, 6.8), 'core'),
+], sockets=[('Core', (0, -1, 3.2)), ('SteamL', (-4.0, 1.2, 6.4)), ('SteamR', (4.0, 1.2, 6.4))])
+
+# A breaking wave (1 m long in X; the game stretches it). Front (-Y) is the curling lip, toward the shore.
+build('Breaker', [
+    ('Body', 'box', (1, 3.0, .5), (0, .9, .25), 'sea'),
+    ('Body', 'box', (1, 2.2, .7), (0, .3, .65), 'seaL', None, (-18, 0, 0)),
+    ('Body', 'box', (1, 1.2, .5), (0, -.4, 1.15), 'seaL', None, (-35, 0, 0)),
+    ('Body', 'box', (1, .9, .35), (0, -.85, 1.45), 'foam', None, (-60, 0, 0)),
+    ('Body', 'box', (1, .6, .25), (0, -1.15, 1.25), 'foam', None, (-110, 0, 0)),
+    ('Body', 'box', (1, 1.6, .18), (0, -1.6, .2), 'foam'),
+])
+build('SandDollar', [
+    ('Body', 'cyl', (.36, .36, .05), (0, 0, .03), 'sandL', None, None, 12),
+    *[('Body', 'box', (.05, .13, .012), (math.sin(a) * .09, math.cos(a) * .09, .06), 'sandD', None, (0, 0, -math.degrees(a))) for a in [k * 2 * math.pi / 5 for k in range(5)]],
+    ('Body', 'cyl', (.05, .05, .012), (0, 0, .06), 'sandD', None, None, 6),
+])
+build('Cloud', [('Body', 'ball', (6, 4, 2.2), (0, 0, 0), 'white'), ('Body', 'ball', (4, 3.4, 2.6), (2.6, .4, .6), 'white'),
+                ('Body', 'ball', (3.6, 3, 2), (-2.8, -.3, .3), 'white'), ('Body', 'ball', (3, 2.6, 2.4), (.8, -.6, 1.1), 'white')])
+build('Shell', [('Body', 'cone', (.35, .3, .14), (0, 0, .05), 'shellP', None, (90, 0, 0), 7), ('Body', 'ball', (.12, .12, .08), (0, -.16, .04), 'shellP')])
+build('Starfish', [*[('Body', 'box', (.07, .22, .04), (math.sin(a) * .11, math.cos(a) * .11, .02), 'star', None, (0, 0, -math.degrees(a)))
+                     for a in [k * 2 * math.pi / 5 for k in range(5)]], ('Body', 'cyl', (.12, .12, .05), (0, 0, .025), 'star', None, None, 8)])
+build('Sandcastle', [
+    ('Body', 'box', (1.6, 1.6, .5), (0, 0, .25), 'sandD'),
+    *[('Body', 'cyl', (.5, .5, .9), (x, y, .7), 'sand', None, None, 8) for x, y in ((-.6, -.6), (.6, -.6), (-.6, .6), (.6, .6))],
+    ('Body', 'cyl', (.8, .8, 1.2), (0, 0, .9), 'sandL', None, None, 8), ('Body', 'cone', (.8, .8, .5), (0, 0, 1.75), 'sandD', None, None, 8),
+    ('Body', 'cyl', (.03, .03, .5), (0, 0, 2.2), 'woodD', None, None, 4), ('Body', 'box', (.3, .02, .18), (.15, 0, 2.35), 'red'),
+])
+build('Kelp', [*[('Body', 'box', (.12, .05, .9), (math.sin(i) * .1, 0, .45 + i * .8), 'kelp', None, (math.sin(i * 1.7) * 14, 0, i * 25)) for i in range(4)],
+               ('Body', 'ball', (.15, .15, .15), (0, 0, 3.2), 'kelp')])
+
 # =====================================================================================  WEBSITE MODELS (food, gas can, tire, glizzy)
 def import_glb(fname, target_size, name, axis_hint=None):
     """Import a website .glb, normalise its size so its largest side is target_size, centre it on the ground."""

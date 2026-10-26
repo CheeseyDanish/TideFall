@@ -1,5 +1,6 @@
 // TideWall 3D — a player: movement, looking/aiming (first person or top-down), guns, melee, interacting,
-// carrying/throwing, health, being downed and revived, food and status effects.
+// carrying/throwing, health, being downed and revived, food and status effects, and the roguelike progression:
+// XP and levels, stat points (spent in the Stats menu, respec for sand dollars), and weapon mods every few levels.
 //
 // One class, four kinds (see PlayerKind):
 //   Local      offline, or the host's own players: everything is simulated here, input from PlayerControls.
@@ -45,7 +46,7 @@ namespace TideWall
         }
 
         public float Hp { get; private set; }
-        public float MaxHp => Simulated ? db.playerMaxHp + gm.Team.PlayerHpBonus : netMaxHp;
+        public float MaxHp => Simulated ? (db.playerMaxHp + gm.Team.PlayerHpBonus + StatBonus(StatKind.MaxHp)) * gm.Cards.PlayerMaxHp : netMaxHp;
         public bool IsDowned { get; private set; }
         public bool IsOut { get; private set; }          // bled out: back at the next phase
         public bool IsTargetable => Simulated && !IsDowned && !IsOut && gm.State == GameState.Playing;
@@ -61,8 +62,28 @@ namespace TideWall
         public GunDef Gun { get; private set; }
         public MeleeDef Melee { get; private set; }
         public int Ammo => Simulated ? (ammo.TryGetValue(Gun.id, out var a) ? a : 0) : netAmmo;
-        public int MagSize => Simulated ? Mathf.RoundToInt(Gun.magazine * gm.Team.Magazine) : netMag;
-        public float ReloadProgress => Simulated ? (reloadT > 0 ? 1 - reloadT / Gun.reload : -1) : netReload;
+        public int MagSize => Simulated ? Mathf.RoundToInt(EffGun.magazine * gm.Team.Magazine) : netMag;
+        public float ReloadProgress => Simulated ? (reloadT > 0 ? 1 - reloadT / reloadTotal : -1) : netReload;
+        /// <summary>The equipped weapons with this player's mods applied (what actually fires and swings).</summary>
+        public GunDef EffGun { get; private set; }
+        public MeleeDef EffMelee { get; private set; }
+
+        // Progression
+        public int Level { get; private set; } = 1;
+        public int Xp { get; private set; }
+        public int XpNext => Simulated ? db.XpForLevel(Level) : netXpNext;
+        public int StatPoints { get; private set; }
+        public int PendingMods { get; private set; }
+        public int Respecs { get; private set; }
+        /// <summary>Points put into each stat (stat id → points).</summary>
+        public readonly Dictionary<string, int> Allocated = new();
+        /// <summary>Mods on each weapon (weapon id → mod ids).</summary>
+        public readonly Dictionary<string, List<string>> Mods = new();
+        /// <summary>The mods on offer right now (null if none is waiting).</summary>
+        public List<ModDef> ModOffer { get; private set; }
+        public float FortuneMultiplier => 1 + StatBonus(StatKind.Fortune);
+        /// <summary>Movement multiplier from stats and tidal cards (a client gets it from the host).</summary>
+        public float SpeedBonus => Simulated ? (1 + StatBonus(StatKind.MoveSpeed)) * gm.Cards.PlayerSpeed : netSpeedBonus;
         public float SwingT => swingT;
         public Vector3 AimPoint { get; private set; }
         public Vector3 AimDir { get; private set; } = Vector3.forward;
@@ -93,13 +114,14 @@ namespace TideWall
         Light lantern;
         readonly HashSet<string> ownedGuns = new(), ownedMelee = new();
         readonly Dictionary<string, int> ammo = new();
-        float fireCd, meleeCd, reloadT, swingT, dashT, dashCd, fireBuffer, yVel, menuRepeat, hurtFlash, dripAcc, ignoreRemotePosUntil;
+        float fireCd, meleeCd, reloadT, reloadTotal = 1, swingT, dashT, dashCd, fireBuffer, yVel, menuRepeat, hurtFlash, dripAcc, ignoreRemotePosUntil;
         Vector3 dashDir, push;
         Enemy grabbedBy;
         Vector2 lastNav;
         // Mirrored from the host (proxies)
-        float netMaxHp = 100, netReload = -1, netCarryWeight;
-        int netAmmo, netMag = 1, netCarryCount;
+        float netMaxHp = 100, netReload = -1, netCarryWeight, netSpeedBonus = 1;
+        int netAmmo, netMag = 1, netCarryCount, netXpNext = 60;
+        bool statsWanted;   // client: the pause menu asked the host to open the Stats menu
         Vector3 netPos; float netYaw; bool netFirstPerson;
         public string NetPrompt { get; private set; }
 
@@ -191,6 +213,15 @@ namespace TideWall
             if (db.Gun(save.gun) != null) GiveGun(save.gun);
             if (db.Melee(save.melee) != null) GiveMelee(save.melee);
             Kills = save.kills; Severs = save.severs;
+            Level = Mathf.Max(1, save.level); Xp = save.xp; StatPoints = save.statPoints; PendingMods = save.pendingMods; Respecs = save.respecs;
+            foreach (var st in save.stats) if (db.Stat(st.id) != null) Allocated[st.id] = st.level;
+            foreach (var wm in save.mods)
+            {
+                var parts = wm.Split('/');
+                if (parts.Length == 2 && db.Mod(parts[1]) != null) ModsFor(parts[0]).Add(parts[1]);
+            }
+            if (PendingMods > 0) RollModOffer();
+            RebuildWeapons();
         }
 
         public bool OwnsGun(string id) => ownedGuns.Contains(id);
@@ -201,7 +232,8 @@ namespace TideWall
             var g = db.Gun(id); if (g == null) return;
             ownedGuns.Add(id);
             Gun = g;
-            if (!ammo.ContainsKey(id)) ammo[id] = Mathf.RoundToInt(g.magazine * gm.Team.Magazine);
+            RebuildWeapons();
+            if (!ammo.ContainsKey(id)) ammo[id] = MagSize;
             reloadT = 0;
             if (gunModel != null) Destroy(gunModel.root);
             gunModel = ModelFactory.Spawn(g.model, Socket("Gun"), Vector3.zero);
@@ -214,6 +246,7 @@ namespace TideWall
             var m = db.Melee(id); if (m == null) return;
             ownedMelee.Add(id);
             Melee = m;
+            RebuildWeapons();
             if (meleeModel != null) Destroy(meleeModel.root);
             meleeModel = ModelFactory.Spawn(m.model, Socket("Melee"), Vector3.zero);
             meleeModel.root.transform.localRotation = Quaternion.Euler(-60, 0, 0);   // held up, ready to swing
@@ -223,7 +256,152 @@ namespace TideWall
 
         Transform Socket(string name) => model.sockets.TryGetValue(name, out var s) ? s : visual;
 
-        public void RefreshMaxHp() { if (!IsDowned && !IsOut) Hp = Mathf.Min(MaxHp, Hp + gm.DB.upgrades.Find(u => u.kind == UpgradeKind.PlayerMaxHp)?.amount ?? 0); }
+        /// <summary>Max HP changed (upgrades, Vigor, tidal cards): never above the new maximum.</summary>
+        public void RefreshMaxHp() { if (!IsDowned && !IsOut && Hp > MaxHp) Hp = MaxHp; }
+
+        // ------------------------------------------------------------------ progression
+        /// <summary>The total bonus from points in stats of this kind (+HP for MaxHp, a fraction for the rest).</summary>
+        public float StatBonus(StatKind kind)
+        {
+            float b = 0;
+            foreach (var kv in Allocated)
+                if (db.Stat(kv.Key) is { } st && st.kind == kind) b += kv.Value * st.perPoint;
+            return b;
+        }
+
+        public int Points(string statId) => Allocated.TryGetValue(statId, out var n) ? n : 0;
+
+        List<string> ModsFor(string weaponId)
+        {
+            if (!Mods.TryGetValue(weaponId, out var list)) Mods[weaponId] = list = new List<string>();
+            return list;
+        }
+
+        /// <summary>Copy the equipped weapons and apply this player's mods to the copies.</summary>
+        void RebuildWeapons()
+        {
+            if (Gun != null)
+            {
+                var g = JsonUtility.FromJson<GunDef>(JsonUtility.ToJson(Gun));
+                foreach (var id in ModsFor(Gun.id))
+                {
+                    var m = db.Mod(id); if (m == null) continue;
+                    g.damage *= m.damage; g.fireRate *= m.fireRate; g.reload *= m.reload; g.range *= m.range;
+                    g.magazine = Mathf.Max(1, Mathf.RoundToInt(g.magazine * m.magazine));
+                    g.spreadDegrees += m.spread; g.splash += m.splash; g.knockback += m.knockback;
+                    g.pierce += m.pierce; g.pellets += m.pellets; g.lifesteal += m.lifesteal; g.limbBonus += m.limbBonus;
+                    if (m.setElement) g.element = m.element;
+                }
+                EffGun = g;
+            }
+            if (Melee != null)
+            {
+                var w = JsonUtility.FromJson<MeleeDef>(JsonUtility.ToJson(Melee));
+                foreach (var id in ModsFor(Melee.id))
+                {
+                    var m = db.Mod(id); if (m == null) continue;
+                    w.damage *= m.damage; w.cooldown *= m.cooldown; w.range *= m.range; w.arcDegrees = Mathf.Min(300, w.arcDegrees * m.arc);
+                    w.knockback += m.knockback; w.stun += m.stun; w.lifesteal += m.lifesteal; w.limbBonus += m.limbBonus;
+                    if (m.setElement) w.element = m.element;
+                }
+                EffMelee = w;
+            }
+        }
+
+        /// <summary>XP from a kill (cards and Fortune scale it). Level-ups give stat points; every few levels, a mod.</summary>
+        public void GainXp(float amount)
+        {
+            if (!Simulated || amount <= 0) return;
+            Xp += Mathf.Max(1, Mathf.RoundToInt(amount * gm.Cards.Xp * (1 + StatBonus(StatKind.Fortune) * .5f)));
+            while (Xp >= db.XpForLevel(Level))
+            {
+                Xp -= db.XpForLevel(Level);
+                Level++;
+                StatPoints += db.statPointsPerLevel;
+                Heal(MaxHp * .15f);
+                Fx.Sparks(transform.position + Vector3.up * 1.2f, new Color(1, .9f, .4f), 14);
+                Sfx.Play("jackpot", .5f, .3f);
+                bool mod = db.modEveryLevels > 0 && Level % db.modEveryLevels == 0;
+                if (mod) { PendingMods++; if (ModOffer == null) RollModOffer(); }
+                Toast(mod ? $"LEVEL {Level}! A weapon mod is ready: {Glyph(Btn.Stats)} Stats"
+                          : $"LEVEL {Level}! +{db.statPointsPerLevel} stat point: {Glyph(Btn.Stats)} Stats", new Color(1, .9f, .4f));
+            }
+        }
+
+        public string WhyCantSpend(string statId)
+        {
+            var st = db.Stat(statId);
+            if (st == null) return "?";
+            if (StatPoints <= 0) return "No stat points (level up to earn more)";
+            if (Points(statId) >= st.maxPoints) return "Maxed";
+            return null;
+        }
+
+        public void SpendPoint(string statId)
+        {
+            if (WhyCantSpend(statId) != null) return;
+            Allocated[statId] = Points(statId) + 1;
+            StatPoints--;
+            if (db.Stat(statId).kind == StatKind.MaxHp) Heal(db.Stat(statId).perPoint);
+            RefreshMaxHp();
+            Sfx.Play("bell", .4f, .1f);
+        }
+
+        public int SpentPoints { get { int n = 0; foreach (var v in Allocated.Values) n += v; return n; } }
+        public int RespecPrice => db.respecPerLevel * Level * (1 + Respecs);
+
+        /// <summary>Refund every stat point (for sand dollars from the team purse).</summary>
+        public bool Respec()
+        {
+            if (SpentPoints == 0 || !gm.TrySpend(RespecPrice)) return false;
+            StatPoints += SpentPoints;
+            Allocated.Clear();
+            Respecs++;
+            RefreshMaxHp();
+            Sfx.Play("swing");
+            Toast("Stats refunded: spend your points again", new Color(.8f, .9f, 1));
+            return true;
+        }
+
+        /// <summary>Offer a few mods for the weapons in hand that they don't have yet.</summary>
+        void RollModOffer()
+        {
+            var pool = db.mods.FindAll(m => m.gun ? !ModsFor(Gun.id).Contains(m.id) : !ModsFor(Melee.id).Contains(m.id));
+            ModOffer = new List<ModDef>();
+            while (ModOffer.Count < db.modChoices && pool.Count > 0)
+            {
+                var m = pool[Random.Range(0, pool.Count)];
+                pool.Remove(m);
+                ModOffer.Add(m);
+            }
+            if (ModOffer.Count == 0) ModOffer = null;
+        }
+
+        public void TakeMod(ModDef m)
+        {
+            if (ModOffer == null || !ModOffer.Contains(m)) return;
+            ModsFor(m.gun ? Gun.id : Melee.id).Add(m.id);
+            PendingMods = Mathf.Max(0, PendingMods - 1);
+            ModOffer = null;
+            if (PendingMods > 0) RollModOffer();
+            RebuildWeapons();
+            Sfx.Play("reload");
+            Toast($"{m.displayName} fitted to your {(m.gun ? Gun.displayName : Melee.displayName)}", new Color(.7f, 1, .8f));
+        }
+
+        public IEnumerable<string> ModsOn(string weaponId) => ModsFor(weaponId);
+
+        /// <summary>Stats button: the Stats menu (or the tidal card vote while one is running).</summary>
+        void ToggleStats()
+        {
+            if (OpenedMenu != null && (OpenedMenu.Title == Menus.StatsTitle || OpenedMenu.Title == TidalCards.MenuTag)) { CloseMenu(); return; }
+            if (OpenedMenu != null && OpenedMenu.System) return;
+            OpenMenu(gm.Cards.Draft != null && !gm.Cards.Votes.ContainsKey(Index) ? Menus.CardVote(this) : Menus.Stats(this));
+        }
+
+        /// <summary>Client: the pause menu wants the host's Stats menu.</summary>
+        public void RequestStats() { statsWanted = true; LocalMenu = null; }
+
 
         // ------------------------------------------------------------------ input helpers
         Vector2 MoveInput()
@@ -258,6 +436,7 @@ namespace TideWall
             if (hurtFlash > 0) hurtFlash -= dt;
             if (Kind == PlayerKind.Local) LocalButtons();
             else PrefersFirstPerson = Remote.FirstPerson;
+            if (Pressed(Btn.Stats) && !Rebinder.Busy) ToggleStats();
             float udt = Time.unscaledDeltaTime;
             if (gm.State == GameState.GameOver) { UpdateReticle(false); return; }
             if (dt <= 0) { if (OpenedMenu != null) UpdateMenu(udt); UpdateReticle(false); return; }   // paused (offline)
@@ -289,7 +468,7 @@ namespace TideWall
             if (OpenedMenu == null && Pressed(Btn.View)) SwitchView();
             if (gm.State == GameState.GameOver)
             {
-                if (Pressed(Btn.Interact)) gm.RetryFromSave();
+                if (Pressed(Btn.Interact)) gm.NewRun();
                 else if (Pressed(Btn.Back)) gm.QuitToMenu();
             }
         }
@@ -466,7 +645,7 @@ namespace TideWall
             if (Arena.InWater(transform.position)) m *= Mathf.Lerp(1, db.playerWaterSpeedMult, Mathf.Clamp01(Arena.Depth(transform.position) / .8f));
             m *= 1 - (1 - db.carrySpeedMult) * CarryWeight / MaxCarry;
             if (swingT > 0 && Melee.id == "anchor") m *= .4f;
-            return m;
+            return m * SpeedBonus;
         }
 
         /// <summary>Stick/WASD as a world direction: relative to where you look in first person, to the screen top-down.</summary>
@@ -492,7 +671,7 @@ namespace TideWall
             dashCd -= dt;
             if (Pressed(Btn.Dash) && dashCd <= 0 && dir.sqrMagnitude > .01f && !Statuses.Has(StatusType.Grabbed))
             {
-                dashT = db.dashSeconds; dashCd = db.dashCooldown; dashDir = dir.normalized;
+                dashT = db.dashSeconds; dashCd = db.dashCooldown / (1 + (SpeedBonus - 1) * 2); dashDir = dir.normalized;
                 if (Simulated) Fx.Smoke(transform.position, 4, .3f, new Color(.9f, .85f, .7f, .5f));
             }
             Vector3 vel = dir * db.playerSpeed * SpeedMultiplier();
@@ -534,6 +713,9 @@ namespace TideWall
         float DamageMult(bool melee)
         {
             float m = melee ? gm.Team.MeleeDamage : gm.Team.GunDamage;
+            m *= 1 + StatBonus(melee ? StatKind.MeleeDamage : StatKind.GunDamage);
+            m *= gm.Cards.PlayerDamage;
+            if (gm.Cards.Has("screenswap") && gm.Cards.SharesScreen(this)) m *= 1.4f;
             if (Statuses.Has(StatusType.Rage)) m *= 1.5f;
             if (Statuses.Has(StatusType.DoubleDamage)) m *= 2;
             if (Statuses.Has(StatusType.Giant)) m *= 1.25f;
@@ -570,9 +752,9 @@ namespace TideWall
             }
             if (Pressed(Btn.Melee) && meleeCd <= 0)
             {
-                meleeCd = Melee.cooldown; swingT = .25f;
+                meleeCd = EffMelee.cooldown; swingT = .25f;
                 Sfx.Play("swing");
-                int hit = Combat.Melee(this, Melee, transform.position + Vector3.up * .9f + AimDir * .3f, AimDir, DamageMult(true));
+                int hit = Combat.Melee(this, EffMelee, transform.position + Vector3.up * .9f + AimDir * .3f, AimDir, DamageMult(true));
                 if (hit > 0) { Sfx.Play("hit"); Shake(.08f); }
             }
         }
@@ -587,11 +769,11 @@ namespace TideWall
         void Shoot()
         {
             fireBuffer = 0;
-            float rate = Gun.fireRate * (Statuses.Has(StatusType.SugarRush) ? 1.25f : 1);
+            float rate = EffGun.fireRate * (1 + StatBonus(StatKind.Handling) * .5f) * (Statuses.Has(StatusType.SugarRush) ? 1.25f : 1);
             fireCd = 1 / rate;
             ammo[Gun.id] = Ammo - 1;
             var origin = MuzzlePosition();
-            Combat.FireGun(this, Gun, origin, AimPoint, DamageMult(false));
+            Combat.FireGun(this, EffGun, origin, AimPoint, DamageMult(false));
             Fx.Flash(origin, new Color(1, .8f, .4f), 5, 3, .06f);
             Fx.Smoke(origin, 1, .05f);
             Sfx.Play(Gun.id switch { "scattergun" => "shotgun", "harpoon" => "harpoon", "flare" => "flare", _ => "shot" });
@@ -602,7 +784,7 @@ namespace TideWall
         void StartReload()
         {
             if (reloadT > 0 || Ammo >= MagSize) return;
-            reloadT = Gun.reload;
+            reloadT = reloadTotal = EffGun.reload / (1 + StatBonus(StatKind.Handling));
             Sfx.Play("reload");
         }
 
@@ -615,8 +797,10 @@ namespace TideWall
             Sfx.Play("ui");
         }
 
-        public void OnHitEnemy(Enemy e, float dmg, bool crit)
+        public void OnHitEnemy(Enemy e, float dmg, bool crit, bool melee = false)
         {
+            float steal = melee ? EffMelee.lifesteal : EffGun.lifesteal;
+            if (steal > 0) Heal(dmg * steal);
             if (Hud != null) Hud.HitMarker(crit);
             else if (Kind == PlayerKind.Remote && Net.IsHost) Net.Host.HitMarker(this, crit);
         }
@@ -630,7 +814,8 @@ namespace TideWall
             var downedMate = DownedTeammateNearby();
             if (downedMate != null && Held(Btn.Interact))
             {
-                downedMate.ReviveTick(dt);
+                // Shared Snacks (split screen): screen-mates revive each other twice as fast
+                downedMate.ReviveTick(dt * (gm.Cards.Has("snacks") && downedMate.Owner == Owner ? 2 : 1));
                 return;
             }
             if (!Pressed(Btn.Interact)) return;
@@ -775,6 +960,8 @@ namespace TideWall
         public void Eat(FoodDef food, CondimentDef sauce)
         {
             Heal(food.heal);
+            if (gm.Cards.Has("snacks"))   // Shared Snacks: everyone on your screen eats too
+                foreach (var o in gm.Players.All) if (o != this && o.Owner == Owner) { o.Heal(food.heal); o.Toast($"{Name} shared a {food.displayName}: +{food.heal:0} HP", new Color(1, .8f, .5f)); }
             if (food.status != StatusType.None) Statuses.Add(food.status, food.statusSeconds);
             if (food.cures) { Statuses.Clear(StatusType.InkVision); Statuses.Clear(StatusType.Slow); Statuses.Clear(StatusType.Burning); }
             Sfx.Play(food.id == "drink" ? "gulp" : "eat");
@@ -909,6 +1096,7 @@ namespace TideWall
             Statuses.ClearAll();
             foreach (var (type, left) in s.statuses) Statuses.Add(type, left);
             Kills = s.kills;
+            Level = s.level; Xp = s.xp; netXpNext = s.xpNext; StatPoints = s.statPoints; PendingMods = s.pendingMods; netSpeedBonus = s.speedBonus;
             // Our own player: we move it, but a big disagreement (respawn, teleport) snaps to the host.
             if (Kind == PlayerKind.LocalProxy && Vector3.Distance(s.pos, transform.position) > 4) Teleport(s.pos, false);
         }
@@ -970,11 +1158,12 @@ namespace TideWall
         public NetInput CollectInput()
         {
             var i = new NetInput { playerIndex = Index, yaw = Yaw, pitch = Pitch, firstPerson = PrefersFirstPerson, pos = transform.position };
+            if (statsWanted) { i.pressed |= 1 << (int)Btn.Stats; statsWanted = false; }
             if (LocalMenu != null || Rebinder.Busy || Controls == null) return i;   // our pause menu is open: stand still
             i.move = Controls.Move.ReadValue<Vector2>();
             foreach (Btn b in System.Enum.GetValues(typeof(Btn)))
             {
-                if (b is Btn.Pause or Btn.View) continue;  // handled here
+                if (b is Btn.Pause or Btn.View) continue;  // handled here (Stats goes to the host, which owns that menu)
                 if (Controls.Held(b)) i.held |= (ushort)(1 << (int)b);
                 if (Controls.Pressed(b)) i.pressed |= (ushort)(1 << (int)b);
             }
