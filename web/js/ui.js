@@ -25,7 +25,12 @@ const UI = (() => {
 
   const A = {
     new() { Game.run = newRun(); tab = 'armory'; showHowTo(true); },
-    continue() { Game.run = loadRun(); tab = 'armory'; showShop(); },
+    continue() {
+      Game.run = loadRun();
+      // saves from before pearls/relics existed
+      Game.run.pearls = Game.run.pearls || 0; Game.run.relics = Game.run.relics || {};
+      tab = 'armory'; showShop();
+    },
     howto() { showHowTo(false); },
     title() { showTitle(); },
     closeHow(d) { if (d.start === '1') showShop(); else showTitle(); },
@@ -73,6 +78,15 @@ const UI = (() => {
     hire(d) { const run = Game.run; if (run.crew.length < run.slots.crew && spend(CREW[d.id].price)) run.crew.push({ id: d.id, lvl: 1, spent: 0 }); },
     lvlCrew(d) { const c = Game.run.crew[+d.i], k = BALANCE.crewLevelCost(CREW[c.id].price, c.lvl); if (c.lvl < BALANCE.crewMaxLevel && spend(k)) { c.lvl++; c.spent += k; } },
     dismiss(d) { const run = Game.run, c = run.crew[+d.i]; run.scrap += refund(CREW[c.id].price + c.spent); run.crew.splice(+d.i, 1); Sfx.play('coin'); },
+    buyRelic(d) {
+      const run = Game.run, r = RELICS[d.id];
+      if (run.relics[d.id]) return;
+      if ((run.pearls || 0) < r.cost) { Sfx.play('deny'); flash('Not enough pearls. Shoot the golden bubbles at night.'); return; }
+      const before = wallMax(run);
+      run.pearls -= r.cost; run.relics[d.id] = true;
+      run.wallHp += wallMax(run) - before;   // Coral Mortar's extra HP arrives intact
+      Sfx.play('perfect');
+    },
     buyT(d) { if (spend(TRAPS[d.id].price)) Game.run.traps[d.id] = (Game.run.traps[d.id] || 0) + 1; },
     sellT(d) { const run = Game.run; if ((run.traps[d.id] || 0) - trapsPlaced(run, d.id) > 0) { run.traps[d.id]--; run.scrap += refund(TRAPS[d.id].price); Sfx.play('coin'); } },
     place() { enterPlace(); return 'keep'; },
@@ -144,7 +158,7 @@ const UI = (() => {
           <h3>Controls</h3>
           <table class="keys">
             <tr><td>Mouse</td><td>Aim · hold <b>Left Click</b> to fire</td></tr>
-            <tr><td>R</td><td>Reload. Tap <b>R</b> again inside the <span class="g">green zone</span> for a <b>Perfect</b> reload (+25% damage)</td></tr>
+            <tr><td>R</td><td>Reload. <b>Every gun has its own reload minigame</b> (rhythm taps, a bolt, a pressure gauge…). Nail it for a <b>Perfect</b> reload (bonus damage), or just wait: it reloads on its own.</td></tr>
             <tr><td>1 2 3 · Q · Wheel</td><td>Switch weapons</td></tr>
             <tr><td>Space · E</td><td>Gadgets</td></tr>
             <tr><td>Esc · M</td><td>Pause · Mute</td></tr>
@@ -152,7 +166,8 @@ const UI = (() => {
           <h3>Tips</h3>
           <ul>
             <li>Aim for <b>weak points</b> (eyes, heads, crowns) for ×2 damage.</li>
-            <li>Shoot the <b class="gold">golden pearls</b> drifting overhead for bonus scrap.</li>
+            <li>Shoot the <b class="gold">golden pearls</b> drifting overhead. Spend them on relics in the <b>Reliquary</b>.</li>
+            <li>Kill half a wave and the <b>next wave rushes in</b> early.</li>
             <li>Holstered weapons <b>don't reload</b>, unless you hire a Deckhand.</li>
             <li>Kill puffers <b>before</b> they reach the wall, and inside packs.</li>
           </ul>
@@ -205,6 +220,8 @@ const UI = (() => {
     if (s.knock) tags.push(`<span class="tag-el">knockback</span>`);
     if (s.headMult > 2) tags.push(`<span class="tag-el">weak ×${s.headMult}</span>`);
     if (s.salvage > 1) tags.push(`<span class="tag-el gold">salvage</span>`);
+    const rl = RELOADS[s.def.reloadStyle || 'zone'];
+    tags.push(`<span class="tag-el reload" title="${esc(rl.how)}">⟳ ${rl.name}</span>`);
     return `<div class="stats">
       <span><b>${Math.round(s.dmg)}${s.pellets > 1 ? '×' + s.pellets : ''}</b> dmg</span>
       <span><b>${s.rate.toFixed(1)}</b>/s</span>
@@ -322,6 +339,26 @@ const UI = (() => {
     </div>`;
   }
 
+  function tabReliquary(run) {
+    const have = run.pearls || 0;
+    const relics = Object.entries(RELICS).map(([id, r]) => {
+      const owned = run.relics && run.relics[id];
+      return `<div class="mod relic ${owned ? 'have' : ''}">
+        <div class="relic-ic">${r.icon}</div>
+        <div class="grow"><b>${r.name}</b><div class="desc">${r.desc}</div></div>
+        <div class="row">${owned ? '<span class="owned">Owned</span>' : btn('buyRelic', `◉ ${r.cost}`, { id }, 'pearl small', have < r.cost)}</div>
+      </div>`;
+    }).join('');
+    return `<div class="split">
+      <div class="col wide"><h3>Relics <span class="dim">one of each, kept for the whole run</span></h3><div class="relic-grid">${relics}</div></div>
+      <div class="col"><h3>Pearls</h3>
+        <div class="pearl-count">◉ ${have}</div>
+        <p>Pearls can't be bought with scrap. They come from the <b class="gold">golden bubbles</b> that drift across the sky at night (shoot them), and every boss drops ${BALANCE.bossPearls}.</p>
+        <p class="dim">The Lucky Current tide card triples how many bubbles appear.</p>
+      </div>
+    </div>`;
+  }
+
   function footer(run) {
     const L = run.loadout.weapons.slice(0, run.slots.weapon);
     const wl = L.map((id, i) => id
@@ -347,17 +384,21 @@ const UI = (() => {
     const st = scroll ? scroll.scrollTop : 0;
     saveRun();
     const boss = bossFor(run.night);
-    const tabs = [['armory', 'Armory'], ['fortify', 'Fortify'], ['crew', 'Crew'], ['beach', 'Beach']]
+    const tabs = [['armory', 'Armory'], ['fortify', 'Fortify'], ['crew', 'Crew'], ['beach', 'Beach'], ['relics', '◉ Reliquary']]
       .map(([id, n]) => `<button class="tab ${tab === id ? 'on' : ''}" data-act="tab" data-tab="${id}">${n}</button>`).join('');
-    const body = tab === 'armory' ? tabArmory(run) : tab === 'fortify' ? tabFortify(run) : tab === 'crew' ? tabCrew(run) : tabBeach(run);
+    const body = tab === 'armory' ? tabArmory(run) : tab === 'fortify' ? tabFortify(run) : tab === 'crew' ? tabCrew(run)
+      : tab === 'relics' ? tabReliquary(run) : tabBeach(run);
+    // .vista is an empty, see-through band: the canvas draws the castle window view behind it (drawShopScene)
     $(`<div class="shop">
       <div class="header">
         <div class="h-night">Night ${run.night}${boss ? ` <span class="boss">BOSS: ${ENEMIES[boss].name}</span>` : ''}</div>
         <div class="tabs">${tabs}</div>
         <div class="h-wall">Wall ${Math.ceil(run.wallHp)}/${wallMax(run)}</div>
+        <div class="h-pearls" title="Pearls: spend them in the Reliquary">◉ ${run.pearls || 0}</div>
         <div class="h-scrap">⚙ ${run.scrap}</div>
         <button class="btn ghost small" data-act="title">Menu</button>
       </div>
+      <div class="vista" aria-hidden="true"></div>
       <div class="content">${body}</div>
       ${footer(run)}
       <div id="toast"></div>
@@ -434,16 +475,16 @@ const UI = (() => {
           <div class="kv"><span>Kills</span><b>${s.kills}</b></div>
           <div class="kv"><span>Weak point hits</span><b>${s.heads}</b></div>
           <div class="kv"><span>Perfect reloads</span><b>${s.perfects}</b></div>
-          <div class="kv"><span>Pearls shot</span><b>${s.pearlsHit}</b></div>
+          <div class="kv"><span>Pearls found</span><b>◉ ${s.pearlsHit}</b></div>
           <div class="kv"><span>Wall damage taken</span><b>${Math.max(0, s.wallLost)}</b></div>
           ${s.repaired ? `<div class="kv"><span>Mechanics repaired</span><b>+${s.repaired}</b></div>` : ''}
         </div>
         <div>
           <div class="kv"><span>Bounties</span><b>${s.bounty}</b></div>
           <div class="kv"><span>Night bonus (wall ${Math.round(s.pct * 100)}%)</span><b>${s.bonus}</b></div>
-          ${s.pearls ? `<div class="kv"><span>Pearls</span><b>${s.pearls}</b></div>` : ''}
           ${s.scav ? `<div class="kv"><span>Scavengers</span><b>${s.scav}</b></div>` : ''}
           <div class="kv"><span>${s.card.icon} ${s.card.name}</span><b>×${s.card.mult.toFixed(2)}</b></div>
+          ${s.midas > 1 ? `<div class="kv"><span>⚜ Midas Shell</span><b>×${s.midas.toFixed(2)}</b></div>` : ''}
           <div class="kv total"><span>Scrap earned</span><b>⚙ ${s.total}</b></div>
         </div>
       </div>

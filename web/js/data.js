@@ -6,9 +6,9 @@ const FIELD = {
   groundY: 610,
   wallLeft: 40,
   wallFace: 190,
-  wallTop: 430,
+  wallTop: 454,                        // gunner's feet; his shoulder (arm pivot) is 36px above
   shoreX: 1080,
-  gunner: { x: 168, y: 418 },          // shoulder pivot
+  gunner: { x: 168, y: 418 },          // shoulder pivot = wallTop - 36
   crewX: [128, 98, 68, 152],
   trapMinX: 250,
   trapMaxX: 1050,
@@ -40,62 +40,84 @@ const BALANCE = {
   crewMaxLevel: 3,
   dryTime: 3.5,
   headMult: 2,
-  perfectBonus: 0.25,
-  perfectZone: [0.42, 0.6],
-  jamPenalty: 0.6,
+  perfectBonus: 0.25,                       // default damage bonus for a Perfect reload (RELOADS can override)
   swapTime: 0.22,
-  pearlEvery: [14, 24],
-  pearlValue: n => 25 + 6 * n,
+  pearlEvery: [14, 24],                     // seconds between pearl bubbles
+  bossPearls: 3,                            // pearls dropped by a boss kill
+  // Waves: each night's spawns are split into waves. When half of the current wave is dead,
+  // the next wave arrives `waveRushDelay` seconds later (or at its planned time, if that's sooner).
+  waves: n => Math.min(5, 2 + Math.floor(n / 5)),
+  waveGap: 6,                               // planned breather between waves (s)
+  waveRushAt: 0.5,                          // fraction of a wave killed that calls the next one early
+  waveRushDelay: 3,
   victoryNight: 20,
+};
+
+// ---- Reload minigames ----------------------------------------------------
+// Every weapon has a reload style. All of them are optional: doing nothing completes a normal
+// reload in the weapon's reload time (CLAUDE.md R13). Skill makes it faster and can earn a Perfect
+// (bonus damage until the magazine is empty). Zones are fractions of the reload bar.
+// perRound: rounds load one at a time; firing with rounds loaded cancels the reload (interrupt).
+const RELOADS = {
+  zone:     { name: 'Active', how: 'Tap R in the green zone.', zone: [0.42, 0.6], jam: 0.6 },
+  rhythm:   { name: 'Rhythm', how: 'Tap R on each beat to snap in a round.', perRound: true, interrupt: true,
+              beat: 0.2, window: 0.07, fumble: 0.35 },
+  shells:   { name: 'Shell by shell', how: 'Tap R as each shell slides into the zone. Fire to stop early.', perRound: true, interrupt: true,
+              zone: [0.55, 0.85], slip: 0.25 },
+  bolt:     { name: 'Bolt action', how: 'Tap R in the first zone, then the second.', zones: [[0.22, 0.36], [0.62, 0.76]], jam: 0.5 },
+  heavy:    { name: 'Heavy', how: 'One narrow, accelerating chance. Miss and it jams hard.', zone: [0.30, 0.40], jam: 1.4, bonus: 0.4 },
+  drop:     { name: 'Drop', how: 'The zone moves every reload. Tap R in it.', width: 0.16, jam: 0.6 },
+  mash:     { name: 'Capacitor', how: 'Mash R to charge faster.', perTap: 0.09, perfectUnder: 0.55 },
+  pressure: { name: 'Pressure', how: 'Hold R, release in the green. Don\'t let it blow.', zone: [0.62, 0.82], fill: 0.9, jam: 0.8 },
 };
 
 // ---- Weapons -----------------------------------------------------------
 // kind: bullet | lob | flame | arc
 const WEAPONS = {
-  pistol: {
-    name: 'Service Pistol', price: 0, kind: 'bullet',
-    dmg: 13, rate: 3, mag: 10, reload: 1.1, spread: 0.012, pellets: 1, speed: 2000, pierce: 0,
+  pistol: {   // id kept as 'pistol' so old saves still load
+    name: 'Service Revolver', price: 0, kind: 'bullet', reloadStyle: 'rhythm',
+    dmg: 17, rate: 3, mag: 6, reload: 1.8, spread: 0.012, pellets: 1, speed: 2000, pierce: 0,
     color: '#ffe9a8', len: 22, body: '#6b7280',
-    desc: 'Reliable sidearm. Precise enough for weak points.',
+    desc: 'Six-shooter. Precise enough for weak points; reload it in rhythm.',
   },
   scattergun: {
-    name: 'Scattergun', price: 450, kind: 'bullet',
+    name: 'Scattergun', price: 450, kind: 'bullet', reloadStyle: 'shells',
     dmg: 7, rate: 1.4, mag: 6, reload: 1.9, spread: 0.16, pellets: 7, speed: 1700, pierce: 0, falloff: 520,
     color: '#ffd27a', len: 30, body: '#8b5a2b',
     desc: 'Seven pellets. Shreds crowds and leaping eels; weak past mid-beach.',
   },
   smg: {
-    name: 'Rivet SMG', price: 600, kind: 'bullet',
+    name: 'Rivet SMG', price: 600, kind: 'bullet', reloadStyle: 'zone',
     dmg: 7, rate: 11, mag: 40, reload: 1.6, spread: 0.05, pellets: 1, speed: 2100, pierce: 0,
     color: '#fff3c4', len: 26, body: '#374151',
     desc: 'Bullet hose. Great on gulls and crabs, poor into armor.',
   },
   longrifle: {
-    name: 'Longrifle', price: 950, kind: 'bullet',
+    name: 'Longrifle', price: 950, kind: 'bullet', reloadStyle: 'bolt',
     dmg: 65, rate: 0.9, mag: 5, reload: 2.0, spread: 0.0, pellets: 1, speed: 3200, pierce: 3, armorPierce: true,
     color: '#ffffff', len: 40, body: '#4b3621',
     desc: 'Pierces 3 and halves armor. Reaches Sirens in the surf.',
   },
   harpoon: {
-    name: 'Harpoon Gun', price: 1100, kind: 'bullet',
-    dmg: 45, rate: 1.1, mag: 3, reload: 1.6, spread: 0.0, pellets: 1, speed: 1400, pierce: 99, armorPierce: true, knock: 70, thick: 4,
+    name: 'Harpoon Gun', price: 1100, kind: 'bullet', reloadStyle: 'heavy',
+    dmg: 45, rate: 1.1, mag: 3, reload: 1.25, spread: 0.0, pellets: 1, speed: 1400, pierce: 99, armorPierce: true, knock: 70, thick: 4,
     color: '#c7d2fe', len: 36, body: '#1f2937',
     desc: 'Skewers everything in a line and shoves it back toward the sea.',
   },
   mortar: {
-    name: 'Mortar Tube', price: 1300, kind: 'lob',
+    name: 'Mortar Tube', price: 1300, kind: 'lob', reloadStyle: 'drop',
     dmg: 50, rate: 1.0, mag: 4, reload: 2.4, spread: 0, pellets: 1, splash: 75,
     color: '#fca5a5', len: 28, body: '#3f3f46',
     desc: 'Lobs shells at the cursor. Ignores armor; cold + blast = shatter.',
   },
   arc: {
-    name: 'Arc Caster', price: 1600, kind: 'arc', innate: ['shock'],
+    name: 'Arc Caster', price: 1600, kind: 'arc', innate: ['shock'], reloadStyle: 'mash',
     dmg: 16, rate: 4, mag: 20, reload: 2.0, spread: 0, pellets: 1, range: 760,
     color: '#7dd3fc', len: 30, body: '#1e3a5f',
     desc: 'Hitscan lightning, innate Shock. Devastating on wet packs.',
   },
   blowtorch: {
-    name: 'Blowtorch', price: 1300, kind: 'flame', innate: ['fire'],
+    name: 'Blowtorch', price: 1300, kind: 'flame', innate: ['fire'], reloadStyle: 'pressure',
     dmg: 4, rate: 22, mag: 80, reload: 2.2, spread: 0.12, pellets: 1, speed: 560, life: 0.5,
     color: '#fb923c', len: 28, body: '#7c2d12',
     desc: 'Short-range fire stream, innate Fire. Melts dry enemies at the wall.',
@@ -127,7 +149,7 @@ const GADGETS = {
 
 // ---- Traps -------------------------------------------------------------
 const TRAPS = {
-  spikes:    { name: 'Spike Strip', price: 150, w: 70, desc: 'Damages anything walking across it.', dps: 12 },
+  spikes:    { name: 'Spike Strip', price: 150, w: 70, desc: 'Damages anything walking across it.', dps: 6 },
   oil:       { name: 'Oil Slick', price: 200, w: 90, desc: 'Slows 35% and Oils. Fire on Oiled = Inferno.' },
   mine:      { name: 'Tide Mine', price: 250, w: 26, desc: 'Big blast once per night.', dmg: 90, radius: 85 },
   post:      { name: 'Shock Post', price: 350, w: 20, desc: 'Zaps the nearest enemy in range.', dmg: 14, every: 1.2, range: 130 },
@@ -154,6 +176,21 @@ const SLOTS = {
   gadget: { name: 'Gadget Slot', start: 1, max: 2, cost: [1200] },
   crew:   { name: 'Crew Post', start: 2, max: 4, cost: [800, 1600] },
   trap:   { name: 'Trap Slot', start: 3, max: 5, cost: [400, 800] },
+};
+
+// ---- Relics (bought with pearls in the Reliquary) ------------------------
+// Pearls only come from shooting the golden bubbles (and bosses), so relics are earned by aim, not grind.
+// Each relic is a one-off, permanent for the run. Effects are read through hasRelic() in game.js.
+const RELICS = {
+  goldenChamber: { name: 'Golden Chamber', cost: 3, icon: '✦', desc: 'Perfect reloads deal +15% more damage.', perfectBonus: 0.15 },
+  sirensEar:     { name: "Siren's Ear", cost: 4, icon: '♫', desc: 'Every reload minigame\'s timing windows are 35% wider.', windowMult: 1.35 },
+  pearlDiver:    { name: 'Pearl Diver', cost: 2, icon: '◎', desc: 'Pearls drift 40% slower and are bigger targets.', speedMult: 0.6, radius: 22 },
+  coralMortar:   { name: 'Coral Mortar', cost: 5, icon: '▦', desc: 'Wall +15% max HP and regrows 1 HP/s at night.', hpMult: 1.15, regen: 1 },
+  brineHeart:    { name: 'Brine Heart', cost: 5, icon: '≈', desc: 'Enemies stay Wet twice as long after leaving the sea.', dryMult: 0.5 },
+  emberHeart:    { name: 'Ember Heart', cost: 5, icon: '♨', desc: 'Burning deals +50% damage.', burnMult: 1.5 },
+  thirdHand:     { name: 'Third Hand', cost: 6, icon: '✋', desc: 'Gadget cooldowns are 25% shorter.', cdMult: 0.75 },
+  abyssalLens:   { name: 'Abyssal Lens', cost: 4, icon: '◉', desc: 'See through Sea Fog: it is far thinner for you.', fogMult: 0.4 },
+  midasShell:    { name: 'Midas Shell', cost: 6, icon: '⚜', desc: '+15% scrap from every source.', scrapMult: 1.15 },
 };
 
 // ---- Enemies -----------------------------------------------------------

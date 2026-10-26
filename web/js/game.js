@@ -39,11 +39,15 @@ function newRun() {
     weapons: { pistol: { tier: 1, sockets: 1, mods: [null], spent: 0 } },
     mods: {}, gadgets: {}, traps: {}, placed: [], crew: [],
     loadout: { weapons: ['pistol', null, null], gadgets: [null, null] },
+    pearls: 0, relics: {},            // pearls are spent on relics in the Reliquary
     stats: { kills: 0, heads: 0, perfects: 0, pearls: 0, earned: 0, wallDmgBy: {} },
     endless: false,
   };
 }
-const wallMax = run => BALANCE.wallBaseHp + run.fort.reinforce * BALANCE.wallHpPerLevel;
+// Relic check (saves from before relics existed have no `relics` field)
+const hasRelic = id => !!(Game.run && Game.run.relics && Game.run.relics[id]);
+const wallMax = run => Math.round((BALANCE.wallBaseHp + run.fort.reinforce * BALANCE.wallHpPerLevel) *
+  (run.relics && run.relics.coralMortar ? RELICS.coralMortar.hpMult : 1));
 const crewLvl = (run, id) => run.crew.filter(c => c.id === id).reduce((a, c) => a + c.lvl, 0);
 const modsUsed = (run, id) => Object.values(run.weapons).reduce((a, w) => a + w.mods.filter(m => m === id).length, 0);
 const modsFree = (run, id) => (run.mods[id] || 0) - modsUsed(run, id);
@@ -76,6 +80,8 @@ function bossFor(n) {
   return null;
 }
 
+// Returns spawn entries { t, id, wave } sorted by wave then t, where t is seconds after that wave starts.
+// The night's packs are planned over the whole duration as before, then cut into BALANCE.waves(n) slices.
 function buildSpawns(n, card) {
   let budget = BALANCE.budget(n);
   const boss = bossFor(n);
@@ -105,11 +111,17 @@ function buildSpawns(n, card) {
       if (id === 'siren') sirens++;
     }
   }
-  list.sort((a, b) => a.t - b.t);
-  const shift = list.length ? list[0].t - 1.5 : 0;
-  list.forEach(s => { s.t = Math.max(1.5, s.t - shift); });
-  if (boss) list.push({ t: 4, id: boss });
-  list.sort((a, b) => a.t - b.t);
+  const waves = BALANCE.waves(n), slice = dur / waves;
+  list.forEach(s => { s.wave = Math.min(waves - 1, Math.floor(s.t / slice)); s.t -= s.wave * slice; });
+  // Each wave opens with its first pack after a short beat
+  for (let w = 0; w < waves; w++) {
+    const items = list.filter(s => s.wave === w);
+    const first = items.reduce((m, s) => Math.min(m, s.t), Infinity);
+    items.forEach(s => { s.t = Math.max(w === 0 ? 1.5 : 0.8, s.t - first + (w === 0 ? 1.5 : 0.8)); });
+  }
+  if (boss) list.push({ t: 4, id: boss, wave: 0, boss: true });
+  list.sort((a, b) => a.wave - b.wave || a.t - b.t);
+  list.waves = waves; list.slice = slice;
   return list;
 }
 
@@ -118,18 +130,22 @@ function startNight(cardId) {
   const run = Game.run, n = run.night, card = CARDS[cardId];
   const arms = run.loadout.weapons.slice(0, run.slots.weapon).filter(Boolean).map(id => {
     const s = weaponStats(run, id);
-    return { id, s, ammo: s.mag, reloading: false, rt: 0, rTotal: 0, tried: false, perfect: false, jam: false, cd: 0, recoil: 0 };
+    return { id, s, ammo: s.mag, reloading: false, rl: null, rt: 0, rTotal: 1, perfect: 0, cd: 0, recoil: 0 };
   });
+  const queue = buildSpawns(n, card);
   Game.N = {
     t: 0, n, card, cardId, eff: BALANCE.effectScale(n),
-    queue: buildSpawns(n, card), qi: 0,
+    queue, qi: 0,
+    // wave state: counts exclude bosses and summoned adds
+    wave: 0, waveClock: 0, waveCount: queue.waves, nextWaveIn: queue.slice + BALANCE.waveGap,
+    waveInfo: Array.from({ length: queue.waves }, (_, w) => ({ total: queue.filter(s => s.wave === w && !s.boss).length, killed: 0, rushed: false })),
     enemies: [], bullets: [], shells: [], flames: [], fields: [], parts: [], texts: [], bolts: [], pearls: [], waves: [],
     traps: run.placed.map(p => ({ id: p.id, x: p.x, armed: true, cd: rand(0, 1), anim: 0 })),
     crew: run.crew.map((c, i) => ({ id: c.id, lvl: c.lvl, x: FIELD.crewX[i], cd: rand(0.3, 1.2), aim: 0, flash: 0 })),
     arms, cur: 0, prev: arms.length > 1 ? 1 : 0, swapT: 0, aim: 0,
     gadgets: run.loadout.gadgets.slice(0, run.slots.gadget).map(id => id ? { id, cd: 0 } : null),
     overcharge: 0,
-    earned: { bounty: 0, pearls: 0 }, kills: 0, heads: 0, perfects: 0, pearlsHit: 0,
+    earned: { bounty: 0 }, kills: 0, heads: 0, perfects: 0, pearlsHit: 0,
     shake: 0, wallFlash: 0, wallHitBy: null,
     pearlT: rand(...BALANCE.pearlEvery) / (card.pearls || 1),
     over: false, overT: 0, endT: 0, boss: null, slow: 0, muzzle: 0, startHp: run.wallHp,
@@ -222,7 +238,7 @@ function hit(e, base, o = {}) {
   let dmg = base, combo = false;
   let ignoreArmor = !!o.ignoreArmor || e.frozen > 0;
   if (o.head) dmg *= o.headMult || BALANCE.headMult;
-  if (o.perfect) dmg *= 1 + BALANCE.perfectBonus;
+  if (o.perfect) dmg *= 1 + o.perfect;   // o.perfect is the Perfect-reload bonus (e.g. 0.25)
   if (el.has('shock') && e.wet) { dmg *= 1.5; combo = true; if (!o.chain) label(e, 'CONDUCTOR', '#22d3ee'); }
   if (el.has('fire') && e.frozen > 0) {
     dmg += 40 * N.eff + base;
@@ -284,7 +300,7 @@ function applyFire(e, base) {
     dot(e, 3 * N.eff);
     return;
   }
-  const dps = 4 * N.eff + 0.3 * base;
+  const dps = (4 * N.eff + 0.3 * base) * (hasRelic('emberHeart') ? RELICS.emberHeart.burnMult : 1);
   e.burnDps = e.burn > 0 ? Math.max(e.burnDps, dps) : dps;
   e.burn = 3;
 }
@@ -293,7 +309,7 @@ function inferno(e, base) {
   const N = Game.N;
   if (e.dead || e.oiled <= 0) return;
   e.oiled = 0; e.wet = false;
-  e.burn = 4; e.burnDps = 3 * (4 * N.eff + 0.3 * Math.max(base, 8));
+  e.burn = 4; e.burnDps = 3 * (4 * N.eff + 0.3 * Math.max(base, 8)) * (hasRelic('emberHeart') ? RELICS.emberHeart.burnMult : 1);
   label(e, 'INFERNO!', '#fb923c');
   burst(e.x, e.y - e.h / 2, '#fb923c', 18, 200, 4, 0.7, -100);
   shake(2);
@@ -357,6 +373,7 @@ function kill(e, o) {
     text(c.x, c.y - e.h / 2 - 14, '+' + Math.round(bounty), '#fbbf24', 12, 0.9);
   }
   N.kills++;
+  if (e.wave !== undefined && N.waveInfo[e.wave]) N.waveInfo[e.wave].killed++;
   burst(c.x, c.y, rgb(hexRgb(e.d.color)), 12 + (e.d.boss ? 40 : 0), 200 + (e.d.boss ? 200 : 0), 3.5, 0.7);
   Sfx.play('kill');
   if (e.frozen > 0) {
@@ -373,6 +390,7 @@ function kill(e, o) {
     shake(16); N.slow = 1.2; Sfx.play('boom', 2);
     burst(c.x, c.y, '#fde68a', 60, 420, 5, 1.2);
     if (N.boss === e) N.boss = null;
+    gainPearls(BALANCE.bossPearls, c.x, c.y - e.h / 2 - 30);
   }
 }
 
@@ -418,18 +436,41 @@ function updateNight(dt) {
   N.muzzle -= dt;
   if (N.overcharge > 0) N.overcharge -= dt;
 
-  // spawns
-  while (N.qi < N.queue.length && N.queue[N.qi].t <= N.t) {
+  // spawns: the current wave's entries come out on the wave clock. If the next wave arrived early,
+  // anything left over from earlier waves comes out at once (the queue is sorted by wave).
+  N.waveClock += dt;
+  while (N.qi < N.queue.length && (N.queue[N.qi].wave < N.wave || (N.queue[N.qi].wave === N.wave && N.queue[N.qi].t <= N.waveClock))) {
     const s = N.queue[N.qi++];
-    spawnEnemy(s.id, rand(1150, 1260));
+    const e = spawnEnemy(s.id, rand(1150, 1260));
+    if (!s.boss) e.wave = s.wave;
+  }
+  // next wave: at its planned time, or soon after half of this wave has been killed
+  if (N.wave < N.waveCount - 1) {
+    const info = N.waveInfo[N.wave];
+    if (!info.rushed && info.total > 0 && info.killed >= info.total * BALANCE.waveRushAt) {
+      info.rushed = true;
+      N.nextWaveIn = Math.min(N.nextWaveIn, BALANCE.waveRushDelay);
+    }
+    N.nextWaveIn -= dt;
+    if (N.nextWaveIn <= 0) {
+      N.wave++; N.waveClock = 0;
+      N.nextWaveIn = N.queue.slice + BALANCE.waveGap;
+      N.bannerT = 2.2; N.bannerBoss = null;
+      N.bannerText = `WAVE ${N.wave + 1}`;
+      N.bannerSub = info.rushed ? 'Half the last wave fell. The next one rushes in!' : 'The tide brings more.';
+      Sfx.play('horn');
+    }
   }
 
   // pearls
   N.pearlT -= dt;
   if (N.pearlT <= 0) {
     N.pearlT = rand(...BALANCE.pearlEvery) / (N.card.pearls || 1);
-    N.pearls.push({ x: W + 30, y0: rand(90, 230), y: 0, t: Math.random() * 6, vx: -rand(80, 120) });
+    const slow = hasRelic('pearlDiver') ? RELICS.pearlDiver.speedMult : 1;
+    N.pearls.push({ x: W + 30, y0: rand(90, 230), y: 0, t: Math.random() * 6, vx: -rand(80, 120) * slow });
   }
+  // Mechanics and Coral Mortar both mend the wall at night
+  if (hasRelic('coralMortar') && !N.over) run.wallHp = Math.min(wallMax(run), run.wallHp + RELICS.coralMortar.regen * dt);
   for (const p of N.pearls) { p.t += dt; p.x += p.vx * dt; p.y = p.y0 + Math.sin(p.t * 2) * 18; }
   N.pearls = N.pearls.filter(p => p.x > -40 && !p.got);
 
@@ -469,23 +510,23 @@ function updatePlayer(dt) {
     a.recoil = Math.max(0, a.recoil - dt * 8);
     if (i !== N.cur) {
       a.cd = 0;
+      // Holstered weapons only reload with a Deckhand: passive progress, no minigame
       if (deck > 0 && a.ammo < a.s.mag) {
-        if (!a.reloading) { a.reloading = true; a.rt = 0; a.rTotal = a.s.reload; a.tried = true; }
-        a.rt += dt / (CREW.deckhand.slow - CREW.deckhand.perLevel * (deck - 1));
-        if (a.rt >= a.rTotal) finishReload(a, false);
+        if (!a.reloading) { a.reloading = true; a.perfect = 0; Reload.start(a); a.rl.tried = true; }
+        if (Reload.update(a, dt / (CREW.deckhand.slow - CREW.deckhand.perLevel * (deck - 1)), true)) finishReload(a, 0);
       }
       return;
     }
-    if (a.reloading) {
-      a.rt += dt;
-      if (a.rt >= a.rTotal) finishReload(a, false);
-    }
+    if (a.reloading && Reload.update(a, dt, false)) finishReload(a, a.rl.bonus);
   });
   const a = N.arms[N.cur];
   if (!a) return;
   a.cd -= dt;
   if (inp.tap > 0) inp.tap -= dt;
-  if ((inp.down || inp.tap > 0) && N.swapT <= 0 && !a.reloading && !N.over) {
+  const wantFire = (inp.down || inp.tap > 0) && N.swapT <= 0 && !N.over;
+  // Per-round reloads (revolver, scattergun) can be interrupted by firing with what's loaded
+  if (wantFire && a.reloading && a.rl && a.rl.R.interrupt && a.ammo > 0) { a.reloading = false; a.rl = null; }
+  if (wantFire && !a.reloading) {
     if (a.ammo <= 0) startReload(a);
     else {
       const rate = a.s.rate * (N.overcharge > 0 ? 1.5 : 1);
@@ -504,31 +545,30 @@ function updatePlayer(dt) {
 
 function startReload(a) {
   if (a.reloading || a.ammo >= a.s.mag) return;
-  a.reloading = true; a.rt = 0; a.rTotal = a.s.reload; a.tried = false; a.jam = false; a.perfect = false;
+  a.reloading = true; a.perfect = 0;
+  Reload.start(a);
   Sfx.play('reload');
 }
-function finishReload(a, perfect) {
-  a.reloading = false; a.ammo = a.s.mag; a.perfect = perfect; a.jam = false;
+// bonus: Perfect damage bonus earned by the reload minigame (0 = none). Lasts until the magazine empties.
+function finishReload(a, bonus) {
+  a.reloading = false; a.ammo = a.s.mag; a.perfect = bonus || 0; a.rl = null;
   Sfx.play('reload');
+  if (a.perfect > 0 && Game.N) {
+    Game.N.perfects++;
+    text(Game.input.mx, Game.input.my + 44, 'PERFECT', '#86efac', 16, 0.8);
+    Sfx.play('perfect');
+  }
 }
+// R pressed: start a reload, or play the current weapon's reload minigame
 function pressReload() {
   const N = Game.N, a = N && N.arms[N.cur];
   if (!a) return;
-  if (!a.reloading) { startReload(a); return; }
-  if (a.tried) return;
-  a.tried = true;
-  const p = a.rt / a.rTotal, z = BALANCE.perfectZone;
-  const mp = muzzle();
-  if (p >= z[0] && p <= z[1]) {
-    finishReload(a, true);
-    N.perfects++;
-    text(Game.input.mx, Game.input.my + 40, 'PERFECT', '#86efac', 16, 0.8);
-    Sfx.play('perfect');
-  } else {
-    a.rTotal += BALANCE.jamPenalty; a.jam = true;
-    text(Game.input.mx, Game.input.my + 40, 'JAMMED', '#f87171', 15, 0.8);
-    Sfx.play('jam');
-  }
+  if (!a.reloading) { startReload(a); if (a.reloading && Reload.styleOf(a) === 'pressure') Reload.press(a); return; }
+  Reload.press(a);
+}
+function releaseReload() {
+  const N = Game.N, a = N && N.arms[N.cur];
+  if (a && a.reloading) Reload.release(a);
 }
 function switchTo(i) {
   const N = Game.N;
@@ -570,7 +610,7 @@ function fire(a) {
       if (t !== null && t < bt) { bt = t; best = e; }
     }
     const ex = mp.x + d.x * bt, ey = mp.y + d.y * bt;
-    for (const p of N.pearls) if (segCircle(mp.x, mp.y, ex, ey, p.x, p.y, 18)) grabPearl(p);
+    for (const p of N.pearls) if (segCircle(mp.x, mp.y, ex, ey, p.x, p.y, pearlR())) grabPearl(p);
     bolt(mp.x, mp.y, ex, ey, '#bae6fd', 2.5, 0.09);
     if (best) hit(best, s.dmg, { elements: s.elements, head: isHead(best, ex, ey), headMult: s.headMult, src: s, perfect, px: ex, py: ey });
     Sfx.play('shot', 'arc');
@@ -593,14 +633,20 @@ function segCircle(x1, y1, x2, y2, cx, cy, r) {
   const t = clamp(((cx - x1) * dx + (cy - y1) * dy) / l2, 0, 1);
   return Math.hypot(x1 + dx * t - cx, y1 + dy * t - cy) < r;
 }
+// Pearl hit radius (Pearl Diver relic makes them bigger)
+const pearlR = () => hasRelic('pearlDiver') ? RELICS.pearlDiver.radius : 18;
 function grabPearl(p) {
-  const N = Game.N;
   if (p.got) return;
   p.got = true;
-  const v = BALANCE.pearlValue(N.n);
-  N.earned.pearls += v; N.pearlsHit++;
-  text(p.x, p.y - 20, '+' + v + ' PEARL', '#fde68a', 16, 1.2);
+  gainPearls(1, p.x, p.y - 20);
   burst(p.x, p.y, '#fde68a', 20, 200, 3, 0.8, 100, 'spark');
+}
+// Pearls are a currency for relics; they go straight into the run (kept even if the wall falls tonight)
+function gainPearls(n, x, y) {
+  const N = Game.N, run = Game.run;
+  run.pearls = (run.pearls || 0) + n;
+  N.pearlsHit += n;
+  text(x, y, `+${n} ◉ PEARL${n > 1 ? 'S' : ''}`, '#fde68a', 16, 1.2);
   Sfx.play('coin');
 }
 
@@ -613,7 +659,7 @@ function updateProjectiles(dt) {
     for (let i = 0; i < steps && !b.dead; i++) {
       b.px = b.x; b.py = b.y;
       b.x += sx; b.y += sy; b.dist += sp / steps;
-      for (const p of N.pearls) if (Math.hypot(p.x - b.x, p.y - b.y) < 18) grabPearl(p);
+      for (const p of N.pearls) if (Math.hypot(p.x - b.x, p.y - b.y) < pearlR()) grabPearl(p);
       for (const e of N.enemies) {
         if (e.dead || b.hits.has(e) || !inBox(e, b.x, b.y)) continue;
         b.hits.add(e);
@@ -650,7 +696,7 @@ function updateProjectiles(dt) {
         burst(sh.x, sh.y, '#bae6fd', 30, 300, 3, 0.8, 100, 'spark');
         Sfx.play('freeze');
       } else {
-        const dmg = sh.s.dmg * (sh.perfect ? 1 + BALANCE.perfectBonus : 1);
+        const dmg = sh.s.dmg * (1 + (sh.perfect || 0));
         explode(sh.x, sh.y, sh.s.splash, dmg, { elements: sh.s.elements, src: sh.s });
       }
     }
@@ -695,7 +741,7 @@ function updateEnemy(e, dt) {
     const inSea = e.x >= FIELD.shoreX;
     if (inSea || N.card.wetAlways || e.inSpray) { e.wet = true; e.wetT = BALANCE.dryTime; }
     else if (e.wet && e.frozen <= 0) {
-      e.wetT -= dt * (N.card.dryMult || 1);
+      e.wetT -= dt * (N.card.dryMult || 1) * (hasRelic('brineHeart') ? RELICS.brineHeart.dryMult : 1);
       if (e.wetT <= 0) e.wet = false;
     }
     if (e.wet && Math.random() < dt * 6) {
@@ -840,7 +886,7 @@ function updateCrew(dt) {
       if (!tgt) { c.cd = 0.3; continue; }
       const def = CREW.rifleman;
       c.cd = def.every;
-      const ce = centerOf(tgt), ox = c.x + 14, oy = FIELD.wallTop - 22;
+      const ce = centerOf(tgt), ox = c.x + 14, oy = FIELD.wallTop - 29;   // crew are drawn at 0.8 scale: shoulder 29px up
       c.aim = Math.atan2(ce.y - oy, ce.x - ox); c.flash = 0.06;
       const head = Math.random() < 0.2;
       N.bolts.push({ pts: [[ox, oy], [ce.x, ce.y]], color: 'rgba(254,240,138,0.8)', width: 1.4, life: 0.06, max: 0.06 });
@@ -898,7 +944,7 @@ function useGadget(i) {
   const g = N.gadgets[i];
   if (!g || g.cd > 0) { if (g) Sfx.play('deny'); return; }
   const def = GADGETS[g.id], mx = Game.input.mx, my = Math.min(Game.input.my, FIELD.groundY);
-  g.cd = def.cd;
+  g.cd = def.cd * (hasRelic('thirdHand') ? RELICS.thirdHand.cdMult : 1);
   if (g.id === 'flare') {
     N.fields.push({ type: 'fire', x: mx, y: FIELD.groundY, r: 85, t: 5, max: 5, tick: 0 });
     Sfx.play('boom', 0.5);
@@ -992,17 +1038,18 @@ function finishNight() {
   const mx = wallMax(run), pct = run.wallHp / mx;
   const bounty = Math.round(N.earned.bounty);
   const bonus = Math.round(BALANCE.nightBonus(N.n) * (0.5 + 0.5 * pct));
-  const pearls = N.earned.pearls;
-  const sub = bounty + bonus + pearls;
+  const pearls = N.pearlsHit;            // pearls were already added to run.pearls as they were shot
+  const sub = bounty + bonus;
   const scavLvl = crewLvl(run, 'scavenger');
   const scav = Math.round(sub * CREW.scavenger.cut * scavLvl);
-  const total = Math.round((sub + scav) * N.card.mult);
+  const midas = hasRelic('midasShell') ? RELICS.midasShell.scrapMult : 1;
+  const total = Math.round((sub + scav) * N.card.mult * midas);
   const mech = crewLvl(run, 'mechanic');
   const repaired = Math.round(Math.min(mx - run.wallHp, mx * CREW.mechanic.after * mech));
   run.wallHp += repaired;
   run.scrap += total;
   run.stats.kills += N.kills; run.stats.heads += N.heads; run.stats.perfects += N.perfects; run.stats.pearls += N.pearlsHit; run.stats.earned += total;
-  const summary = { n: N.n, card: N.card, kills: N.kills, heads: N.heads, perfects: N.perfects, pearlsHit: N.pearlsHit, bounty, bonus, pct, pearls, scav, total, repaired, wallLost: Math.round(N.startHp - (run.wallHp - repaired)) };
+  const summary = { n: N.n, card: N.card, kills: N.kills, heads: N.heads, perfects: N.perfects, pearlsHit: N.pearlsHit, bounty, bonus, pct, pearls, midas, scav, total, repaired, wallLost: Math.round(N.startHp - (run.wallHp - repaired)) };
   run.night++;
   if (run.night - 1 > bestNight()) Store.set('tidewall.best', run.night - 1);
   Game.N = null;
@@ -1036,6 +1083,8 @@ const CRACKS = Array.from({ length: 14 }, (_, i) => {
 
 function render(ctx) {
   const N = Game.N, t = Game.time;
+  // Between nights: the daytime view from inside the castle (js/shopscene.js)
+  if (!N && (Game.state === 'shop' || Game.state === 'summary')) { ShopScene.draw(ctx, t); return; }
   ctx.save();
   if (N && N.shake > 0.2) ctx.translate(rand(-N.shake, N.shake), rand(-N.shake, N.shake));
   drawSky(ctx, t);
@@ -1188,7 +1237,7 @@ function drawCrew(ctx, t) {
   for (const c of list) {
     const def = CREW[c.id];
     drawPerson(ctx, c.x, FIELD.wallTop, def.color, 0.8, t);
-    const hy = FIELD.wallTop - 26;
+    const hy = FIELD.wallTop - 29;   // shoulder height at 0.8 scale
     if (c.id === 'rifleman') {
       ctx.save(); ctx.translate(c.x + 2, hy); ctx.rotate(c.aim || 0);
       ctx.fillStyle = '#3f3f46'; ctx.fillRect(0, -2, 26, 4);
@@ -1298,10 +1347,11 @@ function drawWave(ctx, w) {
 }
 
 function drawPearl(ctx, p, t) {
-  const g = ctx.createRadialGradient(p.x - 4, p.y - 4, 2, p.x, p.y, 16);
+  const r = pearlR() - 4;   // drawn slightly inside the hit radius
+  const g = ctx.createRadialGradient(p.x - 4, p.y - 4, 2, p.x, p.y, r + 2);
   g.addColorStop(0, '#fffbeb'); g.addColorStop(0.5, '#fcd34d'); g.addColorStop(1, 'rgba(252,211,77,0.2)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, 14, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, 17 + Math.sin(t * 5) * 2, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, r + 3 + Math.sin(t * 5) * 2, 0, Math.PI * 2); ctx.stroke();
 }
 
 function tintOf(e) {
@@ -1531,13 +1581,21 @@ function drawParts(ctx) {
   ctx.globalAlpha = 1;
 }
 
+// Sea Fog: a thick, near-opaque bank over the far beach and the surf. Only glinting eyes show through.
 function drawFog(ctx, t) {
-  const g = ctx.createLinearGradient(620, 0, 980, 0);
-  g.addColorStop(0, 'rgba(71,85,105,0)'); g.addColorStop(1, 'rgba(71,85,105,0.9)');
+  const k = hasRelic('abyssalLens') ? RELICS.abyssalLens.fogMult : 1;   // the Lens thins it
+  const g = ctx.createLinearGradient(480, 0, 820, 0);
+  g.addColorStop(0, 'rgba(100,116,139,0)'); g.addColorStop(0.45, `rgba(100,116,139,${0.85 * k})`); g.addColorStop(1, `rgba(110,124,145,${0.99 * k})`);
   ctx.save();
-  ctx.fillStyle = g; ctx.fillRect(620, 230, W - 620, H - 230);
-  ctx.fillStyle = 'rgba(148,163,184,0.1)';
-  for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.ellipse(700 + ((i * 160 + t * 20) % 700), 430 + i * 28, 150, 36, 0, 0, Math.PI * 2); ctx.fill(); }
+  ctx.fillStyle = g; ctx.fillRect(480, 260, W - 480, H - 260);
+  // a lighter band above, so the bank doesn't end in a hard line in the sky
+  ctx.globalAlpha = 0.7; ctx.fillRect(480, 170, W - 480, 90); ctx.globalAlpha = 1;
+  // drifting billows, thick enough to swallow silhouettes
+  for (let i = 0; i < 12; i++) {
+    const x = 520 + ((i * 113 + t * (14 + i % 3 * 6)) % 820), y = 300 + (i * 47) % 330;
+    ctx.fillStyle = `rgba(148,163,184,${(0.22 + 0.06 * Math.sin(t + i)) * k})`;
+    ctx.beginPath(); ctx.ellipse(x, y, 170, 48, 0, 0, Math.PI * 2); ctx.fill();
+  }
   ctx.restore();
   // eyes glint through the fog so the player can still track threats
   for (const e of Game.N.enemies) {
@@ -1584,14 +1642,17 @@ function drawHud(ctx, t) {
   // night / progress
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(0,0,0,0.55)'; roundRect(ctx, W / 2 - 150, 14, 300, 34, 6); ctx.fill();
-  ctx.fillStyle = '#e5e7eb'; ctx.fillText(`NIGHT ${N.n}  ·  ${N.card.icon} ${N.card.name}`, W / 2, 28);
+  ctx.fillStyle = '#e5e7eb'; ctx.fillText(`NIGHT ${N.n}  ·  WAVE ${N.wave + 1}/${N.waveCount}  ·  ${N.card.icon} ${N.card.name}`, W / 2, 28);
   const prog = N.queue.length ? N.qi / N.queue.length : 1;
+  // small ticks mark where each wave begins on the progress bar
+  ctx.fillStyle = 'rgba(229,231,235,0.5)';
+  for (let w = 1; w < N.waveCount; w++) { const i = N.queue.findIndex(s => s.wave === w); if (i > 0) ctx.fillRect(W / 2 - 140 + 280 * i / N.queue.length - 1, 32, 2, 10); }
   ctx.fillStyle = '#27272a'; ctx.fillRect(W / 2 - 140, 34, 280, 6);
   ctx.fillStyle = '#60a5fa'; ctx.fillRect(W / 2 - 140, 34, 280 * prog, 6);
   // scrap
   ctx.fillStyle = 'rgba(0,0,0,0.55)'; roundRect(ctx, W - 216, 14, 200, 34, 6); ctx.fill();
   ctx.textAlign = 'right'; ctx.fillStyle = '#fbbf24';
-  ctx.fillText(`⚙ ${run.scrap}   +${Math.round(N.earned.bounty + N.earned.pearls)} tonight`, W - 28, 36);
+  ctx.fillText(`◉ ${run.pearls || 0}   ⚙ ${run.scrap}   +${Math.round(N.earned.bounty)} tonight`, W - 28, 36);
   // boss bar
   if (N.boss && !N.boss.dead) {
     const e = N.boss;
@@ -1614,8 +1675,9 @@ function drawHud(ctx, t) {
     ctx.fillText(own.mods.filter(Boolean).map(m => MODS[m].name).join(' · ') || `Tier ${own.tier}`, x + 8, y + 30);
     if (a.reloading) {
       ctx.fillStyle = '#27272a'; ctx.fillRect(x + 8, y + 38, 152, 8);
-      ctx.fillStyle = a.jam ? '#ef4444' : '#93c5fd'; ctx.fillRect(x + 8, y + 38, 152 * Math.min(1, a.rt / a.rTotal), 8);
+      ctx.fillStyle = a.rl && a.rl.jam ? '#ef4444' : '#93c5fd'; ctx.fillRect(x + 8, y + 38, 152 * Math.min(1, a.rt / a.rTotal), 8);
       if (i !== N.cur) { ctx.fillStyle = '#38bdf8'; ctx.font = '9px sans-serif'; ctx.fillText('DECKHAND', x + 110, y + 30); }
+      else if (a.rl && a.rl.R.perRound) { ctx.fillStyle = '#fde68a'; ctx.font = '700 10px sans-serif'; ctx.fillText(`${a.ammo}/${a.s.mag}`, x + 128, y + 30); }
     } else {
       ctx.font = '700 13px "Trebuchet MS", sans-serif';
       ctx.fillStyle = a.ammo / a.s.mag < 0.25 ? '#f87171' : a.perfect ? '#86efac' : '#e5e7eb';
@@ -1636,16 +1698,17 @@ function drawHud(ctx, t) {
     else { ctx.fillStyle = '#86efac'; ctx.fillText('READY', x + 8, y + 50); }
   });
   ctx.font = '10px "Trebuchet MS", sans-serif'; ctx.fillStyle = 'rgba(229,231,235,0.5)'; ctx.textAlign = 'center';
-  ctx.fillText('R reload (tap again in the bright zone)   ·   1/2/3 / Q / wheel swap   ·   Esc pause   ·   M mute', W / 2, H - 6);
+  const cur = N.arms[N.cur];
+  ctx.fillText(`R reload${cur ? ' — ' + RELOADS[Reload.styleOf(cur)].how : ''}   ·   1/2/3 / Q / wheel swap   ·   Esc pause   ·   M mute`, W / 2, H - 6);
   // banner
   if (N.bannerT > 0) {
     ctx.globalAlpha = Math.min(1, N.bannerT);
     ctx.font = '800 44px "Trebuchet MS", sans-serif'; ctx.textAlign = 'center';
     ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-    const s = N.bannerBoss ? N.bannerBoss.toUpperCase() + ' RISES' : `NIGHT ${N.n}`;
+    const s = N.bannerBoss ? N.bannerBoss.toUpperCase() + ' RISES' : N.bannerText || `NIGHT ${N.n}`;
     ctx.strokeText(s, W / 2, 200); ctx.fillStyle = N.bannerBoss ? '#fca5a5' : '#e0e7ff'; ctx.fillText(s, W / 2, 200);
     ctx.font = '600 16px "Trebuchet MS", sans-serif'; ctx.fillStyle = '#cbd5e1';
-    ctx.fillText(N.bannerBoss ? '' : `${N.card.icon} ${N.card.name} — ${N.card.desc}`, W / 2, 228);
+    ctx.fillText(N.bannerBoss ? '' : N.bannerText ? N.bannerSub : `${N.card.icon} ${N.card.name} — ${N.card.desc}`, W / 2, 228);
     ctx.globalAlpha = 1;
   }
   if (N.over) {
@@ -1668,11 +1731,5 @@ function drawCrosshair(ctx) {
     ctx.strokeStyle = 'rgba(252,165,165,0.6)'; ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.arc(mx, Math.min(my, FIELD.groundY), a.s.splash, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
   }
-  if (a && a.reloading && N.cur === N.arms.indexOf(a)) {
-    const w = 90, x = mx - w / 2, y = my + 22, z = BALANCE.perfectZone;
-    ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(x - 2, y - 2, w + 4, 12);
-    if (!a.tried) { ctx.fillStyle = 'rgba(134,239,172,0.85)'; ctx.fillRect(x + w * z[0], y, w * (z[1] - z[0]), 8); }
-    ctx.fillStyle = a.jam ? '#ef4444' : '#e5e7eb';
-    ctx.fillRect(x + w * Math.min(1, a.rt / a.rTotal) - 1.5, y - 3, 3, 14);
-  }
+  if (a && a.reloading && a.rl) Reload.draw(ctx, a, mx, my + 24);
 }

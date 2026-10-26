@@ -73,6 +73,8 @@ const Sfx = (() => {
     combo() { if (ok('combo', 0.08)) { tone(660, 0.12, 'triangle', 0.2, 1320); } },
     wall() { if (ok('wall', 0.12)) { noise(0.18, 220, 1, 0.5, 'lowpass'); } },
     reload() { if (ok('reload', 0.1)) { noise(0.04, 3000, 4, 0.2); } },
+    load() { if (ok('load', 0.04)) { noise(0.03, 4200, 5, 0.18); tone(1100, 0.03, 'square', 0.06); } },   // one round in
+    tick() { if (ok('tick', 0.05)) tone(1600, 0.025, 'square', 0.05); },                                   // rhythm metronome
     perfect() { if (ok('perfect', 0.1)) { tone(880, 0.08, 'triangle', 0.25); setTimeout(() => ctx && tone(1320, 0.12, 'triangle', 0.25), 70); } },
     jam() { if (ok('jam', 0.1)) { tone(140, 0.2, 'square', 0.2, 90); } },
     coin() { if (ok('coin', 0.05)) { tone(1320, 0.07, 'square', 0.12); setTimeout(() => ctx && tone(1980, 0.12, 'square', 0.12), 60); } },

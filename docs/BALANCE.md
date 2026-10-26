@@ -9,7 +9,9 @@
 | Boss HP | `1 + 0.1(n−1)` | — | 1.4 | 1.9 | 2.9 |
 | Enemy wall damage | `1 + 0.05(n−1)` | 1.0 | 1.2 | 1.45 | 1.95 |
 | Spawn budget | `14 + 9n + 0.9n²` (boss nights ×0.45, plus the boss) | 24 | 82 | 194 | 554 |
-| Night length | `min(90, 40 + 2.5n)` s of spawning | 42 | 52 | 65 | 90 |
+| Night length | `min(90, 40 + 2.5n)` s of spawning, split into waves | 42 | 52 | 65 | 90 |
+| Waves per night | `min(5, 2 + ⌊n/5⌋)` | 2 | 3 | 4 | 5 |
+| Next wave | planned at `slice + 6 s` after the last one began; **3 s after 50% of the current wave is killed**, if that's sooner | | | | |
 | Kill bounty | `base × (1 + 0.03(n−1))` | | | | |
 | Night bonus | `(60 + 20n) × (0.5 + 0.5·wall%)` | | | | |
 | Trap / gadget / crew damage | `base × (1 + 0.08(n−1))` | | | | |
@@ -21,7 +23,18 @@ Enemy budget costs: Crabling 1, Drowner 2, Gull 2, Eel 2, Puffer 3, Shellback 5,
 **Boss adds give no bounty and are capped** (`summon.cap`), so bosses can't be farmed and long boss fights can't snowball into a wall breach.
 
 ## Starting state
-Wall 300 HP, 200 scrap, Service Pistol, 2 weapon slots, 1 gadget slot, 2 crew posts, 3 trap slots.
+Wall 300 HP, 200 scrap, 0 pearls, Service Revolver, 2 weapon slots, 1 gadget slot, 2 crew posts, 3 trap slots.
+
+## Pearls
+One pearl per golden bubble shot (a bubble every 14–24 s, ×3 on Lucky Current), plus 3 per boss. A good shot finds about 2–4 a night, so a 2–6 ◉ relic arrives every night or two. Pearls are no longer converted to scrap.
+
+## Recent unmeasured changes
+These were made without a DevSim pass (by request), so re-check the pacing table before tuning anything else:
+- Spike Strip 12 → **6** dps.
+- Service Pistol → **Service Revolver**: 13 dmg/10 mag/1.1 s → 17 dmg/6 mag/1.8 s (rhythm reload; ~1.2 s when played well).
+- Harpoon reload 1.6 → **1.25 s** (Heavy reload: harsher jam, +40% Perfect).
+- Waves and the 50% rush rule (nights are now shorter when you kill fast).
+- Pearls give relics instead of scrap; relics add power on top of the old curve.
 
 ## Pacing targets (measured)
 `DevSim.campaign()` plays 20 nights with a mediocre bot (retargets every 0.5 s, ±12 px aim error, fires 70% of the time) and a fixed shopping list. Target shape, and what the current numbers give:
@@ -54,7 +67,7 @@ Selling refunds **50%** of the total spent on that item (R8).
 The Armory shows this number on every weapon card.
 | Weapon | Sustained DPS |
 |---|---|
-| Pistol | ~29 |
+| Revolver | ~27 passive, ~32 with rhythm reloads |
 | SMG | ~53 (single target) |
 | Scattergun | ~48 (all pellets) |
 | Longrifle | ~43 (×pierce) |

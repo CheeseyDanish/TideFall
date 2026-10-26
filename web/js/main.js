@@ -57,6 +57,10 @@
     else if (k === ' ') { ev.preventDefault(); useGadget(0); }
     else if (k === 'e') useGadget(1);
   });
+  // Releasing R matters for the Pressure reload (hold and release in the green)
+  window.addEventListener('keyup', ev => {
+    if (ev.key.toLowerCase() === 'r' && Game.state === 'night' && !Game.paused) releaseReload();
+  });
 
   UI.init(document.getElementById('ui'));
   UI.showTitle();

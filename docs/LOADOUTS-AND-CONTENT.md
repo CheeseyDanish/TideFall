@@ -20,7 +20,7 @@ Every patch must keep **at least one viable build per archetype**:
 3. **Glacier:** Cold, plus Explosion/Mortar for Shatter, plus Frost Grenade. Crowd control and burst.
 4. **Marksman:** Longrifle/Harpoon, Hollow Point, Spotter. Weak points and armored targets. Weak to swarms.
 5. **Bulwark:** Plating, Barbs, Mechanic, plus a cheap fast weapon. Tanks hits and lets the wall do the work. Weak to puffers and bosses.
-6. **Prospector:** Salvager mods, Scavenger crew, greedy tide cards, pearls. Weaker each night, richer each run.
+6. **Prospector:** Salvager mods, Scavenger crew, greedy tide cards, pearl hunting (Pearl Diver, Midas Shell). Weaker each night, richer each run.
 
 ## Content checklist (fill this for every new item or enemy)
 - **Question / Answer:** which enemy or situation does it answer? (For an enemy: which question does it ask?)
@@ -45,16 +45,16 @@ Every patch must keep **at least one viable build per archetype**:
 | **Leviathan** (20) | Everything at once | full build | huge, glowing eye = weak point, slams the wall |
 
 ## Weapons
-| Weapon | Answers | Weakness | Synergy |
-|---|---|---|---|
-| Service Pistol | early game, precise heads | low DPS | Hollow Point, Hair Trigger |
-| Scattergun | crowds at mid range, eels | falls off at range, armor | Voltaic (many chain procs), Incendiary |
-| Rivet SMG | gulls, crablings | armor, ammo hungry | Drum Mag, Cryo stacking |
-| Longrifle | Sirens, armor (pierce), heads | slow, bad vs. swarms | Hollow Point, Spotter |
-| Harpoon Gun | lines of enemies, knockback | tiny magazine | knocks enemies back into wet sand → Stormcaller |
-| Mortar | packs, armor, Shatter | slow arc, misses movers | Cryo (Shatter), Incendiary (Inferno with oil) |
-| Arc Caster | wet packs, flyers (hitscan) | weak vs. dry single targets | wet sources, Storm Call |
-| Blowtorch | dry enemies at the wall, oil | short range, useless when wet | Oil Slick, Barbs |
+| Weapon | Answers | Weakness | Synergy | Reload (GDD) |
+|---|---|---|---|---|
+| Service Revolver | early game, precise heads | low DPS, 6-round cylinder | Hollow Point, Hair Trigger | Rhythm, interruptible |
+| Scattergun | crowds at mid range, eels | falls off at range, armor | Voltaic, Incendiary | Shell by shell, interruptible |
+| Rivet SMG | gulls, crablings | armor, ammo hungry | Drum Mag, Cryo stacking | Active |
+| Longrifle | Sirens, armor (pierce), heads | slow, bad vs. swarms | Hollow Point, Spotter | Bolt action |
+| Harpoon Gun | lines of enemies, knockback | tiny magazine | knocks enemies back into wet sand → Stormcaller | Heavy (fast, harsh) |
+| Mortar | packs, armor, Shatter | slow arc, misses movers | Cryo (Shatter), Incendiary (Inferno with oil) | Drop (moving zone) |
+| Arc Caster | wet packs, flyers (hitscan) | weak vs. dry single targets | wet sources, Storm Call | Capacitor (mash) |
+| Blowtorch | dry enemies at the wall, oil | short range, useless when wet | Oil Slick, Barbs | Pressure (hold/release) |
 
 ## Mods
 | Mod | Effect | Trade-off |
@@ -82,7 +82,7 @@ Every patch must keep **at least one viable build per archetype**:
 ## Traps (ground only, R6)
 | Trap | Effect | Synergy |
 |---|---|---|
-| Spike Strip | damage over time to anything walking over it | crablings |
+| Spike Strip | light damage over time (6/s) to anything walking over it | crablings, slows from Oil/Chill keep them on it |
 | Oil Slick | slows, applies Oiled | Fire → Inferno |
 | Tide Mine | one blast per night | packs |
 | Shock Post | zaps the nearest enemy | wet sand, Sprinkler |
@@ -97,6 +97,20 @@ Every patch must keep **at least one viable build per archetype**:
 | Scavenger | +20% of the night's earnings per level |
 | Deckhand | reloads holstered weapons |
 
+## Relics (Reliquary, bought with pearls, R6a)
+Relics are one-off and last the whole run. Each one bends a rule rather than adding raw stats, and each leans toward an archetype.
+| Relic | ◉ | Effect | Leans toward |
+|---|---|---|---|
+| Golden Chamber | 3 | Perfect reloads +15% more damage | any, rewards reload skill |
+| Siren's Ear | 4 | reload minigame windows 35% wider | players who find the minigames hard |
+| Pearl Diver | 2 | pearls drift 40% slower and are bigger | Prospector (more pearls) |
+| Coral Mortar | 5 | wall +15% max HP, regrows 1 HP/s at night | Bulwark |
+| Brine Heart | 5 | enemies stay Wet twice as long | Stormcaller, Glacier |
+| Ember Heart | 5 | burning deals +50% | Pyre-keeper |
+| Third Hand | 6 | gadget cooldowns −25% | gadget builds |
+| Abyssal Lens | 4 | Sea Fog is far thinner for you | greedy card picks |
+| Midas Shell | 6 | +15% scrap from every source | Prospector |
+
 ## Tide cards
 | Card | Effect | Scrap |
 |---|---|---|
@@ -104,7 +118,7 @@ Every patch must keep **at least one viable build per archetype**:
 | Storm | everyone stays Wet | ×1.25 |
 | Heatwave | enemies dry 3× faster | ×1.1 |
 | Swarm | many more crablings, eels and gulls | ×1.3 |
-| Sea Fog | the far beach is hidden | ×1.35 |
+| Sea Fog | a thick fog bank hides everything past mid-beach; only eyes glint through | ×1.35 |
 | Iron Tide | +3 armor to every enemy | ×1.4 |
 | Spring Tide | spawns come 30% faster | ×1.25 |
 | Lucky Current | 3× pearls | ×1.0 |
