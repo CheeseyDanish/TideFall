@@ -1,19 +1,26 @@
 # TideWall 3D — Game Design Document
 
 ## Pitch
-Up to four friends on one screen defend a crumbling sea wall. Every **morning** you sell the night's catch to the fishmonger, buy guns and upgrades, and grab a hotdog (choose your condiment carefully). Every **evening** and **night**, the sea sends crabs, sharks, saltwater crocs, octopuses and worse up the beach. Shoot their claws off, hook them with a boat hook, or swing an anchor. Then do it all again, one day harder.
+Up to four friends, on one screen or online, defend a crumbling sea wall, in first person or from above. Every **morning** you sell the night's catch to the fishmonger, buy guns and upgrades, and grab a hotdog (choose your condiment carefully). Every **evening** and **night**, the sea sends crabs, sharks, saltwater crocs, octopuses and worse up the beach. Shoot their claws off, hook them with a boat hook, or swing an anchor. Then do it all again, one day harder.
 
 It's the 3D, couch co-op follow-up to Tidewall 2D (the browser game on the website), keeping its central idea: **the beach is a gradient from wet to dry**, and wetness changes how fights go.
 
 ## Core loop
 ```
-          ┌───────────────── one day ──────────────────┐
- Lobby ─► MORNING ──(everyone rings the bell / timer)─► EVENING ──(waves cleared)─► NIGHT ──(waves cleared, day +1)─┐
-  join     shop, fishmonger, hotdogs, picnic food        2 light waves                3 waves, boss every 5th day       │
-           gas cans on the beach                                                                                     │
-          ▲──────────────────────────────────────────────────────────────────────────────────────────────────────────┘
- Lose: the wall reaches 0 HP, or every player is down at once.
+             ┌───────────────── one day ──────────────────┐
+ Main menu ─► MORNING ──(everyone rings the bell / timer)─► EVENING ──(waves cleared)─► NIGHT ──(waves cleared, day +1)─┐
+  new/load/   autosave, shop, fishmonger, hotdogs,            2 light waves                3 waves, boss every 5th day       │
+  host/join   picnic food, gas cans on the beach                                                                          │
+             ▲───────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+ Lose: the wall reaches 0 HP, or every player is down at once → try again from the last save, or back to the menu.
 ```
+
+## Views
+- **First person** (the default). The camera is at your eyes; you see your gun bottom-right and your melee weapon bottom-left (the *view model*), and a small crosshair in your colour. Shots go to whatever is under the crosshair. Mouse or right stick looks around; the left stick / WASD moves relative to where you look.
+- **Top-down** (the original view). The camera floats above and behind, looking out to sea. Aim with the mouse cursor or the right stick; a ring in your colour shows the exact point you're aiming at. Movement is relative to the screen.
+- Switch any time with **View** (R3 / Select on a pad, V on the keyboard) or from the pause menu. Each player picks their own view, so a split screen can mix them. The default view for new players is a setting.
+- In first person your own body is hidden from your camera (other players still see it), and name tags float over teammates.
+- Controllers get gentle aim assist in both views (slow-down over enemies plus a small nudge onto bodies in first person; snap to nearby bodies top-down). It can be turned off.
 
 ## Phases (data-driven)
 Phases live in `Assets/Resources/Data/PhaseCycle.asset` as a list. The game runs whatever is listed, in order, looping. **Add, remove or reorder entries to change the day**; no code changes are needed. Each phase sets:
@@ -24,6 +31,7 @@ Phases live in `Assets/Resources/Data/PhaseCycle.asset` as a list. The game runs
 | `endWhenAllReady` | Ends when every player has rung the bell |
 | `endWhenWavesCleared` | Ends when every planned enemy has spawned and died |
 | `advancesDay` | The day counter goes up when this phase ends |
+| `saveOnStart` | Autosave when the phase starts; players can also save from the pause menu during it |
 | `shopOpen` | The shop and the fishmonger trade during this phase |
 | `waves`, `budgetMultiplier`, `enemyPool` | How much the sea sends, and which creatures |
 | `bossEveryDays`, `bossId` | Every Nth day this phase also brings the boss |
@@ -36,7 +44,7 @@ The shipped day:
 
 | Phase | Ends | What happens |
 |---|---|---|
-| **Morning** | all ready, or 150 s | Shop + fishmonger open; picnic food and gas cans appear; warm low sun |
+| **Morning** | all ready, or 150 s | Autosave; shop + fishmonger open; picnic food and gas cans appear; warm low sun |
 | **Evening** | waves cleared | 2 waves at 55% budget from a lighter pool; orange sunset; torches lit |
 | **Night** | waves cleared → day +1 | 3 waves at full budget; Glizzy Monster boss every 5th day; moonlight, torches, player lanterns |
 
@@ -135,7 +143,7 @@ The stand is a cart on two of the website's tire models. It's open every phase, 
 ### ??? Sauce
 One roll from a weighted table:
 - **Good:** Giant (+25% damage, takes less), Invincible 8 s, Double Damage 15 s, full heal, 25–150 coins.
-- **Bad:** Upside-down camera, reversed controls, Tiny, Fisheye, Slow, **first-person POV**, ink, tunnel vision.
+- **Bad:** Upside-down camera, reversed controls, Tiny, Fisheye, Slow, **wrong view** (swaps you to the other POV: first person ↔ top-down), ink, tunnel vision.
 - **Neutral:** Rainbow coat, Dutch-tilted camera, bubbles.
 - **Jackpot:** a **0.01% chance** (`sauceJackpotChance = 0.0001`) of **10,000 coins**.
 
@@ -148,11 +156,13 @@ Gas cans are dropped on the beach each morning (3, plus Gas Delivery upgrades).
 An explosion does 90 damage in 4.5 m, sets things alight, **hurts players too**, chains into other cans, and shakes nearby cameras.
 
 ## Controls
+Defaults (every one except the sticks and mouse look can be rebound in **Settings → Controls**):
+
 | Action | Gamepad | Keyboard + mouse |
 |---|---|---|
 | Join | any button | any key |
 | Move | left stick / d-pad | WASD / arrows |
-| Aim | right stick (aim assist on enemies) | mouse (reticle goes exactly where you point) |
+| Look (first person) / aim (top-down) | right stick | mouse |
 | Shoot / throw | RT | left click |
 | Melee | RB | right click / F |
 | Interact (shop, sell, eat, revive, pick up) | A / Cross | E / Enter |
@@ -160,9 +170,42 @@ An explosion does 90 damage in 4.5 m, sets things alight, **hurts players too**,
 | Reload | X / Square | R |
 | Swap gun | Y / Triangle | Q / middle click |
 | Dash | LB / LT | Space / Shift |
-| Pause | Start | Esc / P |
+| Switch view | R3 / Select | V |
+| Pause menu | Start | Esc / P |
 
-Split screen: 1 player full screen · 2 players stacked · 3 players in quarters (the 4th quarter shows an overview and a join prompt) · 4 players in quarters. Wide, short viewports (two players stacked) pull the camera back and look further out to sea, so each player still sees the beach.
+In menus: up/down chooses, left/right changes a value (sliders, toggles), Interact picks, Back goes back. HUD prompts always show *your* key for the action, including after rebinding.
+
+Split screen: 1 player full screen · 2 players stacked · 3 players in quarters (the 4th quarter shows an overview and a join prompt) · 4 players in quarters. Wide, short viewports (two players stacked) pull the top-down camera back and look further out to sea, so each player still sees the beach. The mouse is captured while a keyboard player looks around in first person and released in menus.
+
+## Main menu
+A still picture from the upper room of the **keep** behind the town, through its big arched window: the town, the wall, the morning beach with a beach-volleyball game, umbrellas, gulls overhead and shark fins circling offshore; torches and a map table in the room. It's the 3D version of the 2D game's shop screen.
+
+The menu panel on the left: **Continue** (latest save) · **New game** (pick a slot) · **Load game** · **Host online game** · **Join online game** · **Settings** · **Delete a save** · **Quit**. Mouse (hover and click, wheel), keyboard or any controller. Whoever picks the game becomes player 1; others drop in with any button as usual.
+
+## Pause menu and settings
+**Start / Esc** opens the pause menu in your own viewport: Resume · Switch view · Settings · Save game · Quit to main menu · Quit to desktop. Offline, the game pauses while anyone has it open; online the beach keeps going (stay near the wall).
+
+| Settings | |
+|---|---|
+| **Audio** | Master, Effects (guns, creatures, explosions), Interface (menus, bells, coins), Ambience (surf) |
+| **Game** | Start in first person · Field of view · Mouse sensitivity · Stick sensitivity · Invert look · Aim assist · Screen shake · Fullscreen · Graphics quality · Show frame rate |
+| **Controls** | Keyboard & mouse and Controller lists: pick an action, press the new key or button (Esc cancels). Reset all controls. |
+
+Settings are per machine (not per save) and apply instantly.
+
+## Saves
+- Three **slots**. A new game picks a slot; the run then **autosaves at the start of every Morning** (any phase with `saveOnStart`).
+- During that phase you can also **Save game** from the pause menu (after shopping, say). Quitting to the menu during it saves first.
+- A save holds the day, coins, wall HP, team upgrades and each player slot's guns and melee weapons. Corpses, food and statuses aren't kept: you always resume at the start of a calm phase.
+- When the wall falls, **Try again** reloads the last save (or starts over if the run wasn't saved).
+- Online, the host's save is used; clients don't save.
+
+## Online
+- **Host:** Main menu → Host online game → new or saved game. The host plays as normal; friends join any time. The pause menu shows the host's addresses.
+- **Join:** Main menu → Join online game. Games on the same network appear in the list; otherwise type the host's address. Whoever picked Join becomes that machine's first player; more people on that machine press a button to drop in (couch + online mix, 4 players in total).
+- Internet play works by address if the host forwards TCP port 7777 (changeable in the Host menu) on their router.
+- The host runs the beach; everyone else sees it a moment later. Your own movement and looking are instant on your machine.
+- If the host leaves, everyone returns to the main menu. If a client leaves, their sailor leaves with them (their carried items drop).
 
 ## Adding content
 For a **new enemy**:
@@ -171,6 +214,7 @@ For a **new enemy**:
 3. Give every limb a `LimbDef` and pick its effect.
 4. Answer the design questions: what does it **ask** of the players, what **counters** it, how does it interact with **wetness**, what's its corpse worth?
 5. Add it to a phase's `enemyPool` if it should be phase-limited, and to the bestiary capture.
-6. Run the tests and the capture tour.
+6. Online: it's replicated automatically (`Enemy.Spawn` tags it). If it animates its model root or has new visual state, make sure `Enemy.WriteNet`/`ApplyNet` carry it.
+7. Run the tests and the capture tour.
 
 For a **new phase**: add a `PhaseDefinition` to the cycle. If it needs behaviour no field covers, add a field (default off) and handle it in `PhaseManager`, `WaveDirector` or `World`. Never branch on the phase id (R2).

@@ -1,0 +1,104 @@
+// TideWall 3D — save slots. A run autosaves when a phase with `saveOnStart` begins (Morning in the shipped cycle),
+// and players can save again during that phase from the pause menu. A save is the team's state at that point:
+// day, phase, coins, wall, upgrades and each player slot's weapons. Files: <Storage.Root>/saves/slot<N>.json.
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace TideWall
+{
+    [Serializable]
+    public class SaveData
+    {
+        public int version = 1;
+        public int slot;
+        public string savedAt;          // ISO 8601, for "Continue" (most recent wins)
+        public int day = 1, phaseIndex;
+        public int coins;
+        public float wallHp, wallMaxHp;
+        public List<UpgradeLevel> upgrades = new();
+        public float gunDamage = 1, meleeDamage = 1, magazine = 1, playerHpBonus;
+        public int extraGasCans;
+        public List<PlayerSave> players = new();
+        public int kills, severs;
+
+        public string Summary => $"Day {day} · {coins} coins · wall {Mathf.CeilToInt(wallHp)}/{Mathf.RoundToInt(wallMaxHp)}";
+    }
+
+    [Serializable] public class UpgradeLevel { public string id; public int level; }
+
+    [Serializable]
+    public class PlayerSave
+    {
+        public int index;
+        public string gun, melee;
+        public List<string> guns = new(), melees = new();
+        public int kills, severs;
+    }
+
+    public static class SaveSystem
+    {
+        public const int Slots = 3;
+        static string File(int slot) => $"saves/slot{slot}.json";
+
+        public static SaveData Load(int slot)
+        {
+            var json = Storage.Read(File(slot));
+            if (string.IsNullOrEmpty(json)) return null;
+            try { var d = JsonUtility.FromJson<SaveData>(json); d.slot = slot; return d; }
+            catch (Exception e) { Debug.LogWarning($"TideWall: save slot {slot} is unreadable ({e.Message})"); return null; }
+        }
+
+        public static bool Write(SaveData d)
+        {
+            d.savedAt = DateTime.UtcNow.ToString("o");
+            return Storage.Write(File(d.slot), JsonUtility.ToJson(d, true));
+        }
+
+        public static void Delete(int slot) => Storage.Delete(File(slot));
+
+        /// <summary>The most recently saved slot, or null if there are no saves.</summary>
+        public static SaveData Latest()
+        {
+            SaveData best = null;
+            for (int i = 1; i <= Slots; i++)
+            {
+                var d = Load(i);
+                if (d != null && (best == null || string.CompareOrdinal(d.savedAt, best.savedAt) > 0)) best = d;
+            }
+            return best;
+        }
+
+        public static int FirstEmptySlot()
+        {
+            for (int i = 1; i <= Slots; i++) if (Load(i) == null) return i;
+            return 0;
+        }
+
+        /// <summary>Snapshot the running game into a save for its slot.</summary>
+        public static SaveData Capture(GameManager gm)
+        {
+            var d = new SaveData
+            {
+                slot = gm.SaveSlot, day = gm.Phases.Day, phaseIndex = Mathf.Max(0, gm.Phases.Index), coins = gm.Coins,
+                wallHp = gm.Wall.Hp, wallMaxHp = gm.Wall.MaxHp,
+                gunDamage = gm.Team.GunDamage, meleeDamage = gm.Team.MeleeDamage, magazine = gm.Team.Magazine,
+                playerHpBonus = gm.Team.PlayerHpBonus, extraGasCans = gm.Team.ExtraGasCans,
+            };
+            foreach (var u in gm.DB.upgrades) if (gm.Team.Level(u.id) > 0) d.upgrades.Add(new UpgradeLevel { id = u.id, level = gm.Team.Level(u.id) });
+            foreach (var p in gm.Players.All)
+            {
+                var ps = new PlayerSave { index = p.Index, gun = p.Gun.id, melee = p.Melee.id, kills = p.Kills, severs = p.Severs };
+                foreach (var g in gm.DB.guns) if (p.OwnsGun(g.id)) ps.guns.Add(g.id);
+                foreach (var m in gm.DB.melee) if (p.OwnsMelee(m.id)) ps.melees.Add(m.id);
+                d.players.Add(ps);
+                d.kills += p.Kills; d.severs += p.Severs;
+            }
+            // Players who left keep their loadout in the save
+            if (gm.Loaded != null)
+                foreach (var old in gm.Loaded.players)
+                    if (!d.players.Exists(x => x.index == old.index)) d.players.Add(old);
+            return d;
+        }
+    }
+}

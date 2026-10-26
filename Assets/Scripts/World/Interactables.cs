@@ -125,7 +125,7 @@ namespace TideWall
         public FoodDef Food;
         float baseY;
 
-        public static FoodPickup Spawn(FoodDef food, Vector3 pos)
+        public static FoodPickup Spawn(FoodDef food, Vector3 pos, int id = 0)
         {
             var go = new GameObject(food.displayName);
             go.transform.position = pos;
@@ -133,6 +133,7 @@ namespace TideWall
             f.Food = food; f.radius = 1.6f; f.baseY = .35f;
             var mi = ModelFactory.Spawn(food.model, go.transform, Vector3.zero, 1.6f);
             foreach (var r in mi.renderers) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            NetId.Tag(go, NetKind.Food, GameManager.I.DB.foods.IndexOf(food), id);
             return f;
         }
 

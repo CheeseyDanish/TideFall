@@ -32,6 +32,9 @@ namespace TideWall
 
         public void Begin() => Enter(0);
 
+        /// <summary>Loading a save: the day it was saved on.</summary>
+        public void SetDay(int day) => Day = Mathf.Max(1, day);
+
         /// <summary>Jump straight to a phase (debug hooks and tests).</summary>
         public void Enter(int i)
         {
@@ -49,6 +52,20 @@ namespace TideWall
             gm.Players.OnPhaseStart(Current);
             gm.Banner($"{Current.displayName.ToUpperInvariant()} · DAY {Day}", Current.subtitle);
             Sfx.Play(Current.waves > 0 ? "horn" : "bell");
+            if (Current.saveOnStart && gm.SaveNow()) gm.Banner($"{Current.displayName.ToUpperInvariant()} · DAY {Day}", $"{Current.subtitle}\n<size=14>Game saved (slot {gm.SaveSlot})</size>");
+            OnPhaseStart?.Invoke(Current);
+        }
+
+        /// <summary>Client: follow the host's phase. Only the look changes here; spawns and banners come from the host.</summary>
+        public void NetFollow(int index, int day, float elapsed)
+        {
+            Day = day; Elapsed = elapsed;
+            if (index == Index || gm.Cycle.phases.Count == 0) return;
+            from = Current;
+            Index = ((index % gm.Cycle.phases.Count) + gm.Cycle.phases.Count) % gm.Cycle.phases.Count;
+            Current = gm.Cycle.phases[Index];
+            blend = 0;
+            gm.Players.OnPhaseStart(Current);
             OnPhaseStart?.Invoke(Current);
         }
 
@@ -56,7 +73,7 @@ namespace TideWall
         {
             if (Current == null) return;
             if (blend < 1) { blend = Mathf.Min(1, blend + Time.deltaTime / BlendSeconds); ApplyLook(blend); }
-            if (gm.State != GameState.Playing) return;
+            if (gm.State != GameState.Playing || Net.IsClient) return;
             Elapsed += Time.deltaTime;
             if (ShouldEnd()) Advance();
         }

@@ -1,4 +1,5 @@
-// TideWall 3D — one player's HUD, drawn by their camera so it sits inside their split-screen viewport.
+// TideWall 3D — one player's HUD, drawn by their camera so it sits inside their split-screen viewport:
+// health, wall, phase, weapons, prompts (with the player's own key glyphs), crosshair (first person), menus.
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
@@ -10,10 +11,10 @@ namespace TideWall
     {
         Player p;
         GameManager gm;
-        Image hpFill, wallFill, reloadFill, hurt, tunnel, hitMarker, menuPanel;
-        Text nameText, hpText, coinText, phaseText, wallText, gunText, promptText, bannerTitle, bannerSub, statusText, toastText, menuTitle, menuBody, menuDetail, centerText;
+        Image hpFill, wallFill, reloadFill, hurt, tunnel, hitMarker, menuPanel, crossH, crossV;
+        Text nameText, hpText, coinText, phaseText, wallText, gunText, promptText, bannerTitle, bannerSub, statusText, toastText, menuTitle, menuBody, menuDetail, menuHelp, centerText, fpsText;
         readonly List<Image> inkBlots = new();
-        float bannerT, toastT, hitT;
+        float bannerT, toastT, hitT, fpsT, fpsAcc; int fpsFrames;
         Sprite blob, hole;
 
         public static PlayerHud Create(Player player)
@@ -87,14 +88,18 @@ namespace TideWall
             centerText = Ui.Text(c, "Center", new Vector2(.5f, .5f), Vector2.zero, new Vector2(900, 200), 26, TextAnchor.MiddleCenter, Color.white);
             hitMarker = Ui.Image(c, "Hit", new Vector2(.5f, .5f), Vector2.zero, new Vector2(18, 18), new Color(1, 1, 1, 0));
             hitMarker.rectTransform.localRotation = Quaternion.Euler(0, 0, 45);
+            // First-person crosshair: a small plus in the player's colour
+            crossH = Ui.Image(c, "CrossH", new Vector2(.5f, .5f), Vector2.zero, new Vector2(14, 2), Color.Lerp(col, Color.white, .5f));
+            crossV = Ui.Image(c, "CrossV", new Vector2(.5f, .5f), Vector2.zero, new Vector2(2, 14), Color.Lerp(col, Color.white, .5f));
+            fpsText = Ui.Text(c, "Fps", new Vector2(1, 0), new Vector2(-12, 8), new Vector2(120, 20), 12, TextAnchor.LowerRight, new Color(.8f, .9f, 1));
+            fpsText.rectTransform.pivot = new Vector2(1, 0);
 
             // Menu panel
             menuPanel = Ui.Image(c, "Menu", new Vector2(.5f, .5f), Vector2.zero, new Vector2(620, 470), new Color(.05f, .08f, .15f, .93f));
             menuTitle = Ui.Text(menuPanel.transform, "Title", new Vector2(.5f, 1), new Vector2(0, -22), new Vector2(580, 34), 24, TextAnchor.MiddleCenter, new Color(1, .85f, .4f));
             menuBody = Ui.Text(menuPanel.transform, "Body", new Vector2(.5f, .5f), new Vector2(0, 8), new Vector2(580, 340), 16, TextAnchor.MiddleLeft, Color.white);
             menuDetail = Ui.Text(menuPanel.transform, "Detail", new Vector2(.5f, 0), new Vector2(0, 44), new Vector2(580, 50), 14, TextAnchor.MiddleCenter, new Color(.8f, .85f, 1));
-            Ui.Text(menuPanel.transform, "Help", new Vector2(.5f, 0), new Vector2(0, 14), new Vector2(580, 22), 13, TextAnchor.MiddleCenter, new Color(.6f, .65f, .8f))
-                .text = p.Controls.UsesMouse ? "W/S choose · E or click buy · Tab/Esc close" : "Stick choose · [A] buy · [B] close";
+            menuHelp = Ui.Text(menuPanel.transform, "Help", new Vector2(.5f, 0), new Vector2(0, 14), new Vector2(580, 22), 13, TextAnchor.MiddleCenter, new Color(.6f, .65f, .8f));
         }
 
         public void ShowBanner(string title, string sub) { bannerTitle.text = title; bannerSub.text = sub; bannerT = 3.2f; }
@@ -110,7 +115,7 @@ namespace TideWall
             var phases = gm.Phases;
             var ph = phases.Current;
 
-            nameText.text = $"<b>{p.Name}</b>  <size=12><color=#cbd5e1>{p.Controls.DeviceName}</color></size>";
+            nameText.text = $"<b>{p.Name}</b>{(string.IsNullOrEmpty(p.Nick) ? "" : " · " + p.Nick)}  <size=12><color=#cbd5e1>{p.DeviceName}</color></size>";
             hpFill.fillAmount = Mathf.Clamp01(p.Hp / p.MaxHp);
             hpFill.color = p.Hp / p.MaxHp > .5f ? new Color(.35f, .85f, .4f) : p.Hp / p.MaxHp > .25f ? new Color(.95f, .8f, .2f) : new Color(.95f, .3f, .25f);
             hpText.text = $"{Mathf.CeilToInt(p.Hp)}/{Mathf.RoundToInt(p.MaxHp)}";
@@ -124,10 +129,10 @@ namespace TideWall
             statusText.text = sb.ToString();
             coinText.text = $"{gm.Coins} coins";
 
-            if (ph != null && gm.State != GameState.Lobby)
+            if (ph != null && gm.State != GameState.MainMenu)
             {
                 string timing = phases.TimeLeft >= 0 ? $" · {Mathf.CeilToInt(phases.TimeLeft)}s" : "";
-                string waves = gm.Waves.WaveCount > 0 ? $" · Wave {Mathf.Min(gm.Waves.Wave + 1, gm.Waves.WaveCount)}/{gm.Waves.WaveCount} · {GameManager.Enemies.Count} left" : "";
+                string waves = gm.Waves.WaveCount > 0 ? $" · Wave {Mathf.Min(gm.Waves.Wave + 1, gm.Waves.WaveCount)}/{gm.Waves.WaveCount} · {gm.EnemiesLeft} left" : "";
                 phaseText.text = $"<b>Day {phases.Day} · {ph.displayName}</b>{timing}{waves}";
             }
             wallFill.fillAmount = gm.Wall.Hp / gm.Wall.MaxHp;
@@ -135,7 +140,7 @@ namespace TideWall
 
             gunText.text = $"<b>{p.Gun.displayName}</b>  {(p.ReloadProgress >= 0 ? "reloading…" : $"{p.Ammo}/{p.MagSize}")}\n" +
                            $"<color=#cbd5e1>{p.Melee.displayName}</color>" +
-                           (p.Carrying.Count > 0 ? $"\n<color=#fde68a>Carrying {p.Carrying.Count} (weight {p.CarryWeight:0}/{Player.MaxCarry:0}) · Fire to throw</color>" : "");
+                           (p.CarryCount > 0 ? $"\n<color=#fde68a>Carrying {p.CarryCount} (weight {p.CarryWeight:0}/{Player.MaxCarry:0}) · {p.Glyph(Btn.Fire)} throw</color>" : "");
             reloadFill.transform.parent.gameObject.SetActive(p.ReloadProgress >= 0);
             if (p.ReloadProgress >= 0) reloadFill.fillAmount = p.ReloadProgress;
 
@@ -145,6 +150,14 @@ namespace TideWall
             SetAlpha(bannerTitle, Mathf.Clamp01(bannerT)); SetAlpha(bannerSub, Mathf.Clamp01(bannerT));
             SetAlpha(toastText, Mathf.Clamp01(toastT));
             var hc = hitMarker.color; hc.a = Mathf.Clamp01(hitT / .15f); hitMarker.color = hc;
+            bool cross = p.FirstPerson && !p.IsOut && p.ShownMenu == null && gm.State == GameState.Playing;
+            crossH.enabled = crossV.enabled = cross;
+            fpsText.enabled = Settings.Current.showFps;
+            if (fpsText.enabled)
+            {
+                fpsFrames++; fpsAcc += dt; fpsT -= dt;
+                if (fpsT <= 0) { fpsText.text = $"{fpsFrames / Mathf.Max(.001f, fpsAcc):0} fps"; fpsT = .5f; fpsFrames = 0; fpsAcc = 0; }
+            }
             if (hitT > 0 && p.Cam.Camera != null)
             {
                 RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)transform, p.AimScreen, p.Cam.Camera, out var local);
@@ -160,24 +173,23 @@ namespace TideWall
 
         string Prompt()
         {
-            if (p.IsDowned || p.IsOut || p.OpenedMenu != null || gm.State != GameState.Playing) return "";
-            string btn = p.Controls.UsesMouse ? "[E]" : "[A]";
-            foreach (var other in gm.Players.All)
-                if (other != p && other.IsDowned && Vector3.Distance(other.transform.position, p.transform.position) < 1.9f)
-                    return $"Hold {btn} to revive {other.Name} ({other.ReviveProgress * 100:0}%)";
-            if (p.Focus != null) return $"{btn} {p.Focus.Prompt(p)}";
-            if (p.Carrying.Count > 0) return $"{btn} Drop";
-            var ph = gm.Phases.Current;
-            if (ph != null && ph.endWhenAllReady) return $"Ring the bell when you're ready · {gm.Players.ReadyCount}/{gm.Players.Count} ready";
-            return "";
+            if (p.ShownMenu != null || gm.State != GameState.Playing) return "";
+            return p.PromptText().Replace("{btn}", p.Glyph(Btn.Interact));
         }
 
         string CenterMessage()
         {
+            if (Rebinder.Listening != null && p.ShownMenu != null)
+                return $"<b>Press the new key or button</b>\n{Rebinder.Listening}\n<size=16>Esc cancels</size>";
             if (gm.State == GameState.GameOver)
-                return $"<size=44><b>THE WALL HAS FALLEN</b></size>\n{gm.GameOverReason}\nYou held out until day {gm.Phases.Day}.\n\n<size=20>Press {(p.Controls.UsesMouse ? "E" : "[A]")} to try again</size>";
-            if (gm.Paused) return $"<size=40><b>PAUSED</b></size>\n<size=18>{(p.Controls.UsesMouse ? "Esc" : "Start")} to resume</size>";
-            if (!p.Controls.Connected) return "<b>Controller disconnected</b>\nReconnect it to keep playing";
+            {
+                string retry = Net.IsClient ? "Waiting for the host to try again" :
+                               gm.SaveSlot > 0 ? $"{p.Glyph(Btn.Interact)} Try again from the last save" : $"{p.Glyph(Btn.Interact)} Try again";
+                return $"<size=44><b>THE WALL HAS FALLEN</b></size>\n{gm.GameOverReason}\nYou held out until day {gm.Phases.Day}.\n\n" +
+                       $"<size=20>{retry} · {p.Glyph(Btn.Back)} {(Net.IsClient ? "Leave" : "Main menu")}</size>";
+            }
+            if (Net.IsClient && !Net.Client.Connected) return "<b>Connection lost</b>\nReturning to the main menu…";
+            if (!p.Connected) return "<b>Controller disconnected</b>\nReconnect it to keep playing";
             if (p.IsOut) return "<b>You bled out</b>\nYou'll be back next phase";
             if (p.IsDowned) return $"<b>You're down!</b>\nA teammate can hold Interact to revive you\n<size=20>{p.BleedLeft:0}s</size>";
             return "";
@@ -200,24 +212,35 @@ namespace TideWall
 
         void UpdateMenu()
         {
-            var m = p.OpenedMenu;
+            var m = p.ShownMenu;
             menuPanel.gameObject.SetActive(m != null);
             if (m == null) return;
-            menuTitle.text = $"{m.Title}   <size=16><color=#fde68a>{gm.Coins} coins</color></size>";
+            menuTitle.text = m.System ? m.Title : $"{m.Title}   <size=16><color=#fde68a>{gm.Coins} coins</color></size>";
+            menuBody.text = Render(m, 14);
+            var cur = m.Current;
+            string why = cur?.Blocked?.Invoke();
+            menuDetail.text = cur == null ? "" : m.System && why != null ? $"<color=#fca5a5>{why}</color>" : cur.Detail;
+            string nav = p.UsesMouse ? "W/S" : "Stick";
+            string adj = cur?.OnAdjust != null ? (p.UsesMouse ? " · A/D change" : " · left/right change") : "";
+            menuHelp.text = $"{nav} choose{adj} · {p.Glyph(Btn.Interact)} pick · {p.Glyph(Btn.Back)} {(m.Parent != null ? "back" : "close")}";
+        }
+
+        /// <summary>A menu as rich text rows (also used by the main menu): headers, the selection, values on the right.</summary>
+        public static string Render(Menu m, int rows, int labelWidth = 34)
+        {
             var sb = new StringBuilder();
-            int first = Mathf.Clamp(m.Selected - 6, 0, Mathf.Max(0, m.Items.Count - 14));
-            for (int i = first; i < Mathf.Min(m.Items.Count, first + 14); i++)
+            int first = Mathf.Clamp(m.Selected - rows / 2, 0, Mathf.Max(0, m.Items.Count - rows));
+            for (int i = first; i < Mathf.Min(m.Items.Count, first + rows); i++)
             {
                 var it = m.Items[i];
                 if (it.Header) { sb.Append($"<color=#93c5fd><b>{it.Label}</b></color>\n"); continue; }
                 bool sel = i == m.Selected;
                 bool blocked = it.Blocked?.Invoke() != null;
-                string label = it.Label.PadRight(34).Substring(0, 34);
+                string label = it.Label.Length > labelWidth ? it.Label.Substring(0, labelWidth) : it.Label.PadRight(labelWidth);
                 string colour = blocked ? "#94a3b8" : sel ? "#fde68a" : "#ffffff";
                 sb.Append($"<color={colour}>{(sel ? "► " : "   ")}{label}  {it.Right}</color>\n");
             }
-            menuBody.text = sb.ToString();
-            menuDetail.text = m.Selected >= 0 && m.Selected < m.Items.Count ? m.Items[m.Selected].Detail : "";
+            return sb.ToString();
         }
 
         static void SetAlpha(Graphic g, float a) { var c = g.color; c.a = a; g.color = c; }

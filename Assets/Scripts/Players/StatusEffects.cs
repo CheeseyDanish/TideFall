@@ -39,7 +39,7 @@ namespace TideWall
             StatusType.Rage => "RAGE", StatusType.Speed => "SPEED", StatusType.SugarRush => "SUGAR RUSH", StatusType.Giant => "GIANT",
             StatusType.Invincible => "INVINCIBLE", StatusType.DoubleDamage => "DOUBLE DAMAGE", StatusType.UpsideDown => "UPSIDE DOWN",
             StatusType.ReverseControls => "REVERSED", StatusType.Tiny => "TINY", StatusType.Fisheye => "FISHEYE", StatusType.Slow => "SLOW",
-            StatusType.FirstPerson => "FIRST PERSON", StatusType.InkVision => "INKED", StatusType.Tunnel => "TUNNEL VISION",
+            StatusType.SwapView => "WRONG VIEW", StatusType.InkVision => "INKED", StatusType.Tunnel => "TUNNEL VISION",
             StatusType.Rainbow => "RAINBOW", StatusType.DutchTilt => "TILTED", StatusType.Bubbles => "BUBBLES", StatusType.Grabbed => "GRABBED",
             _ => t.ToString().ToUpperInvariant(),
         };
@@ -48,7 +48,7 @@ namespace TideWall
         public static int Mood(StatusType t) => t switch
         {
             StatusType.Rage or StatusType.Speed or StatusType.SugarRush or StatusType.Giant or StatusType.Invincible or StatusType.DoubleDamage => 1,
-            StatusType.UpsideDown or StatusType.ReverseControls or StatusType.Tiny or StatusType.Fisheye or StatusType.Slow or StatusType.FirstPerson
+            StatusType.UpsideDown or StatusType.ReverseControls or StatusType.Tiny or StatusType.Fisheye or StatusType.Slow or StatusType.SwapView
                 or StatusType.InkVision or StatusType.Tunnel or StatusType.Grabbed or StatusType.Burning or StatusType.Stunned => -1,
             _ => 0,
         };
@@ -69,7 +69,7 @@ namespace TideWall
             (StatusType.Tiny, 20, 1, "You shrink!"),
             (StatusType.Fisheye, 15, 1, "Everything bulges."),
             (StatusType.Slow, 12, 1, "Your legs feel like lead."),
-            (StatusType.FirstPerson, 20, 1, "You see through your own eyes. Weird."),
+            (StatusType.SwapView, 20, 1, "Your view flips to the other camera. Weird."),
             (StatusType.InkVision, 6, .7f, "It was squid ink."),
             (StatusType.Tunnel, 15, .8f, "Tunnel vision."),
             (StatusType.Rainbow, 30, 1, "You're glowing every colour."),

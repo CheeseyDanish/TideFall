@@ -1,6 +1,12 @@
-// TideWall 3D — automated screenshot tour for checking visuals without a human at the controls.
-// Only runs when the game is launched with:  TideWall.exe -tidewall-capture <output folder>
-// It joins virtual gamepads, walks through the phases, starts a fight and saves PNGs, then quits.
+// TideWall 3D — automated runs for checking the game without a human at the controls.
+//   TideWall.exe -tidewall-capture <folder>                 screenshot tour: main menu, first person, top-down,
+//                                                           menus, fights, sauce effects, bestiary, four players
+//   TideWall.exe -tidewall-host-demo [seconds]              host an online game (port 7777) with one virtual
+//                                                           player and a few enemies, then quit
+//   TideWall.exe -tidewall-join <address> -tidewall-capture <folder>
+//                                                           join that host as a client, screenshot what the
+//                                                           client sees, log TIDEWALL_CLIENT_OK, quit
+// The tour never saves (it starts unsaved runs) and never changes settings.
 using System;
 using System.Collections;
 using System.IO;
@@ -12,71 +18,87 @@ namespace TideWall
 {
     public class DemoCapture : MonoBehaviour
     {
-        string dir;
+        string dir, join;
+        float hostSeconds = -1;
         Gamepad pad1, pad2;
-        Vector2 aim1 = new(0, 1);
+        Vector2 look1;
         bool fire;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Check()
         {
+            if (FindAnyObjectByType<DemoCapture>() != null) return;
             var args = Environment.GetCommandLineArgs();
-            int i = Array.IndexOf(args, "-tidewall-capture");
-            if (i < 0) return;
-            var c = new GameObject("DemoCapture").AddComponent<DemoCapture>();
-            c.dir = i + 1 < args.Length ? args[i + 1] : "Captures";
+            int c = Array.IndexOf(args, "-tidewall-capture"), h = Array.IndexOf(args, "-tidewall-host-demo"), j = Array.IndexOf(args, "-tidewall-join");
+            if (c < 0 && h < 0) return;
+            var d = new GameObject("DemoCapture").AddComponent<DemoCapture>();
+            DontDestroyOnLoad(d.gameObject);
+            d.dir = c >= 0 && c + 1 < args.Length ? args[c + 1] : "Captures";
+            if (h >= 0) d.hostSeconds = h + 1 < args.Length && float.TryParse(args[h + 1], out var s) ? s : 60;
+            if (j >= 0 && j + 1 < args.Length) d.join = args[j + 1];
         }
 
         void Update()
         {
             // Hold the virtual sticks/triggers every frame (state events are one-shot).
-            if (pad1 != null) InputSystem.QueueStateEvent(pad1, new GamepadState { rightStick = aim1, rightTrigger = fire ? 1 : 0 });
+            if (pad1 != null && pad1.added) InputSystem.QueueStateEvent(pad1, new GamepadState { rightStick = look1, rightTrigger = fire ? 1 : 0 });
         }
 
         IEnumerator Start()
         {
+            if (hostSeconds > 0) return Host();
+            if (join != null) return Join();
+            return Tour();
+        }
+
+        IEnumerator Tour()
+        {
             Directory.CreateDirectory(dir);
-            yield return new WaitForSeconds(2.5f);
+            yield return new WaitForSecondsRealtime(2.5f);
             var gm = GameManager.I;
-            yield return Shot("01-lobby");
+            yield return Shot("01-main-menu");
+            gm.Menu.OpenMenu(Menus.Settings(null, null));
+            yield return new WaitForSecondsRealtime(.3f);
+            yield return Shot("02-main-menu-settings");
 
             pad1 = InputSystem.AddDevice<Gamepad>();
             pad2 = InputSystem.AddDevice<Gamepad>();
             var p1 = gm.Players.Join(new InputDevice[] { pad1 });
             var p2 = gm.Players.Join(new InputDevice[] { pad2 });
-            yield return new WaitForSeconds(3f);
-            yield return Shot("02-morning-two-players");
+            yield return new WaitForSecondsRealtime(3f);
+            yield return Shot("03-morning-first-person-two-players");
 
             p1.OpenMenu(Menus.Hotdogs(p1));
-            p2.OpenMenu(Menus.Shop(p2));
-            yield return new WaitForSeconds(.5f);
-            yield return Shot("03-hotdog-and-shop-menus");
+            p2.OpenMenu(Menus.Pause(p2));
+            yield return new WaitForSecondsRealtime(.5f);
+            yield return Shot("04-hotdog-and-pause-menus");
             p1.CloseMenu(); p2.CloseMenu();
 
             gm.Phases.Advance();   // evening
             Teleport(p1, new Vector3(-3, 0, 4)); Teleport(p2, new Vector3(4, 0, -2));
             foreach (var id in new[] { "crab", "crab", "drowner", "hermit", "jelly", "urchin", "gull" })
-                gm.Waves.SpawnExtra(gm.DB.Enemy(id), new Vector3(UnityEngine.Random.Range(-8f, 8f), 0, UnityEngine.Random.Range(10f, 16f)));
+                gm.Waves.SpawnExtra(gm.DB.Enemy(id), new Vector3(UnityEngine.Random.Range(-6f, 6f), 0, UnityEngine.Random.Range(10f, 16f)));
             gm.Waves.SpawnExtra(gm.DB.Enemy("shark"), new Vector3(0, -1, 26));
-            yield return new WaitForSeconds(4f);
+            yield return new WaitForSecondsRealtime(4f);
             fire = true;
-            yield return new WaitForSeconds(1.2f);
-            yield return Shot("04-evening-fight");
+            yield return new WaitForSecondsRealtime(1.2f);
+            yield return Shot("05-evening-fight-first-person");
 
             gm.Phases.Advance();   // night (enemies still alive keep fighting)
+            p2.SwitchView();       // player 2 goes top-down
             foreach (var id in new[] { "croc", "octopus", "lobster", "turtle", "puffer", "eel", "drowner", "drowner" })
                 gm.Waves.SpawnExtra(gm.DB.Enemy(id), new Vector3(UnityEngine.Random.Range(-10f, 10f), 0, UnityEngine.Random.Range(9f, 18f)));
-            yield return new WaitForSeconds(5f);
-            yield return Shot("05-night-fight");
+            yield return new WaitForSecondsRealtime(5f);
+            yield return Shot("06-night-first-person-and-top-down");
 
             p2.Statuses.Add(StatusType.UpsideDown, 10);
             p1.Statuses.Add(StatusType.Giant, 10);
-            yield return new WaitForSeconds(1.5f);
-            yield return Shot("06-sauce-upside-down-and-giant");
+            yield return new WaitForSecondsRealtime(1.5f);
+            yield return Shot("07-sauce-upside-down-and-giant");
             p2.Statuses.Clear(StatusType.UpsideDown);
-            p2.Statuses.Add(StatusType.FirstPerson, 10);
-            yield return new WaitForSeconds(1f);
-            yield return Shot("07-sauce-first-person");
+            p1.Statuses.Add(StatusType.SwapView, 10);
+            yield return new WaitForSecondsRealtime(1f);
+            yield return Shot("08-sauce-wrong-view");
 
             // A close look at the whole bestiary, lined up on the sand.
             fire = false;
@@ -95,21 +117,73 @@ namespace TideWall
             }
             cam.transform.SetPositionAndRotation(new Vector3(0, 9, -6), Quaternion.Euler(32, 0, 0));
             cam.fieldOfView = 60;
-            yield return new WaitForSeconds(.5f);
-            yield return Shot("08-bestiary");
+            yield return new WaitForSecondsRealtime(.5f);
+            yield return Shot("09-bestiary");
             var boss = Enemy.Spawn(gm.DB.Enemy("glizzy"), new Vector3(0, Arena.GroundY(12), 12), 5, -1);   // on the sand, not under the sea
             boss.enabled = false;
             cam.transform.SetPositionAndRotation(new Vector3(0, 7, 0), Quaternion.Euler(18, 0, 0));
-            yield return new WaitForSeconds(.5f);
-            yield return Shot("09-glizzy-boss");
+            yield return new WaitForSecondsRealtime(.5f);
+            yield return Shot("10-glizzy-boss");
             Destroy(cam.gameObject);
             gm.Players.All.ForEach(p => p.gameObject.SetActive(true));
 
             var pad3 = InputSystem.AddDevice<Gamepad>(); var pad4 = InputSystem.AddDevice<Gamepad>();
             gm.Players.Join(new InputDevice[] { pad3 }); gm.Players.Join(new InputDevice[] { pad4 });
-            yield return new WaitForSeconds(2f);
-            yield return Shot("10-four-players");
+            yield return new WaitForSecondsRealtime(2f);
+            yield return Shot("11-four-players");
             Debug.Log("TIDEWALL_CAPTURE_DONE");
+            Application.Quit();
+        }
+
+        /// <summary>Host an online game for a client test: one virtual player shooting, some enemies.</summary>
+        IEnumerator Host()
+        {
+            yield return new WaitForSecondsRealtime(1f);
+            var gm = GameManager.I;
+            if (Net.StartHost(NetProtocol.DefaultPort, "Host Bot") == null) { Debug.LogError("TIDEWALL_HOST_FAILED"); Application.Quit(1); yield break; }
+            gm.StartRun(null, 0);
+            pad1 = InputSystem.AddDevice<Gamepad>();
+            var p = gm.Players.Join(new InputDevice[] { pad1 });
+            Debug.Log("TIDEWALL_HOST_READY");
+            gm.Phases.Advance();   // evening: a fight to watch
+            float end = Time.time + hostSeconds;
+            while (Time.time < end)
+            {
+                if (GameManager.Enemies.Count < 6)
+                    foreach (var id in new[] { "crab", "drowner", "shark", "croc" })
+                        gm.Waves.SpawnExtra(gm.DB.Enemy(id), new Vector3(UnityEngine.Random.Range(-8f, 8f), 0, UnityEngine.Random.Range(12f, 18f)));
+                fire = Time.time % 3 < 1;
+                yield return new WaitForSecondsRealtime(.5f);
+            }
+            Debug.Log($"TIDEWALL_HOST_DONE clients={Net.Host.ClientCount} players={gm.Players.Count}");
+            Application.Quit();
+        }
+
+        /// <summary>Join a host as a client and photograph the mirrored world.</summary>
+        IEnumerator Join()
+        {
+            Directory.CreateDirectory(dir);
+            yield return new WaitForSecondsRealtime(1.5f);
+            var gm = GameManager.I;
+            pad1 = InputSystem.AddDevice<Gamepad>();
+            Net.StartClient(join, NetProtocol.DefaultPort, "Client Bot", new InputDevice[] { pad1 });
+            float give = Time.time + 20;
+            while (Time.time < give && (gm == null || gm.Players.Count < 2 || !gm.Players.All.Exists(x => x.Kind == PlayerKind.LocalProxy)))
+            {
+                yield return new WaitForSecondsRealtime(.25f);
+                gm = GameManager.I;
+            }
+            if (gm == null || !Net.IsClient || gm.Players.Count < 2) { Debug.LogError($"TIDEWALL_CLIENT_FAILED {(Net.IsClient ? Net.Client.Error : "not connected")}"); Application.Quit(1); yield break; }
+            yield return new WaitForSecondsRealtime(5f);
+            yield return Shot("net-01-client-first-person");
+            var me = gm.Players.All.Find(x => x.Kind == PlayerKind.LocalProxy);
+            me.SwitchView();
+            yield return new WaitForSecondsRealtime(2.5f);
+            yield return Shot("net-02-client-top-down");
+            int enemies = 0;
+            foreach (var e in FindObjectsByType<Enemy>()) if (e.Proxy) enemies++;
+            Debug.Log($"TIDEWALL_CLIENT_OK players={gm.Players.Count} enemyProxies={enemies} coins={gm.Coins} phase={gm.Phases.Current?.id}");
+            Net.Shutdown(null);
             Application.Quit();
         }
 

@@ -25,6 +25,9 @@ namespace TideWall
         GameManager gm;
         void Awake() => gm = GetComponent<GameManager>();
 
+        /// <summary>Client: show the host's wave counter.</summary>
+        public void ApplyNet(int currentWave, int count) { wave = currentWave; waveCount = count; }
+
         public void StartPhase(PhaseDefinition p, int day)
         {
             this.day = day;
@@ -70,7 +73,7 @@ namespace TideWall
 
         void Update()
         {
-            if (gm.State != GameState.Playing || waveCount == 0) return;
+            if (gm.State != GameState.Playing || waveCount == 0 || Net.IsClient) return;   // clients only show the host's counter
             float dt = Time.deltaTime;
             waveClock += dt;
             while (qi < queue.Count && Alive < gm.DB.maxAlive &&

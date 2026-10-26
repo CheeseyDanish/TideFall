@@ -404,6 +404,38 @@ build('Torch', [('Body', 'cyl', (.1, .1, 1.8), (0, 0, .9), 'woodD', None, None, 
                 ('Body', 'cone', (.22, .22, .45), (0, 0, 2.15), 'flame', None, None, 5)], sockets=[('Flame', (0, 0, 2.15))])
 build('Crate', [('Body', 'box', (.8, .8, .8), (0, 0, .4), 'wood'), ('Body', 'box', (.82, .82, .12), (0, 0, .4), 'woodD'), ('Body', 'box', (.12, .82, .82), (0, 0, .4), 'woodD')])
 
+# The keep behind the town. Its upper room is the main menu: a fixed camera (Socket_Camera) looks out to sea
+# through the big arched window, like the 2D game's shop screen. Front (window) wall at y = 0, room toward +y.
+def box(x0, x1, y0, y1, z0, z1, col):
+    return ('Body', 'box', (x1 - x0, y1 - y0, z1 - z0), ((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2), col)
+W0, W1, SILL, LINTEL, D = -4.5, 4.5, 4.2, 9.4, 10.4   # window opening, room depth
+build('Keep', [
+    box(-11, W0, -.6, .6, 0, 13.4, 'stoneD'), box(W1, 11, -.6, .6, 0, 13.4, 'stoneD'),          # window piers
+    box(W0, W1, -.6, .6, 0, SILL, 'stoneD'), box(W0, W1, -.6, .6, LINTEL, 13.4, 'stoneD'),     # under the sill, over the lintel
+    box(W0 - .1, W1 + .1, -.9, .7, SILL - .25, SILL, 'stone'),                                  # the sill
+    *[box(W0, W0 + (3 - k) * .45, -.6, .6, LINTEL - (k + 1) * .4, LINTEL - k * .4, 'stoneD') for k in range(3)],   # stepped arch corners
+    *[box(W1 - (3 - k) * .45, W1, -.6, .6, LINTEL - (k + 1) * .4, LINTEL - k * .4, 'stoneD') for k in range(3)],
+    box(-11, 11, .6, D, 2.6, 3.0, 'woodD'),                                                      # floor of the room
+    box(-11, -10.2, .6, D, 0, 13.4, 'stoneD'), box(10.2, 11, .6, D, 0, 13.4, 'stoneD'),         # side walls
+    box(-11, 11, D - .4, D + .2, 0, 13.4, 'stoneD'), box(-11, 11, .6, D, 12.9, 13.4, 'stone'),  # back wall, ceiling
+    *[box(x - .55, x + .55, -.7, .7, 13.4, 14.3, 'stone') for x in (-10.4, -7.8, -5.2, -2.6, 0, 2.6, 5.2, 7.8, 10.4)],   # battlements
+    *[box(x - .55, x + .55, D - .8, D + .2, 13.4, 14.3, 'stone') for x in (-10.4, -5.2, 0, 5.2, 10.4)],
+    box(-10.15, -10.05, 1.4, 3.0, 4.6, 11.5, 'red'), box(10.05, 10.15, 1.4, 3.0, 4.6, 11.5, 'red'),   # banners
+    box(-10.12, -10.0, 1.9, 2.5, 7.5, 9.5, 'gold'), box(10.0, 10.12, 1.9, 2.5, 7.5, 9.5, 'gold'),
+    box(W0 - .9, W0 - .2, .6, 1.1, 6.2, 6.5, 'greyD'), box(W1 + .2, W1 + .9, .6, 1.1, 6.2, 6.5, 'greyD'),   # torch sconces
+    ('Body', 'cone', (.35, .35, .6), (W0 - .55, .85, 6.85), 'flame', None, None, 5), ('Body', 'cone', (.35, .35, .6), (W1 + .55, .85, 6.85), 'flame', None, None, 5),
+    box(-3.6, -.8, 3.2, 4.8, 3.0, 4.0, 'wood'), box(-3.4, -1.0, 3.4, 4.6, 4.0, 4.03, 'sand'),          # map table
+    ('Body', 'cyl', (.12, .12, .3), (-1.5, 4.2, 4.17), 'white', None, None, 6), ('Body', 'cone', (.08, .08, .14), (-1.5, 4.2, 4.38), 'flame', None, None, 5),
+    box(3.6, 5.2, 4.0, 5.2, 3.0, 4.2, 'wood'), box(3.75, 5.05, 4.15, 5.05, 4.2, 4.7, 'woodD'),      # a chest of coins
+    *[('Body', 'ball', (.22, .22, .1), (4.0 + .3 * (i % 4), 4.4 + .25 * (i // 4), 4.75), 'gold') for i in range(8)],
+], sockets=[('Camera', (0, D - 1.2, 6.6)), ('TorchL', (W0 - .55, .85, 7.0)), ('TorchR', (W1 + .55, .85, 7.0)), ('Candle', (-1.5, 4.2, 4.45))])
+build('VolleyNet', [
+    ('Body', 'cyl', (.1, .1, 2.6), (-3.6, 0, 1.3), 'white', None, None, 6), ('Body', 'cyl', (.1, .1, 2.6), (3.6, 0, 1.3), 'white', None, None, 6),
+    ('Body', 'box', (7.2, .03, .9), (0, 0, 2.05), 'greyD'), ('Body', 'box', (7.2, .06, .08), (0, 0, 2.5), 'white'),
+])
+build('Volleyball', [('Body', 'ball', (.32, .32, .32), (0, 0, 0), 'white'), ('Body', 'tor', (.42, .42, .5), (0, 0, 0), 'yellow', None, (90, 0, 0), 8),
+                     ('Body', 'tor', (.42, .42, .5), (0, 0, 0), 'blue', None, (0, 90, 0), 8)])
+
 # =====================================================================================  WEBSITE MODELS (food, gas can, tire, glizzy)
 def import_glb(fname, target_size, name, axis_hint=None):
     """Import a website .glb, normalise its size so its largest side is target_size, centre it on the ground."""

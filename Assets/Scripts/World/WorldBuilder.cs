@@ -68,6 +68,17 @@ namespace TideWall
                 l.type = LightType.Point; l.range = 10; l.color = new Color(1, .62f, .3f); l.shadows = LightShadows.None;
                 world.torches.Add(l);
             }
+            // The keep behind the town: its upper room is the main menu's view out to sea
+            world.keep = ModelFactory.Spawn("Keep", t, new Vector3(0, 0, -27.5f));
+            Solid(world.keep.root, new Vector3(0, 6.7f, -5f), new Vector3(22, 13.4f, 11.2f));
+            foreach (var s in new[] { "TorchL", "TorchR", "Candle" })
+                if (world.keep.sockets.TryGetValue(s, out var sock))
+                {
+                    var l = new GameObject(s + "Light").AddComponent<Light>();
+                    l.transform.SetParent(sock, false);
+                    l.type = LightType.Point; l.color = new Color(1, .65f, .35f); l.shadows = LightShadows.None;
+                    l.range = s == "Candle" ? 3 : 9; l.intensity = s == "Candle" ? 1.5f : 5;
+                }
             var lh = ModelFactory.Spawn("Lighthouse", t, new Vector3(-32, 0, -4));
             world.lighthouseLamp = new GameObject("Beam").transform;
             world.lighthouseLamp.SetParent(lh.root.transform, false);

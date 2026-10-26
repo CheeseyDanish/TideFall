@@ -20,6 +20,7 @@ MonoBehaviour:
     endWhenAllReady: 1
     endWhenWavesCleared: 0
     advancesDay: 0
+    saveOnStart: 1
     shopOpen: 1
     waves: 0
     budgetMultiplier: 1
@@ -45,6 +46,7 @@ MonoBehaviour:
     endWhenAllReady: 0
     endWhenWavesCleared: 1
     advancesDay: 0
+    saveOnStart: 0
     shopOpen: 0
     waves: 2
     budgetMultiplier: 0.55
@@ -79,6 +81,7 @@ MonoBehaviour:
     endWhenAllReady: 0
     endWhenWavesCleared: 1
     advancesDay: 1
+    saveOnStart: 0
     shopOpen: 0
     waves: 3
     budgetMultiplier: 1

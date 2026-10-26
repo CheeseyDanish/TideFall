@@ -32,7 +32,7 @@ namespace TideWall
         // ??? sauce: good
         Giant, Invincible, DoubleDamage,
         // ??? sauce: bad
-        UpsideDown, ReverseControls, Tiny, Fisheye, Slow, FirstPerson, InkVision, Tunnel,
+        UpsideDown, ReverseControls, Tiny, Fisheye, Slow, SwapView, InkVision, Tunnel,
         // ??? sauce: neutral
         Rainbow, DutchTilt, Bubbles,
         // combat

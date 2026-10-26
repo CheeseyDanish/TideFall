@@ -1,23 +1,35 @@
 // TideWall 3D — the root object. Boots itself into any scene (no scene setup required), builds the world,
-// and owns the shared state: coins, team upgrades, game state, pause.
+// and owns the shared state: coins, team upgrades, game state, pause, the current save slot.
+// It boots into the main menu. A run starts from the menu (new game, continue, load, host) or when a player
+// joins directly (tests, capture tour). Online clients don't simulate: they mirror the host (see Net/).
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
 namespace TideWall
 {
-    public enum GameState { Lobby, Playing, GameOver }
+    public enum GameState { MainMenu, Playing, GameOver }
+
+    /// <summary>A run to start right after the scene (re)loads: "retry from save", or a host restarting for everyone.</summary>
+    public class RunRequest
+    {
+        public int slot;
+        public SaveData save;
+        public List<InputDevice[]> devices = new();   // local players to re-join, in order
+    }
 
     public class GameManager : MonoBehaviour
     {
         public static GameManager I { get; private set; }
         /// <summary>Every living enemy (dead ones become corpses and leave this list).</summary>
         public static readonly List<Enemy> Enemies = new();
+        public static RunRequest Pending;
 
         public GameDatabase DB { get; private set; }
         public PhaseCycle Cycle { get; private set; }
-        public GameState State { get; private set; } = GameState.Lobby;
+        public GameState State { get; private set; } = GameState.MainMenu;
         public bool Paused { get; private set; }
         public int Coins { get; private set; }
         public readonly TeamStats Team = new();
@@ -26,7 +38,15 @@ namespace TideWall
         public PhaseManager Phases { get; private set; }
         public WaveDirector Waves { get; private set; }
         public PlayerManager Players { get; private set; }
+        public MainMenu Menu { get; private set; }
         public string GameOverReason { get; private set; }
+        /// <summary>Save slot of this run (0 = not saving, e.g. tests and online clients).</summary>
+        public int SaveSlot { get; private set; }
+        /// <summary>The save this run started from (player loadouts are restored from it as players join).</summary>
+        public SaveData Loaded { get; private set; }
+        /// <summary>Enemies left this phase (a client reads the host's count).</summary>
+        public int EnemiesLeft => Net.IsClient ? netEnemiesLeft : Enemies.Count;
+        int netEnemiesLeft;
 
         /// <summary>(title, subtitle): big centre-screen message for every player.</summary>
         public event Action<string, string> OnBanner;
@@ -45,6 +65,7 @@ namespace TideWall
             I = this;
             Enemies.Clear();
             Interactable.All.Clear();
+            NetId.Reset();
             Time.timeScale = 1;
             DB = GameDatabase.Load();
             Cycle = PhaseCycle.Load();
@@ -54,27 +75,84 @@ namespace TideWall
             foreach (var l in FindObjectsByType<Light>(FindObjectsInactive.Include))
                 if (l.type == LightType.Directional) Destroy(l.gameObject);
             gameObject.AddComponent<AudioListener>();
+            Settings.Changed(save: false);
             Fx.Init(transform);
             Sfx.Init(gameObject);
             World = WorldBuilder.Build(transform);
             Phases = gameObject.AddComponent<PhaseManager>();
             Waves = gameObject.AddComponent<WaveDirector>();
             Players = gameObject.AddComponent<PlayerManager>();
+            Menu = gameObject.AddComponent<MainMenu>();
+        }
+
+        void Start()
+        {
+            // After a reload: a client keeps mirroring its host; a host or a "retry" starts its run straight away.
+            if (Net.IsClient) { BeginClient(); return; }
+            var req = Pending; Pending = null;
+            if (req == null) return;
+            StartRun(req.save, req.slot);
+            foreach (var devs in req.devices) if (Array.TrueForAll(devs, d => d != null && d.added)) Players.Join(devs);
+            if (Net.IsHost) Net.Host.Rebind(this);
         }
 
         void OnDestroy() { if (I == this) I = null; }
 
-        void Update() => Fx.Tick(Time.deltaTime);
-
-        /// <summary>Called when the first player joins.</summary>
-        public void StartGame()
+        void Update()
         {
-            if (State != GameState.Lobby) return;
-            State = GameState.Playing;
-            Phases.Begin();
+            Fx.Tick(Time.deltaTime);
+            // Pause: offline, any local player with the pause menu open stops time. Online the world keeps going.
+            bool pause = State == GameState.Playing && !Net.Online && Players.AnyPauseMenuOpen;
+            if (pause != Paused) { Paused = pause; Time.timeScale = pause ? 0 : 1; }
         }
 
-        public void Banner(string title, string subtitle) => OnBanner?.Invoke(title, subtitle);
+        // ------------------------------------------------------------------ runs
+        /// <summary>Start a run (offline or as host). save = null starts a new game; slot 0 = don't save.</summary>
+        public void StartRun(SaveData save, int slot)
+        {
+            if (State != GameState.MainMenu) return;
+            SaveSlot = slot;
+            Loaded = save;
+            State = GameState.Playing;
+            Menu.Hide();
+            if (save != null)
+            {
+                Coins = save.coins;
+                Team.Restore(save);
+                Wall.Restore(save.wallHp, save.wallMaxHp);
+                Phases.SetDay(save.day);
+                Phases.Enter(save.phaseIndex);
+            }
+            else Phases.Begin();
+        }
+
+        /// <summary>A client mirrors the host: no simulation, state arrives in snapshots.</summary>
+        public void BeginClient()
+        {
+            State = GameState.Playing;
+            SaveSlot = 0;
+            Menu.Hide();
+        }
+
+        /// <summary>Called by the first player to join while the main menu is up (tests, capture): a new, unsaved run.</summary>
+        public void StartGame() { if (State == GameState.MainMenu) StartRun(null, 0); }
+
+        /// <summary>Write the save for this run now (offline or host only).</summary>
+        public bool SaveNow()
+        {
+            if (SaveSlot <= 0 || Net.IsClient || State != GameState.Playing) return false;
+            var d = SaveSystem.Capture(this);
+            Loaded = d;
+            return SaveSystem.Write(d);
+        }
+
+        public bool CanSaveNow => SaveSlot > 0 && !Net.IsClient && State == GameState.Playing && Phases.Current != null && Phases.Current.saveOnStart;
+
+        public void Banner(string title, string subtitle)
+        {
+            OnBanner?.Invoke(title, subtitle);
+            if (Net.IsHost) Net.Host.Banner(title, subtitle);
+        }
 
         public void AddCoins(int amount, Vector3? where = null, string reason = null)
         {
@@ -92,28 +170,56 @@ namespace TideWall
             return true;
         }
 
-        public void TogglePause()
-        {
-            if (State != GameState.Playing) return;
-            Paused = !Paused;
-            Time.timeScale = Paused ? 0 : 1;
-        }
-
         public void GameOver(string reason)
         {
             if (State != GameState.Playing) return;
             State = GameState.GameOver;
             GameOverReason = reason;
-            Paused = false;
             Time.timeScale = .25f;   // slow-motion fall; HUDs show the game-over panel
             Sfx.Play("horn");
             Banner("THE WALL HAS FALLEN", reason);
+            if (Net.IsHost) Net.Host.SendGameOver(reason);
         }
 
-        public void Restart()
+        /// <summary>Client: the host says the run is over.</summary>
+        public void NetGameOver(string reason)
+        {
+            if (State != GameState.Playing) return;
+            State = GameState.GameOver; GameOverReason = reason;
+        }
+
+        /// <summary>Game over → try again from the last save (or a new game if this run wasn't saved).</summary>
+        public void RetryFromSave()
+        {
+            if (Net.IsClient) return;   // the host decides
+            var req = new RunRequest { slot = SaveSlot, save = SaveSlot > 0 ? SaveSystem.Load(SaveSlot) : null };
+            foreach (var p in Players.All) if (p.Controls != null) req.devices.Add(p.Controls.Devices);
+            Pending = req;
+            if (Net.IsHost) Net.Host.SendReload();
+            Reload();
+        }
+
+        /// <summary>Back to the main menu (saving first if this phase allows it). Leaves any online session.</summary>
+        public void QuitToMenu()
+        {
+            if (CanSaveNow) SaveNow();
+            Net.Shutdown(Net.IsHost ? "The host closed the game." : null);
+            Pending = null;
+            Reload();
+        }
+
+        public static void Reload()
         {
             Time.timeScale = 1;
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+
+        // ------------------------------------------------------------------ client mirror
+        public void ApplyNet(int coins, int enemiesLeft)
+        {
+            if (coins != Coins) OnCoins?.Invoke(coins - Coins, null, null);
+            Coins = coins;
+            netEnemiesLeft = enemiesLeft;
         }
     }
 
@@ -150,6 +256,15 @@ namespace TideWall
                 case UpgradeKind.Magazine: Magazine += u.amount; break;
                 case UpgradeKind.GasCans: ExtraGasCans += Mathf.RoundToInt(u.amount); break;
             }
+        }
+
+        /// <summary>Put back the levels and multipliers from a save (the wall is restored separately).</summary>
+        public void Restore(SaveData d)
+        {
+            levels.Clear();
+            foreach (var u in d.upgrades) levels[u.id] = u.level;
+            GunDamage = d.gunDamage; MeleeDamage = d.meleeDamage; Magazine = d.magazine;
+            PlayerHpBonus = d.playerHpBonus; ExtraGasCans = d.extraGasCans;
         }
     }
 }

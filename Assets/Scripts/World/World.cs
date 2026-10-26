@@ -10,6 +10,7 @@ namespace TideWall
         public Light sun;
         public Wall wall;
         public Transform lighthouseLamp;
+        public ModelInstance keep;
         public Light lighthouseBeam;
         public readonly List<Light> torches = new();
         public readonly List<Light> lanterns = new();       // player lanterns register here
@@ -119,6 +120,22 @@ namespace TideWall
         }
 
         public void Grow(float mult) { MaxHp *= mult; Hp *= mult; }
+
+        /// <summary>Loading a save, or a client mirroring the host: set HP directly and re-tint the stones.</summary>
+        public void Restore(float hp, float maxHp)
+        {
+            if (Mathf.Approximately(hp, Hp) && Mathf.Approximately(maxHp, MaxHp)) return;
+            MaxHp = Mathf.Max(1, maxHp);
+            Hp = Mathf.Clamp(hp, 0, MaxHp);
+            float frac = 1 - Hp / MaxHp;
+            for (int i = 0; i < segments.Count; i++)
+            {
+                var s = segments[i];
+                s.dmg = frac;
+                segments[i] = s;
+                if (frac <= .001f) foreach (var r in s.rs) r.SetPropertyBlock(null); else Tint(s.rs, frac);
+            }
+        }
     }
 
     /// <summary>A gently rolling sea surface (CPU vertex waves on a grid).</summary>

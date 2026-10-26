@@ -19,6 +19,7 @@ namespace TideWall
         [Tooltip("Ends when every player has rung the bell")] public bool endWhenAllReady;
         [Tooltip("Ends when all of this phase's waves are spawned and dead")] public bool endWhenWavesCleared;
         [Tooltip("The day counter goes up when this phase ends")] public bool advancesDay;
+        [Tooltip("Autosave when this phase starts; players can also save from the pause menu during it")] public bool saveOnStart;
 
         [Header("What happens")]
         public bool shopOpen;
@@ -62,7 +63,7 @@ namespace TideWall
                 new()
                 {
                     id = "morning", displayName = "Morning", subtitle = "Sell the night's catch, eat, upgrade. Ring the bell when you're ready.",
-                    durationSeconds = 150, endWhenAllReady = true, shopOpen = true, spawnFood = true, spawnGasCans = true,
+                    durationSeconds = 150, endWhenAllReady = true, shopOpen = true, spawnFood = true, spawnGasCans = true, saveOnStart = true,
                     skyColor = new Color(.62f, .8f, .96f), sunColor = new Color(1f, .93f, .8f), sunIntensity = 1.3f, sunPitch = 30, sunYaw = -70,
                     ambientColor = new Color(.62f, .62f, .6f), fogColor = new Color(.78f, .86f, .93f), fogDensity = .003f,
                 },

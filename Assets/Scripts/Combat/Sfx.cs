@@ -1,4 +1,6 @@
 // TideWall 3D — sound effects synthesized at startup (no audio files), like the 2D version.
+// Two volume groups (Settings: effects, interface) under the master volume, plus a looping surf ambience.
+// On an online host, gameplay sounds are also sent to the clients.
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -9,7 +11,8 @@ namespace TideWall
     public static class Sfx
     {
         const int Rate = 22050;
-        static AudioSource src;
+        static AudioSource src, ambience;
+        static readonly HashSet<string> Interface = new() { "ui", "deny", "coin", "bell", "jackpot" };
         static readonly Dictionary<string, AudioClip> clips = new();
         static readonly Dictionary<string, float> last = new();
         public static bool Muted;
@@ -41,7 +44,24 @@ namespace TideWall
             Make("horn", 1.4f, t => (Mathf.Repeat(t * 98, 1) * 2 - 1) * Mathf.Min(1, t * 6) * Mathf.Exp(-t * 1.2f) * .3f);
             Make("jackpot", 1.2f, t => Mathf.Sin(t * 2 * Mathf.PI * (523 * Mathf.Pow(1.26f, Mathf.Floor(t * 8) % 4))) * .35f * Mathf.Exp(-t));
             Make("gulp", .3f, t => Mathf.Sin(t * 2 * Mathf.PI * (300 + 600 * t)) * Env(t, .1f) * .4f);
+
+            // Surf: smoothed noise swelling every few seconds. Loops seamlessly (the swell is a whole number of cycles).
+            float smooth = 0;
+            Make("surf", 8f, t =>
+            {
+                smooth = Mathf.Lerp(smooth, Noise(), .08f);
+                float swell = .35f + .65f * Mathf.Pow(.5f + .5f * Mathf.Sin(t * 2 * Mathf.PI / 4f), 2);
+                return smooth * swell * 1.6f;
+            });
+            ambience = host.AddComponent<AudioSource>();
+            ambience.clip = clips["surf"]; ambience.loop = true; ambience.spatialBlend = 0; ambience.playOnAwake = false;
+            ambience.volume = Settings.Current.ambience * .5f;
+            ambience.Play();
+            Settings.OnChanged -= ApplyVolumes;
+            Settings.OnChanged += ApplyVolumes;
         }
+
+        static void ApplyVolumes() { if (ambience != null) ambience.volume = Settings.Current.ambience * .5f; }
 
         static void Make(string name, float seconds, Func<float, float> f)
         {
@@ -60,8 +80,10 @@ namespace TideWall
             float now = Time.unscaledTime;
             if (last.TryGetValue(name, out var t) && now - t < gap) return;
             last[name] = now;
+            if (Net.IsHost && name != "ui" && name != "deny") Net.Host.Sound(name, volume);
+            var s = Settings.Current;
             src.pitch = Random.Range(.92f, 1.08f);
-            src.PlayOneShot(c, volume);
+            src.PlayOneShot(c, volume * (Interface.Contains(name) ? s.interfaceVolume : s.effects));
         }
     }
 }

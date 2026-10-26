@@ -56,6 +56,22 @@ namespace TideWall
 
         public override string DisplayName => leaking ? "leaking gas can" : "gas can";
 
+        /// <summary>Client: a mirror of the host's gas can (it only looks; the host decides when it blows).</summary>
+        public static GasCan SpawnProxy(int id, Vector3 pos, Quaternion rot)
+        {
+            var go = new GameObject("GasCan");
+            go.transform.SetPositionAndRotation(pos, rot);
+            var g = go.AddComponent<GasCan>();
+            g.radius = 1.6f; g.weight = 1; g.proxy = true;
+            ModelFactory.Spawn("GasCan", go.transform, Vector3.zero, 1f, colliders: true);
+            NetId.Tag(go, NetKind.GasCan, 0, id);
+            go.AddComponent<NetFollow>().Set(pos, rot);
+            return g;
+        }
+
+        bool proxy;
+        public bool Leaking { get => leaking; set => leaking = value; }
+
         public static GasCan Spawn(Vector3 pos)
         {
             var go = new GameObject("GasCan");
@@ -63,13 +79,14 @@ namespace TideWall
             var g = go.AddComponent<GasCan>();
             g.radius = 1.6f; g.weight = 1;
             ModelFactory.Spawn("GasCan", go.transform, Vector3.zero, 1f, colliders: true);
+            NetId.Tag(go, NetKind.GasCan, 0);
             return g;
         }
 
         /// <summary>Something hit the can. Fire always sets it off; otherwise it's a gamble.</summary>
         public void Hit(Element element, Player source)
         {
-            if (exploded) return;
+            if (exploded || proxy) return;
             if (element == Element.Fire || leaking || Random.value < GameManager.I.DB.gasCanBulletChance) Explode(source);
             else
             {
@@ -81,6 +98,7 @@ namespace TideWall
 
         public override void OnLanded()
         {
+            if (proxy) return;
             if (Random.value < GameManager.I.DB.gasCanThrowChance) Explode(null);
             else { leaking = true; Sfx.Play("hit"); }
         }
