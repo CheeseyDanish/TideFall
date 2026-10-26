@@ -30,6 +30,7 @@
     if (ev.button !== 0) return;
     if (Game.state === 'place') { UI.placeClick(p.x); return; }
     Game.input.down = true;
+    Game.input.tap = 0.35;   // buffer: a click shorter than a frame, or during the gun's cooldown, still fires
   });
   window.addEventListener('mouseup', ev => { if (ev.button === 0) Game.input.down = false; });
   canvas.addEventListener('contextmenu', ev => ev.preventDefault());

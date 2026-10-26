@@ -26,7 +26,7 @@ const Store = {
 // ---- run (persistent between nights) --------------------------------------
 const Game = {
   state: 'title', run: null, N: null, paused: false, time: 0,
-  input: { mx: 700, my: 400, down: false },
+  input: { mx: 700, my: 400, down: false, tap: 0 },
   placeSel: null,
 };
 
@@ -484,13 +484,15 @@ function updatePlayer(dt) {
   const a = N.arms[N.cur];
   if (!a) return;
   a.cd -= dt;
-  if (inp.down && N.swapT <= 0 && !a.reloading && !N.over) {
+  if (inp.tap > 0) inp.tap -= dt;
+  if ((inp.down || inp.tap > 0) && N.swapT <= 0 && !a.reloading && !N.over) {
     if (a.ammo <= 0) startReload(a);
     else {
       const rate = a.s.rate * (N.overcharge > 0 ? 1.5 : 1);
       let guard = 0;
       while (a.cd <= 0 && a.ammo > 0 && guard++ < 6) {
         fire(a);
+        inp.tap = 0;
         a.cd += 1 / rate;
         if (N.overcharge <= 0) a.ammo--;
       }
