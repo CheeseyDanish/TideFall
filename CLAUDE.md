@@ -46,6 +46,7 @@ The design documents in `docs/` define the game. These rules are binding for any
 - **R18 — Saves are data too.** A save (`SaveData`) is a suspended run at a `saveOnStart` phase: day, phase, sand dollars, wall sections, powerplant, upgrades, active tidal cards, and each player slot's weapons, level, XP, stat points and mods. A run's save is deleted when the run ends (roguelike), never restored after a loss. If you add progress that should survive quitting, add it to `SaveData`, `SaveSystem.Capture` and the restore path (`GameManager.StartRun`, `Player.RestoreLoadout`), and keep old saves loading (new fields need sensible defaults).
 
 ### Feel & performance
+- **R9d — World text** (TextMesh) uses `Ui.WorldText` and a `Billboard`, never the font's own material (it ignores depth and shows through walls). Pieces that tile (the wall) are modelled without their joining faces so they read as one object.
 - **R9c — Animated, not static.** Players and vendors are jointed (`Part_*`) and every creature has its own animation; new characters need both a model with parts and a pose function. Melee hits land at the end of the wind-up (`MeleeDef.windup`), never instantly.
 - **R9b — Creatures arrive on the waves.** Anything that comes from the sea rides a `Breaker` in (flyers fly in); nothing pops into existence on the beach except boss summons and test/capture spawns.
 - **R10 — Wetness is always visible.** Drip count is proportional to wetness (`Fx.Drip`, `maxDripsPerSecond`). Anything that changes wetness must keep drips and gloss in sync.

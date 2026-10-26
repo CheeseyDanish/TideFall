@@ -121,8 +121,10 @@ namespace TideWall
             // Melee: held ready (guns holstered) or swinging in its weapon's style
             if (sp < 0)
             {
-                meleeRoot.localPosition = new Vector3(.32f, -.3f * k, .55f) + bob;
-                meleeRoot.localRotation = Quaternion.Euler(-35, -20, -25);
+                // Held ready at the lower right, blade up and angled away (not poking into the middle of the view)
+                float breathe = Mathf.Sin(Time.time * 1.6f) * .006f;
+                meleeRoot.localPosition = new Vector3(.42f, -.44f * k + breathe, .55f) + bob;
+                meleeRoot.localRotation = Quaternion.Euler(-52, 26, -22);
                 return;
             }
             var (pos, rot) = Swing(p.Melee, sp, k);

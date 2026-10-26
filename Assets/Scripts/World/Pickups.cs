@@ -6,6 +6,8 @@ namespace TideWall
     /// <summary>What's left of a sea creature. Worth less for every limb it's missing. Keeps dripping while it dries.</summary>
     public class Corpse : Carryable
     {
+        /// <summary>Every corpse on the beach (so nothing has to search the scene for them every frame).</summary>
+        public static readonly System.Collections.Generic.List<Corpse> All = new();
         public EnemyDef Def;
         public int Value;
         /// <summary>A thieving gull has it in its beak.</summary>
@@ -13,6 +15,9 @@ namespace TideWall
         public float Wet;
         Bounds bounds;
         float dripAcc, boundsT;
+
+        void OnEnable() => All.Add(this);
+        void OnDisable() => All.Remove(this);
 
         public override string DisplayName => $"{Def.displayName} corpse ({Value})";
 

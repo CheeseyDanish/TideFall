@@ -24,9 +24,15 @@ namespace TideWall
         readonly BlockingCollection<byte[]> outbox = new(new ConcurrentQueue<byte[]>());
         volatile bool closed;
 
-        public NetConnection(int id, TcpClient client)
+        /// <summary>Clients only ever send small messages (hello, join, input): anything bigger is refused.</summary>
+        public const int MaxClientMessage = 64 * 1024;
+        /// <summary>Frames waiting to be written; a connection that falls this far behind is closed rather than queued forever.</summary>
+        public const int MaxQueued = 600;
+        readonly int maxMessage;
+
+        public NetConnection(int id, TcpClient client, int maxMessage = 8 * 1024 * 1024)
         {
-            Id = id; tcp = client;
+            Id = id; tcp = client; this.maxMessage = maxMessage;
             tcp.NoDelay = true;
             stream = tcp.GetStream();
             Remote = tcp.Client.RemoteEndPoint?.ToString() ?? "?";
@@ -42,7 +48,7 @@ namespace TideWall
                 while (!closed)
                 {
                     int len = br.ReadInt32();
-                    if (len <= 0 || len > 8 * 1024 * 1024) break;
+                    if (len <= 0 || len > maxMessage) break;
                     var data = br.ReadBytes(len);
                     if (data.Length < len) break;
                     Inbox.Enqueue(data);
@@ -68,7 +74,13 @@ namespace TideWall
             Close();
         }
 
-        public void Send(byte[] payload) { if (!closed) try { outbox.Add(payload); } catch (InvalidOperationException) { } }
+        public void Send(byte[] payload)
+        {
+            if (closed) return;
+            // A stalled peer (frozen game, dead Wi-Fi) would otherwise grow this queue without limit
+            if (outbox.Count > MaxQueued) { Close(); return; }
+            try { outbox.Add(payload); } catch (InvalidOperationException) { }
+        }
 
         /// <summary>Send, then close once it's written (goodbyes).</summary>
         public void SendAndClose(byte[] payload)

@@ -34,7 +34,8 @@ namespace TideWall
             v.bubble.transform.localPosition = new Vector3(0, 2.8f, 0);
             v.bubble.font = Ui.Font; v.bubble.fontSize = 110; v.bubble.characterSize = .018f; v.bubble.anchor = TextAnchor.LowerCenter;
             v.bubble.color = new Color(1, .97f, .85f);
-            v.bubble.GetComponent<MeshRenderer>().sharedMaterial = Ui.Font.material;
+            v.bubble.GetComponent<MeshRenderer>().sharedMaterial = Ui.WorldText;
+            Billboard.Add(v.bubble.gameObject);
             v.sayT = Random.Range(3f, 8f);
             return v;
         }
@@ -73,8 +74,6 @@ namespace TideWall
             if (near != null && sayT <= 0) Say();
             bubbleT -= dt;
             bubble.gameObject.SetActive(bubbleT > 0);
-            var cam = gm != null ? gm.Players.FirstViewCamera(null) : null;
-            if (cam != null) bubble.transform.rotation = Quaternion.LookRotation(bubble.transform.position - cam.transform.position);
 
             // Idle: a little sway, busy hands; a big wave while talking
             waveT -= dt;

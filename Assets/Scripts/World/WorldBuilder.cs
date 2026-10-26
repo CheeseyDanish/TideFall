@@ -38,7 +38,14 @@ namespace TideWall
             world.wall = wallGo.AddComponent<Wall>();
             for (float x = -Arena.WallHalfLength + Arena.SegmentLength / 2; x < Arena.WallHalfLength; x += Arena.SegmentLength)
             {
-                if (Arena.IsGap(x)) { Prop(wallGo.transform, "Crate", new Vector3(x - 1.7f, 0, -1), 20); continue; }
+                if (Arena.IsGap(x))
+                {
+                    // A gatehouse over the sally port keeps the wall one piece; its pillars are solid, the arch is open
+                    var gate = ModelFactory.Spawn("WallGate", wallGo.transform, new Vector3(x, 0, Arena.WallZ));
+                    foreach (float px in new[] { -1.71f, 1.71f }) Solid(gate.root, new Vector3(px, 1.45f, 0), new Vector3(.62f, 2.9f, 1.34f));
+                    Prop(wallGo.transform, "Crate", new Vector3(x - 2.6f, 0, -1.4f), 20);
+                    continue;
+                }
                 var seg = ModelFactory.Spawn("WallSegment", wallGo.transform, new Vector3(x, 0, Arena.WallZ));
                 var col = Solid(seg.root, new Vector3(0, 1.4f, 0), new Vector3(Arena.SegmentLength, 2.8f, 1f));
                 world.wall.Add(seg.root.transform, col, db.wallSegmentHp);

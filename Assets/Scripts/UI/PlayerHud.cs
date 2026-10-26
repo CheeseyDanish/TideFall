@@ -200,7 +200,7 @@ namespace TideWall
             crossH.rectTransform.sizeDelta = new Vector2(spread, 2); crossV.rectTransform.sizeDelta = new Vector2(2, spread);
             bool cardsOpen = p.ShownMenu != null && p.ShownMenu.Layout == MenuLayout.Cards;
             previewText.text = cardsOpen ? "" : gm.Waves.Preview;
-            if (cardsOpen) voteText.text = "";
+            if (cardsOpen) { voteText.text = ""; SetAlpha(bannerTitle, 0); SetAlpha(bannerSub, 0); }   // the cards have the screen
             bool cross = p.FirstPerson && !p.IsOut && p.ShownMenu == null && gm.State == GameState.Playing;
             crossH.enabled = crossV.enabled = cross;
             fpsText.enabled = Settings.Current.showFps;

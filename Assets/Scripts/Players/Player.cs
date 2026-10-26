@@ -221,7 +221,8 @@ namespace TideWall
             nameTag.transform.localPosition = new Vector3(0, 2.35f, 0);
             nameTag.font = Ui.Font; nameTag.fontSize = 100; nameTag.characterSize = .02f; nameTag.anchor = TextAnchor.MiddleCenter;
             nameTag.color = Color.Lerp(Color, Color.white, .35f);
-            nameTag.GetComponent<MeshRenderer>().sharedMaterial = Ui.Font.material;
+            nameTag.GetComponent<MeshRenderer>().sharedMaterial = Ui.WorldText;
+            Billboard.Add(nameTag.gameObject);
             SetLayer(visual, BodyLayer + Index);
             if (HasView)
             {
@@ -1366,7 +1367,6 @@ namespace TideWall
             nameTag.text = string.IsNullOrEmpty(Nick) ? Name : $"{Name} · {Nick}";
             var cam = gm.Players.FirstViewCamera(this);
             nameTag.gameObject.SetActive(cam != null && gm.Players.Count > 1);
-            if (cam != null) nameTag.transform.rotation = Quaternion.LookRotation(nameTag.transform.position - cam.transform.position);
         }
 
         public float HurtFlash => hurtFlash;

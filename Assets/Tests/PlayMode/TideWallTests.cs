@@ -5,6 +5,7 @@
 // Settings and saves go to a temporary folder (Storage.Root): tests never touch the player's real files.
 // Run: unity test <project> --mode PlayMode   (any Debug.LogError / exception fails the test)
 using System.Collections;
+using System.Linq;
 using System.IO;
 using System.Net.Sockets;
 using NUnit.Framework;
@@ -667,6 +668,36 @@ namespace TideWall.Tests
             for (float t = 0; t < gm.DB.comboWindow + 1; t += Time.deltaTime) yield return null;
             Time.timeScale = 1;
             Assert.AreEqual(0, p.Combo, "the chain breaks when you stop killing");
+        }
+
+        [UnityTest]
+        public IEnumerator TheWallIsOnePieceThatBreaksIntoRubble()
+        {
+            JoinPad();
+            yield return null;
+            var wall = gm.Wall;
+            var mid = wall.Sections.Find(sec => Mathf.Abs(sec.x - 10) < 3);
+            var left = wall.Sections.Find(sec => Mathf.Abs(sec.x - (mid.x - Arena.SegmentLength)) < .1f);
+            var right = wall.Sections.Find(sec => Mathf.Abs(sec.x - (mid.x + Arena.SegmentLength)) < .1f);
+            Assert.IsFalse(wall.Sections.Exists(sec => sec.capL.activeSelf || sec.capR.activeSelf || sec.rubble.activeSelf), "an intact wall shows no broken ends");
+            Assert.AreEqual(2, Object.FindObjectsByType<Transform>().Count(t => t.name.StartsWith("WallGate")), "a gatehouse over each sally port");
+            wall.Damage(mid.max + 1, new Vector3(mid.x, 0, 1));
+            Assert.IsTrue(mid.breached && mid.rubble.activeSelf && !mid.t.gameObject.activeSelf, "the breached section collapses into rubble");
+            Assert.IsTrue(left.capR.activeSelf && right.capL.activeSelf, "its neighbours show broken ends");
+            wall.Repair(1);
+            Assert.IsTrue(!mid.breached && mid.t.gameObject.activeSelf && !mid.rubble.activeSelf && !left.capR.activeSelf, "repaired: one piece again");
+        }
+
+        [Test]
+        public void OnlineInputIsValidated()
+        {
+            var r = new RemoteInput();
+            r.Receive(new Vector2(float.NaN, 0), Vector2.zero, 0, 0, 0, 0, true, default, Vector3.zero);
+            Assert.IsFalse(r.HasPosition, "a packet with NaN in it is ignored");
+            r.Receive(new Vector2(5, 0), Vector2.zero, 0, 0, 0, 200, true, default, new Vector3(1e6f, 0, 0));
+            Assert.AreEqual(1, r.Move.magnitude, .001f, "movement is clamped");
+            Assert.LessOrEqual(r.Position.x, 140, "positions stay inside the world");
+            Assert.LessOrEqual(r.Pitch, 89);
         }
 
         [UnityTest]

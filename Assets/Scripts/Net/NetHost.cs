@@ -77,11 +77,16 @@ namespace TideWall
         {
             var gm = GameManager.I;
             while (accepted.TryDequeue(out var tcp))
-                clients.Add(new Client { conn = new NetConnection(nextId++, tcp) });
+                clients.Add(new Client { conn = new NetConnection(nextId++, tcp, NetConnection.MaxClientMessage) });
             for (int i = clients.Count - 1; i >= 0; i--)
             {
                 var c = clients[i];
-                while (c.conn.Inbox.TryDequeue(out var data)) Handle(c, data, gm);
+                while (c.conn.Inbox.TryDequeue(out var data))
+                {
+                    // A malformed message from one client drops that client, not the host's frame
+                    try { Handle(c, data, gm); }
+                    catch (System.Exception e) { Debug.LogWarning($"TideWall: dropping client {c.conn.Id} after a bad message ({e.GetType().Name})"); c.conn.Close(); break; }
+                }
                 if (c.conn.Closed) Drop(c, gm);
             }
         }
@@ -138,7 +143,12 @@ namespace TideWall
             }
         }
 
-        static string Trim(string s) { s = (s ?? "").Trim(); return s.Length == 0 ? "Sailor" : s.Length > 16 ? s.Substring(0, 16) : s; }
+        /// <summary>A client's chosen name: no rich-text tags (it's shown in everyone's HUD and banners), 16 characters at most.</summary>
+        static string Trim(string s)
+        {
+            s = (s ?? "").Replace("<", "").Replace(">", "").Trim();
+            return s.Length == 0 ? "Sailor" : s.Length > 16 ? s.Substring(0, 16) : s;
+        }
 
         void JoinPlayer(Client c, int token, GameManager gm)
         {

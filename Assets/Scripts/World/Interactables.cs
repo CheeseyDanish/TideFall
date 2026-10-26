@@ -41,10 +41,10 @@ namespace TideWall
             var label = new GameObject("Sign").AddComponent<TextMesh>();
             label.transform.SetParent(go.transform, false);
             label.transform.localPosition = new Vector3(0, 3.6f, 0);
-            label.transform.rotation = Quaternion.Euler(50, 0, 0);
-            label.text = sign; label.font = Ui.Font; label.fontSize = 128; label.characterSize = .034f;
+            Billboard.Add(label.gameObject, upright: true);
+            label.text = sign; label.font = Ui.Font; label.fontSize = 128; label.characterSize = .022f;
             label.anchor = TextAnchor.MiddleCenter; label.color = new Color(1, .95f, .8f);
-            label.GetComponent<MeshRenderer>().sharedMaterial = Ui.Font.material;
+            label.GetComponent<MeshRenderer>().sharedMaterial = Ui.WorldText;
             return it;
         }
     }

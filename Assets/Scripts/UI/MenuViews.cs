@@ -108,7 +108,7 @@ namespace TideWall
             for (int i = 0; i < 5; i++)
             {
                 var bg = Ui.Image(root, "Card", new Vector2(.5f, .5f), Vector2.zero, new Vector2(180, 270), new Color(.07f, .1f, .18f, .95f));
-                var band = Ui.Image(bg.transform, "Band", new Vector2(.5f, 1), new Vector2(0, -32), new Vector2(180, 64), Color.white);
+                var band = Ui.Image(bg.transform, "Band", new Vector2(.5f, 1), Vector2.zero, new Vector2(180, 64), Color.white);   // pivots at the top edge
                 var name = Ui.Text(band.transform, "Name", new Vector2(.5f, .5f), Vector2.zero, new Vector2(170, 56), 18, TextAnchor.MiddleCenter, Color.white);
                 var info = Ui.Text(bg.transform, "Info", new Vector2(.5f, 1), new Vector2(0, -70), new Vector2(170, 36), 13, TextAnchor.UpperCenter, new Color(1, .9f, .6f));
                 var desc = Ui.Text(bg.transform, "Desc", new Vector2(.5f, .5f), new Vector2(0, -36), new Vector2(160, 110), 13, TextAnchor.UpperCenter, new Color(.9f, .93f, 1));

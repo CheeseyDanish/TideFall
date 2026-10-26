@@ -498,7 +498,7 @@ namespace TideWall
             {
                 // Pick the nearest corpse nobody is carrying
                 Corpse best = null; float bd = float.MaxValue;
-                foreach (var c in FindObjectsByType<Corpse>())
+                foreach (var c in Corpse.All)
                 {
                     if (c.Holder != null || c.Thief != null || c.gameObject == gameObject) continue;
                     float d = Vector3.Distance(c.transform.position, pos);

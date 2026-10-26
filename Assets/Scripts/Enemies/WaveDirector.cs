@@ -121,7 +121,7 @@ namespace TideWall
         {
             var gull = gm.DB.enemies.Find(e => e.behaviour == EnemyBehaviour.Flyer);
             if (gull == null) return;
-            int corpses = Object.FindObjectsByType<Corpse>().Length;
+            int corpses = Corpse.All.Count;
             for (int i = 0; i < Mathf.Min(count, corpses); i++)
             {
                 var g = Enemy.Spawn(gull, new Vector3(Random.Range(-40f, 40f), 12, Arena.ShoreZ + 25 + i * 4), day, -1);

@@ -66,7 +66,7 @@ def piece(name, kind, size, off=(0, 0, 0), col='white', joint=(0, 0, 0), rot=(0,
     o.data.materials.append(mat(col))
     return o
 
-def build(name, parts, sockets=()):
+def build(name, parts, sockets=(), post=None):
     """parts: tuples (objName, kind, size, off, col, joint, rot, v). Pieces sharing a name are joined."""
     bpy.ops.object.select_all(action='DESELECT')
     root = bpy.data.objects.new(name, None)
@@ -98,6 +98,7 @@ def build(name, parts, sockets=()):
             e.matrix_parent_inverse = parent.matrix_world.inverted()
         else:
             e.parent = root
+    if post: post(root)
     export(root)
 
 def export(root):
@@ -398,12 +399,64 @@ build('Spade', [
 ])
 
 # =====================================================================================  PROPS
+def open_ends(half):
+    """Returns a post-step that deletes the end faces of the 'Run' pieces at x = +-half, so sections placed side by
+    side make one unbroken wall (no inner faces, no seams). Exposed ends get a separate WallEnd cap in the game."""
+    def post(root):
+        import bmesh
+        for o in root.children:
+            if o.type != 'MESH' or o.name != 'Run': continue
+            bm = bmesh.new(); bm.from_mesh(o.data)
+            dead = [f for f in bm.faces if abs(f.normal.x) > .99 and all(abs(v.co.x) > half - .01 for v in f.verts)]
+            bmesh.ops.delete(bm, geom=dead, context='FACES')
+            bm.to_mesh(o.data); bm.free()
+    return post
+
+def masonry(y, face):
+    """Running-bond stone blocks standing slightly proud of one face, tiling every 4 m (half blocks meet at the seams)."""
+    out = []
+    for row, z in enumerate((.3, .62, .94)):
+        if row % 2 == 0: xs = [(-1.5, .92), (-.5, .92), (.5, .92), (1.5, .92)]
+        else: xs = [(-1.77, .44), (-1, .92), (0, .92), (1, .92), (1.77, .44)]
+        for x, w in xs:
+            col = 'stone' if (int(x * 2) + row) % 3 else 'stoneL'
+            out.append(('Body', 'box', (w, .05, .27), (x, y + face * .025, z), col))
+    return out
+
+COL.setdefault('stoneL', (.66, .64, .6))
+
+# The wall: 4 m sections that join seamlessly (end faces removed); merlons every 2 m all along it
 build('WallSegment', [
-    ('Body', 'box', (4, 1, 1.2), (0, 0, .6), 'stoneD'),
-    ('Body', 'box', (4.08, 1.1, .12), (0, 0, 1.26), 'stone'),
-    ('Body', 'box', (.7, 1.0, .38), (-1.3, 0, 1.5), 'stone'),
-    ('Body', 'box', (.7, 1.0, .38), (1.3, 0, 1.5), 'stone'),
-    *[('Body', 'box', (.6, .06, .3), (x, -.5, z), 'stone') for x, z in ((-1.4, .35), (.2, .75), (1.2, .3), (-.5, .8), (1.6, .9))],
+    ('Run', 'box', (4, 1, 1.2), (0, 0, .6), 'stoneD'),
+    ('Run', 'box', (4, 1.14, .12), (0, 0, 1.26), 'stone'),
+    ('Run', 'box', (4, 1.24, .2), (0, 0, .1), 'stone'),
+    *[('Body', 'box', (.72, .9, .42), (x, -.05, 1.53), 'stone') for x in (-1, 1)],
+    *[('Body', 'box', (.78, .96, .05), (x, -.05, 1.76), 'stoneL') for x in (-1, 1)],
+    *masonry(-.5, -1), *masonry(.5, 1),
+], post=open_ends(2))
+# The broken end of a section next to a breach (placed at the section's edge, facing the gap)
+build('WallEnd', [
+    ('Body', 'box', (.06, 1.0, 1.2), (0, 0, .6), 'stoneD'),
+    ('Body', 'box', (.4, .5, .3), (.12, -.2, 1.15), 'stone', None, (12, -20, 8)),
+    ('Body', 'box', (.35, .45, .28), (.15, .25, .75), 'stoneL', None, (-8, 15, 20)),
+    ('Body', 'box', (.3, .35, .25), (.18, -.1, .3), 'stone', None, (20, 5, -12)),
+])
+# What's left of a breached section: a low heap of blocks
+build('WallRubble', [
+    *[('Body', 'box', (.7 + (i % 3) * .15, .5, .32), ((i - 3.5) * .5, ((i * 7) % 5 - 2) * .14, .14 + (i % 2) * .18), 'stone' if i % 2 else 'stoneD', None, ((i * 23) % 30 - 15, (i * 41) % 40 - 20, (i * 67) % 50 - 25)) for i in range(8)],
+    ('Body', 'box', (3.4, 1.2, .16), (0, 0, .08), 'stoneD', None, (0, 0, 0)),
+])
+# A gatehouse over each sally port: tall pillars and a lintel high enough for anyone (giants too), with a banner
+build('WallGate', [
+    *[('Body', 'box', (.62, 1.34, 2.9), (x, 0, 1.45), 'stone') for x in (-1.71, 1.71)],
+    *[('Body', 'box', (.7, 1.42, .2), (x, 0, .1), 'stoneL') for x in (-1.71, 1.71)],
+    ('Body', 'box', (4, 1.3, .5), (0, 0, 2.75), 'stoneD'),
+    ('Body', 'box', (4.1, 1.42, .14), (0, 0, 3.07), 'stone'),
+    *[('Body', 'box', (.62, 1.0, .45), (x, -.05, 3.36), 'stone') for x in (-1.5, 0, 1.5)],
+    ('Body', 'box', (.9, .04, .8), (0, -.68, 2.2), 'red'),
+    ('Body', 'box', (.9, .04, .8), (0, .68, 2.2), 'red'),
+    ('Body', 'box', (.3, .05, .3), (0, -.71, 2.3), 'gold', None, (0, 45, 0)),
+    ('Body', 'box', (.3, .05, .3), (0, .71, 2.3), 'gold', None, (0, 45, 0)),
 ])
 build('Tower', [
     ('Body', 'cyl', (2.4, 2.4, 4), (0, 0, 2), 'stoneD', None, None, 10),

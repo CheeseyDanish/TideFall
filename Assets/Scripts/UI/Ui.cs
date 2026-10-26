@@ -125,6 +125,23 @@ namespace TideWall
         }
 
         /// <summary>A soft radial texture (used for tunnel vision and ink splats).</summary>
+        static Material worldText;
+
+        /// <summary>The font material for text in the world: hidden behind walls (the built-in one draws over everything).</summary>
+        public static Material WorldText
+        {
+            get
+            {
+                if (worldText != null) return worldText;
+                var shader = Resources.Load<Shader>("Shaders/WorldText");
+                if (shader == null) return Font.material;
+                worldText = new Material(shader) { name = "WorldText", mainTexture = Font.material.mainTexture };
+                // The font's glyph atlas is rebuilt as new characters appear: keep pointing at the current one
+                UnityEngine.Font.textureRebuilt += f => { if (f == Font && worldText != null) worldText.mainTexture = f.material.mainTexture; };
+                return worldText;
+            }
+        }
+
         static Sprite ring, dot;
 
         /// <summary>A thin circle outline, and a solid disc (the reload widget's beat ring and pips).</summary>

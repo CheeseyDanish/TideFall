@@ -36,7 +36,7 @@ The beach is **twice the size of the original**: 88 m of wall, 40 m of sand to t
 ```
 - **The keep** stands behind the town; its upper room is the main menu's view.
 - **The Nuclear Sand Powerplant** (east side of town) is a sandcastle reactor: a dome with a radiation sign, two cooling towers that steam (greener as it overheats) and a glowing green core that flickers red when critical. **1000 HP**. At 30% an alarm sounds; at 0 it **melts down**.
-- **The sea wall** is made of 20 **sections**, each with its own HP (140). Creatures attack the section in front of them. A section at 0 HP is **breached**: it slumps into rubble and stops blocking. Creatures head for the nearest breach, walk through it and go for the powerplant (and anyone in town). Two **sally ports** (gaps players can walk through, creatures can't) sit at x = ±22.
+- **The sea wall** is made of 20 **sections**, each with its own HP (140). Creatures attack the section in front of them. It looks like **one unbroken wall** (running-bond masonry on both faces, battlements every 2 m). A section at 0 HP is **breached**: it collapses into a heap of rubble, the sections either side show broken ends, and the gap stops blocking. Creatures head for the nearest breach, walk through it and go for the powerplant (and anyone in town). Two **sally ports** (gaps players can walk through, creatures can't) sit at x = ±22, each under a **gatehouse** arch (tall enough for a Giant) with red banners, so the wall stays one piece.
 - **Repair Wall** in the shop restores every section and **rebuilds breached ones**.
 
 ## Waves and breakers

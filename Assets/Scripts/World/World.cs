@@ -130,6 +130,8 @@ namespace TideWall
             public float hp, max, x;
             public bool breached;
             public Vector3 basePos;
+            /// <summary>Broken-end caps shown when the neighbour on that side is breached, and this section's rubble.</summary>
+            public GameObject capL, capR, rubble;
         }
 
         public readonly List<Section> Sections = new();
@@ -141,7 +143,38 @@ namespace TideWall
         public void Add(Transform t, Collider col, float hp)
         {
             mpb ??= new MaterialPropertyBlock();
-            Sections.Add(new Section { t = t, rs = t.GetComponentsInChildren<Renderer>(), col = col, hp = hp, max = hp, x = t.position.x, basePos = t.localPosition });
+            var s = new Section { t = t, rs = t.GetComponentsInChildren<Renderer>(), col = col, hp = hp, max = hp, x = t.position.x, basePos = t.localPosition };
+            // Sections join seamlessly (their models have no end faces), so a breach needs caps on its neighbours' ends
+            var lp = t.localPosition;
+            s.capL = Decor("WallEnd", lp + new Vector3(-Arena.SegmentLength / 2, 0, 0), 180);
+            s.capR = Decor("WallEnd", lp + new Vector3(Arena.SegmentLength / 2, 0, 0), 0);
+            s.rubble = Decor("WallRubble", lp, (s.x * 37) % 10 - 5);
+            Sections.Add(s);
+        }
+
+        GameObject Decor(string model, Vector3 localPos, float yaw)
+        {
+            var go = ModelFactory.Spawn(model, transform, localPos).root;
+            go.transform.localRotation = Quaternion.Euler(0, yaw, 0);
+            go.SetActive(false);
+            return go;
+        }
+
+        Section At(float x)
+        {
+            foreach (var s in Sections) if (Mathf.Abs(s.x - x) < .1f) return s;
+            return null;
+        }
+
+        /// <summary>Show a broken end wherever an intact section meets a breached one.</summary>
+        void RefreshCaps()
+        {
+            foreach (var s in Sections)
+            {
+                var l = At(s.x - Arena.SegmentLength); var r = At(s.x + Arena.SegmentLength);
+                if (s.capL) s.capL.SetActive(!s.breached && l != null && l.breached);
+                if (s.capR) s.capR.SetActive(!s.breached && r != null && r.breached);
+            }
         }
 
         Section Nearest(float x, bool intactOnly)
@@ -196,13 +229,14 @@ namespace TideWall
             foreach (var p in GameManager.I.Players.All) p.Shake(.3f);
         }
 
-        /// <summary>A section's look: battered stone darkens; a breached one slumps into rubble and stops blocking.</summary>
+        /// <summary>A section's look: battered stone darkens; a breached one collapses into rubble and stops blocking.</summary>
         void Look(Section s)
         {
             float dmg = 1 - s.hp / Mathf.Max(1, s.max);
             if (s.col) s.col.enabled = !s.breached;
-            s.t.localPosition = s.breached ? s.basePos + new Vector3(0, -1.9f, 0) : s.basePos;
-            s.t.localRotation = s.breached ? Quaternion.Euler(8, 0, (s.x % 3) - 1.5f) : Quaternion.identity;
+            s.t.gameObject.SetActive(!s.breached);
+            if (s.rubble) s.rubble.SetActive(s.breached);
+            RefreshCaps();
             if (dmg <= .001f && !s.breached) { foreach (var r in s.rs) r.SetPropertyBlock(null); return; }
             var c = Color.Lerp(Color.white, new Color(.35f, .3f, .28f), s.breached ? 1 : dmg);
             foreach (var r in s.rs)

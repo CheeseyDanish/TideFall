@@ -30,13 +30,21 @@ namespace TideWall
         /// <summary>A packet arrived (network thread data, applied on the main thread).</summary>
         public void Receive(Vector2 move, Vector2 nav, ushort heldMask, ushort pressedMask, float yaw, float pitch, bool firstPerson, AimSample aim, Vector3 pos)
         {
+            // Never trust the wire: drop non-numbers and keep everything inside the world
+            if (!Finite(move) || !Finite(nav) || !Finite(pos) || float.IsNaN(yaw) || float.IsNaN(pitch) || float.IsInfinity(yaw) || float.IsInfinity(pitch)) return;
             Move = Vector2.ClampMagnitude(move, 1);
-            Nav = nav;
+            Nav = Vector2.ClampMagnitude(nav, 1);
+            pos = new Vector3(Mathf.Clamp(pos.x, -140, 140), Mathf.Clamp(pos.y, -5, 40), Mathf.Clamp(pos.z, -80, 190));
+            pitch = Mathf.Clamp(pitch, -89, 89);
+            if (!Finite(aim.ray.origin) || !Finite(aim.ray.direction) || !Finite(aim.dirHint)) aim = default;
             held = heldMask;
             pending |= pressedMask;
             Yaw = yaw; Pitch = pitch; FirstPerson = firstPerson; Aim = aim;
             Position = pos; HasPosition = true;
         }
+
+        static bool Finite(Vector3 v) => !float.IsNaN(v.x + v.y + v.z) && !float.IsInfinity(v.x + v.y + v.z);
+        static bool Finite(Vector2 v) => !float.IsNaN(v.x + v.y) && !float.IsInfinity(v.x + v.y);
 
         /// <summary>Start of the host frame: presses that arrived since the last frame become "pressed this frame".</summary>
         public void BeginFrame() { now = pending; pending = 0; }
