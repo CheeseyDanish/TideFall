@@ -1,55 +1,47 @@
-# Tidewall — rules for Claude
+# TideWall 3D — rules for Claude
 
-This repo holds **Tidewall**, an HTML5 wall-defense game. The game lives in `web/`: open `web/index.html` in a browser (no build step), or run `node web/serve.js`. It grew out of a Unity prototype that is still in `C:\Users\Andrew\Wall defence`. That prototype is not part of this repo.
+This repo is **TideWall 3D**, a Unity 6 (6000.5.10f1, URP) local co-op wall-defense game: 1–4 players in split screen hold a sea wall through a day of phases (Morning → Evening → Night). It grew out of **Tidewall 2D**, which now lives in the website repo (`Website/tidewall/`, with its own rules). The 3D game keeps the 2D game's core idea, the **wet/dry beach**, and builds on it.
 
-The design documents in `docs/` define the game. These rules are binding for any change you (Claude) make to Tidewall. If a request conflicts with a rule, say which rule and ask before breaking it; if the user confirms, update the doc in the same change so docs and game never disagree.
+The design documents in `docs/` define the game. These rules are binding for any change you make here. If a request conflicts with a rule, say which rule and ask before breaking it; if the user confirms, update the docs in the same change.
 
-## The design pillars (in priority order)
-
-1. **Every shot is a decision.** Aim matters (weak points, pearls, lobs), reloads are a skill check (each gun has its own reload minigame), and *where* on the beach an enemy dies matters (Wet → dry gradient).
-2. **Loadouts are answers to questions.** Every enemy asks a question; every item answers at least one and is weak to at least one. No item is strictly better than another item at the same price.
-3. **Combos are explicit.** Element interactions follow one small, fixed table (`docs/ELEMENTS.md`). The game always *shows* when a combo fires (label + distinct effect). No hidden multipliers.
-4. **Readable chaos.** The screen can get busy, but you can always read wall HP, ammo, reload state, and which enemies are dangerous.
-5. **Short loop, long run.** A night lasts 45–90 s. Between nights there is one shop screen and one risk card. A full run is 20 nights (then endless).
+## Pillars (in priority order)
+1. **Couch co-op first.** Everything works for 1, 2, 3 or 4 players in split screen, with any controller or keyboard + mouse.
+2. **Where you hit matters.** Shots go to the 3D point under your reticle; limbs come off where you hit them, and that changes the enemy and what its corpse is worth.
+3. **The tide is the game.** Enemies come out of the sea wet and dry off on the sand. Wetness is always visible (drips) and always matters (shock, fire).
+4. **A day has a rhythm.** Mornings are calm and about economy (sell, buy, eat). Evenings and nights are fights. Phases are data.
+5. **Silly but readable.** Hotdog condiments, ??? sauce, exploding gas cans: chaos is welcome, but you always know who you are, where your reticle is, and how the wall is doing.
 
 ## Hard rules
 
-### Content
-- **R1 – Data lives in `web/js/data.js`.** All numbers for weapons, mods, gadgets, traps, crew, enemies, cards, and upgrades are defined there. Logic files read data; they never hard-code a balance number that belongs to one item. Shared formulas live in `BALANCE` in `data.js`.
-- **R2 – Each new item fills the content checklist** in `docs/LOADOUTS-AND-CONTENT.md` (question it answers, weakness, synergy, tell). Put it in the content tables there when you add it.
-- **R3 – No strict upgrades.** A new weapon or mod must lose to an existing one in at least one situation (range, armor, flyers, wet/dry zone, ammo economy, crowd vs. single target).
-- **R4 – Element interactions are only the ones in `docs/ELEMENTS.md`.** Adding an element or an interaction means adding a row to that table first. Every interaction needs a floating label and a visual effect.
-- **R5 – Enemy tells.** Each enemy must have a silhouette you can tell from the others, a visible weak point if it has one, and a visual cue before any burst action (puffer swelling, siren aura, gull dive pause).
-- **R6 – Flying enemies ignore traps; leaping enemies ignore traps while airborne.** Do not break this without updating the docs.
+### Data
+- **R1 — Numbers live in data, not code.** Enemies, weapons, melee, food, condiments, upgrades and balance coefficients are in `GameDatabase` (`Assets/Scripts/Core/GameDatabase.cs` defaults → `Assets/Resources/Data/GameDatabase.asset`). Phases are in `PhaseCycle` (`PhaseCycle.cs` defaults → `Assets/Resources/Data/PhaseCycle.asset`). When you change a default in code, also update the asset (menu **TideWall → Reset Data To Defaults**, or edit it) so they agree.
+- **R2 — Phases are pure data.** Code must never branch on a phase id or name (`"morning"`, `"night"`…). Behaviour comes from `PhaseDefinition` fields (`shopOpen`, `waves`, `endWhenAllReady`, `lanterns`…). Adding a phase means adding a list entry, not code. If a new phase needs new behaviour, add a field to `PhaseDefinition`, document it in `docs/GDD.md`, and default it to "off".
+- **R3 — New content fills the checklist** in `docs/GDD.md` → *Adding content* (model, behaviour, limbs, question it asks, counter, corpse value, wet behaviour).
 
-### Economy & balance
-- **R6a – Pearls are earned by aim.** Pearls only come from shooting the golden bubbles and from bosses, and they only buy relics (`RELICS`).  sell pearls for scrap at a very high cost. or let scrap buy relics.
-- **R7 – Prices follow `docs/BALANCE.md`.** A new item's price comes from the price bands there, not from guesses.
-- **R8 – Never punish experimenting.** Mods can be moved between weapons for free between nights. Traps can be picked up and moved for free. Selling refunds 50%.
-- **R9 – Risk cards are opt-in.** The player always gets a "Calm Waters" style low-risk option or a choice among three; difficulty modifiers always pay out more scrap.
-- **R10 – Difficulty scales through the formulas in `BALANCE`** (HP scale, budget, bounty scale). Do not tune single nights by hand.
+### Models (Blender)
+- **R4 — `Blender/generate_models.py` is the source of truth for models.** Never hand-edit FBX files. Change the script and re-run it (see `docs/TECH.md`). Keep models low-poly: primitives, flat colours, no textures. Front faces **-Y** in Blender (= +Z in Unity). Each model's root is named after it.
+- **R5 — Limbs follow the naming contract.** A severable part is a separate object named `Limb_<Part>` with its pivot at the joint, and a matching `LimbDef` in the enemy's data. `Limb_Head`/`Limb_Eyes` are weak points (`LimbEffect.Kill`, crit > 1). Attachment points are empties named `Socket_<Name>`. A material named `coat` is recoloured per player.
+- **R6 — The website models are imported, not redrawn.** Food, gas can, tire and Glizzy Monster come from `Blender/source/*.glb` (copied from the website) and are size-normalised by the script; heavy ones are decimated to about 8k faces.
 
-### Feel
-- **R11 – Every hit gives feedback**: hit flash, a damage number (yellow = weak point, cyan = combo, white = normal), and a sound. Kills give a particle burst. Big events (boss hit, depth charge, wall breach) shake the screen, scaled to how big they are.
-- **R12 – The player is never confused about why they lost.** Wall damage flashes the wall, shows the enemy that hit it, and plays a thud. The game-over screen shows the cause (which enemy did the most wall damage).
-- **R13 – Respect the player's hands.** Holding fire works for every weapon. All actions have a keyboard binding shown in the HUD. Nothing needs pixel-perfect timing apart from the optional reload minigames. **Every reload minigame must finish on its own in the weapon's reload time if the player does nothing**; skill only makes it faster or earns a Perfect.
-- **R13a – Each weapon has a reload style that matches its feel** (`reloadStyle` in `WEAPONS`, defined in `RELOADS`). A new weapon either reuses a style or adds one to `RELOADS` and `js/reload.js`, with a widget under the crosshair and a one-line `how` hint (shown in the HUD and on the shop card). Heavier weapons may punish misses harder, but must be faster when played well.
+### Multiplayer & input
+- **R7 — Every action has a gamepad and a keyboard/mouse binding**, defined in `PlayerControls` and shown in the lobby text and HUD. Generic joysticks get basic bindings too. Never read `Gamepad.current`, `Keyboard.current` or `Mouse.current` in gameplay code; read the player's own `PlayerControls`.
+- **R8 — Per-player things stay in the player's viewport.** HUDs, menus, overlays (ink, tunnel vision) and camera effects belong to that player's camera/canvas. Team-wide state (coins, wall, phase, upgrades) is shared and shown to everyone.
+- **R9 — Test with virtual devices.** Play-mode tests join players with `InputSystem.AddDevice<Gamepad>()`. A feature that needs input is tested by queuing device state, not by calling private methods.
 
-### Tech
-- **R14 – Runs from `file://`.** Plain classic `<script>` tags, no modules, no bundler, no CDN dependencies. One global namespace per file is fine.
-- **R15 – No asset files are required.** Graphics are drawn on the canvas and sound is made with WebAudio. (You may add optional assets later, but the game must still run without them.)
-- **R16 – Fixed logical resolution 1280×720**, scaled to fit the window. Game logic uses logical pixels and seconds (`dt`), never frames.
-- **R17 – `localStorage` access is wrapped in try/catch.** The game must work with storage blocked.
-- **R18 – Verify in a browser.** After any gameplay change, load the page, play at least one night (or use the debug hooks in `docs/TECH.md`), and check the console for errors before you call it done.
-- **R19 – Balance changes are measured, not guessed.** Before and after changing numbers in `BALANCE`, `ENEMIES`, `WEAPONS` or `CREW`, run `DevSim.campaign()` (open `?dev`) a few times and compare with the pacing table in `docs/BALANCE.md`. Report the before/after.
-- **R20 – Passive damage stays a supporting act.** Crew + traps should do under ~40% of a night's damage in DevSim runs. Aiming must always matter.
-- **R21 – Never touch the player's save from tooling.** Test code stubs `Store.set` / `Store.del` (DevSim already does).
+### Feel & performance
+- **R10 — Wetness is always visible.** Drip count is proportional to wetness (`Fx.Drip`, `maxDripsPerSecond`). Anything that changes wetness must keep drips and gloss in sync.
+- **R11 — Feedback for every hit**: hit flash, gore/sparks, a sound, a hit marker for the shooter; severed limbs fly off with physics; big events shake the cameras of nearby players.
+- **R12 — Shared effects, pooled objects.** Particles go through the shared systems in `Fx` (no per-enemy `ParticleSystem`). Tracers and light flashes are pooled. Enemies alive at once are capped by `GameDatabase.maxAlive`.
+- **R13 — Runtime-built world.** `GameManager` boots itself into any scene and builds the level in code (`WorldBuilder`). Don't add gameplay objects to scenes by hand; the scene only holds post-processing.
+
+### Process
+- **R14 — Verify before calling it done.** After a gameplay change: compile (headless setup run), run the play-mode tests, and run the screenshot tour (`-tidewall-capture`) for anything visual. Commands are in `docs/TECH.md`. Report failures as they are.
+- **R15 — Unity 6.5 API.** Use `FindAnyObjectByType` / `FindObjectsByType<T>()` (no sort mode), `Rigidbody.linearVelocity`, and never `Object.GetInstanceID()` (it's an error in 6.5). Use fully qualified `[UnityEditor.MenuItem]` in editor code (the game has its own `MenuItem` class).
+- **R16 — Online play isn't implemented yet.** Multiplayer is local (split screen). If you add online play, read `docs/TECH.md` → *Online multiplayer (future)* first: the server must own enemies, the wall and coins.
 
 ## Where things are
 | Doc | What it decides |
 |---|---|
-| `docs/GDD.md` | Vision, core loop, controls, screens |
-| `docs/ELEMENTS.md` | Status effects and the interaction table (binding) |
-| `docs/LOADOUTS-AND-CONTENT.md` | Slot rules, content checklist, current content tables |
-| `docs/BALANCE.md` | Formulas, price bands, pacing targets |
-| `docs/TECH.md` | Code layout, entity model, debug hooks |
+| `README.md` | What the game is, how to open, play, build and test it |
+| `docs/GDD.md` | Design: phases, enemies, limbs, wetness, weapons, food, condiments, ??? sauce, economy, controls, adding content |
+| `docs/TECH.md` | Architecture, file map, the Blender pipeline, data assets, tests, capture tour, builds |

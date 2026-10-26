@@ -1,5 +1,41 @@
-node_modules/
+# Unity generated
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+*.csproj
+*.sln
+*.slnx
+*.suo
+*.user
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+.vs/
+.idea/
+.vscode/
+crashlytics-build.properties
+sysinfo.txt
+*.apk
+*.aab
+*.unitypackage
+
+# Blender backups
+*.blend1
+*.blend2
+
+# OS / tooling
 .DS_Store
 Thumbs.db
 *.log
 .claude/settings.local.json
+TestResults*.xml

@@ -1,0 +1,99 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b07ebbd8715913446ade28cd42eaf6bf, type: 3}
+  m_Name: PhaseCycle
+  m_EditorClassIdentifier: TideWall::TideWall.PhaseCycle
+  phases:
+  - id: morning
+    displayName: Morning
+    subtitle: Sell the night's catch, eat, upgrade. Ring the bell when you're ready.
+    durationSeconds: 150
+    endWhenAllReady: 1
+    endWhenWavesCleared: 0
+    advancesDay: 0
+    shopOpen: 1
+    waves: 0
+    budgetMultiplier: 1
+    enemyPool: []
+    bossEveryDays: 0
+    bossId: glizzy
+    spawnFood: 1
+    spawnGasCans: 1
+    skyColor: {r: 0.62, g: 0.8, b: 0.96, a: 1}
+    sunColor: {r: 1, g: 0.93, b: 0.8, a: 1}
+    sunIntensity: 1.3
+    sunPitch: 30
+    sunYaw: -70
+    ambientColor: {r: 0.62, g: 0.62, b: 0.6, a: 1}
+    fogColor: {r: 0.78, g: 0.86, b: 0.93, a: 1}
+    fogDensity: 0.003
+    torchesLit: 0
+    lanterns: 0
+  - id: evening
+    displayName: Evening
+    subtitle: The tide turns. Something is coming ashore.
+    durationSeconds: 0
+    endWhenAllReady: 0
+    endWhenWavesCleared: 1
+    advancesDay: 0
+    shopOpen: 0
+    waves: 2
+    budgetMultiplier: 0.55
+    enemyPool:
+    - crab
+    - drowner
+    - gull
+    - hermit
+    - puffer
+    - jelly
+    - urchin
+    - eel
+    - shark
+    bossEveryDays: 0
+    bossId: glizzy
+    spawnFood: 0
+    spawnGasCans: 0
+    skyColor: {r: 0.95, g: 0.55, b: 0.35, a: 1}
+    sunColor: {r: 1, g: 0.6, b: 0.35, a: 1}
+    sunIntensity: 1
+    sunPitch: 10
+    sunYaw: 110
+    ambientColor: {r: 0.55, g: 0.4, b: 0.38, a: 1}
+    fogColor: {r: 0.9, g: 0.55, b: 0.4, a: 1}
+    fogDensity: 0.006
+    torchesLit: 1
+    lanterns: 0
+  - id: night
+    displayName: Night
+    subtitle: Hold the wall until dawn.
+    durationSeconds: 0
+    endWhenAllReady: 0
+    endWhenWavesCleared: 1
+    advancesDay: 1
+    shopOpen: 0
+    waves: 3
+    budgetMultiplier: 1
+    enemyPool: []
+    bossEveryDays: 5
+    bossId: glizzy
+    spawnFood: 0
+    spawnGasCans: 0
+    skyColor: {r: 0.04, g: 0.06, b: 0.14, a: 1}
+    sunColor: {r: 0.55, g: 0.65, b: 1, a: 1}
+    sunIntensity: 0.35
+    sunPitch: 45
+    sunYaw: 160
+    ambientColor: {r: 0.13, g: 0.15, b: 0.25, a: 1}
+    fogColor: {r: 0.05, g: 0.07, b: 0.15, a: 1}
+    fogDensity: 0.012
+    torchesLit: 1
+    lanterns: 1

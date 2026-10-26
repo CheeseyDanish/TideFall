@@ -1,0 +1,503 @@
+# TideWall 3D — procedural low-poly models.
+# Run:  blender --background --factory-startup --python Blender/generate_models.py -- <TideWall repo root>
+# Writes one FBX per model into Assets/Resources/Models/ (Unity loads them with Resources.Load).
+#
+# Conventions (read by the Unity code, see docs/TECH.md):
+#   * 1 unit = 1 metre, models stand on z = 0, FRONT FACES -Y in Blender (= +Z forward in Unity).
+#   * Object "Body" = everything that can't come off. Objects named "Limb_<Name>" are separate meshes
+#     with their pivot at the joint, so the game can sever and fling them. "Limb_Head"/"Limb_Eyes" are
+#     weak points; severing one kills.
+#   * Empties named "Socket_<Name>" mark attachment points (hands, muzzles).
+#   * Materials are flat colours. A material named "coat" is recoloured per player at runtime.
+import bpy, bmesh, math, os, sys
+from mathutils import Matrix, Vector, Euler
+
+ROOT = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else os.getcwd()
+OUT = os.path.join(ROOT, 'Assets', 'Resources', 'Models')
+SRC = os.path.join(ROOT, 'Blender', 'source')
+os.makedirs(OUT, exist_ok=True)
+
+COL = {
+    'sand': (.93, .82, .6), 'stone': (.58, .56, .52), 'stoneD': (.42, .4, .38), 'wood': (.55, .36, .2), 'woodD': (.36, .22, .12),
+    'red': (.85, .15, .12), 'red2': (.95, .35, .25), 'white': (.95, .95, .95), 'black': (.06, .06, .06), 'orange': (.95, .45, .1),
+    'orange2': (1, .62, .3), 'yellow': (.98, .8, .15), 'green': (.25, .6, .3), 'greenD': (.16, .36, .2), 'fishG': (.42, .58, .44),
+    'fishL': (.55, .7, .55), 'teal': (.2, .65, .65), 'blue': (.2, .4, .85), 'navy': (.12, .15, .35), 'skin': (.92, .76, .6),
+    'grey': (.55, .58, .62), 'greyD': (.25, .27, .3), 'steel': (.72, .74, .78), 'gold': (.95, .75, .2), 'purple': (.55, .25, .65),
+    'purpleD': (.25, .1, .32), 'pink': (.98, .55, .75), 'pinkL': (1, .8, .9), 'shark': (.42, .52, .62), 'belly': (.92, .92, .88),
+    'croc': (.28, .38, .18), 'crocD': (.17, .24, .1), 'brown': (.45, .33, .2), 'shell': (.85, .65, .55), 'coat': (.8, .2, .2),
+    'ink': (.3, .1, .3), 'glow': (.75, 1, .6), 'ice': (.8, .95, 1), 'leaf': (.2, .55, .2), 'flame': (1, .6, .1),
+}
+_mats = {}
+def mat(key):
+    if key in _mats: return _mats[key]
+    m = bpy.data.materials.new(key)
+    rgb = COL[key]
+    m.diffuse_color = (*rgb, 1)
+    if getattr(m, 'node_tree', None) is None:
+        try: m.use_nodes = True
+        except Exception: pass
+    nt = getattr(m, 'node_tree', None)
+    if nt and nt.nodes.get('Principled BSDF'):
+        b = nt.nodes['Principled BSDF']
+        b.inputs['Base Color'].default_value = (*rgb, 1)
+        b.inputs['Roughness'].default_value = .85
+    _mats[key] = m
+    return m
+
+def prim(kind, v):
+    if kind == 'box': bpy.ops.mesh.primitive_cube_add(size=1)
+    elif kind == 'cyl': bpy.ops.mesh.primitive_cylinder_add(vertices=v, radius=.5, depth=1)
+    elif kind == 'cone': bpy.ops.mesh.primitive_cone_add(vertices=v, radius1=.5, radius2=0, depth=1)
+    elif kind == 'ball': bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=.5)
+    elif kind == 'tor': bpy.ops.mesh.primitive_torus_add(major_segments=v, minor_segments=4, major_radius=.4, minor_radius=.1)
+    return bpy.context.active_object
+
+def aim(d):
+    """Euler (degrees) that turns +Z toward direction d."""
+    q = Vector((0, 0, 1)).rotation_difference(Vector(d).normalized())
+    return tuple(math.degrees(a) for a in q.to_euler())
+
+def piece(name, kind, size, off=(0, 0, 0), col='white', joint=(0, 0, 0), rot=(0, 0, 0), v=8):
+    o = prim(kind, v)
+    o.name = name
+    r = Euler(tuple(math.radians(a) for a in rot)).to_matrix().to_4x4()
+    o.data.transform(Matrix.Translation(off) @ r @ Matrix.Diagonal((*size, 1)))
+    o.location = joint
+    o.data.materials.append(mat(col))
+    return o
+
+def build(name, parts, sockets=()):
+    """parts: tuples (objName, kind, size, off, col, joint, rot, v). Pieces sharing a name are joined."""
+    bpy.ops.object.select_all(action='DESELECT')
+    root = bpy.data.objects.new(name, None)
+    bpy.context.scene.collection.objects.link(root)
+    groups = {}
+    for p in parts:
+        p = list(p) + [None] * (8 - len(p))
+        nm, kind, size, off, col, joint, rot, v = p
+        o = piece(nm, kind, size, off or (0, 0, 0), col or 'white', joint or (0, 0, 0), rot or (0, 0, 0), v or 8)
+        groups.setdefault(nm, []).append(o)
+    for nm, objs in groups.items():
+        if len(objs) > 1:
+            bpy.ops.object.select_all(action='DESELECT')
+            for o in objs: o.select_set(True)
+            bpy.context.view_layer.objects.active = objs[0]
+            bpy.ops.object.join()
+        objs[0].name = nm
+        objs[0].parent = root
+    for sname, loc in sockets:
+        e = bpy.data.objects.new('Socket_' + sname, None)
+        e.location = loc
+        bpy.context.scene.collection.objects.link(e)
+        e.parent = root
+    export(root)
+
+def export(root):
+    bpy.ops.object.select_all(action='DESELECT')
+    root.select_set(True)
+    for c in root.children_recursive: c.select_set(True)
+    bpy.ops.export_scene.fbx(filepath=os.path.join(OUT, root.name + '.fbx'), use_selection=True,
+        object_types={'EMPTY', 'MESH'}, apply_scale_options='FBX_SCALE_ALL', axis_forward='-Z', axis_up='Y',
+        bake_space_transform=True, mesh_smooth_type='FACE', add_leaf_bones=False, path_mode='COPY', embed_textures=True)
+    clear()
+
+def clear():
+    for o in list(bpy.data.objects): bpy.data.objects.remove(o, do_unlink=True)
+    for m in list(bpy.data.meshes): bpy.data.meshes.remove(m)
+    _mats.clear()
+    for m in list(bpy.data.materials): bpy.data.materials.remove(m)
+
+def mirror(parts):
+    """Duplicate parts whose name ends in 'L' as an 'R' copy, mirrored in X."""
+    out = []
+    for p in parts:
+        out.append(p)
+        if p[0].endswith('L') and p[0].startswith('Limb_'):
+            q = list(p) + [None] * (8 - len(p))
+            off = q[3] or (0, 0, 0); jt = q[5] or (0, 0, 0); rot = q[6] or (0, 0, 0)
+            out.append((p[0][:-1] + 'R', q[1], q[2], (-off[0], off[1], off[2]), q[4], (-jt[0], jt[1], jt[2]), (rot[0], -rot[1], -rot[2]), q[7]))
+    return out
+
+def ring(n, r, z, phase=0):
+    return [(math.cos(phase + i * 2 * math.pi / n) * r, math.sin(phase + i * 2 * math.pi / n) * r, z) for i in range(n)]
+
+def spikes(n, r, center, size, col, upper_only=False):
+    """n cones on a sphere of radius r, pointing outward (Fibonacci spread)."""
+    out = []
+    g = math.pi * (3 - math.sqrt(5))
+    for i in range(n):
+        z = 1 - (i + .5) / n * (1 if upper_only else 2)
+        rr = math.sqrt(max(0, 1 - z * z)); a = i * g
+        d = (math.cos(a) * rr, math.sin(a) * rr, z)
+        out.append(('Body', 'cone', size, tuple(center[k] + d[k] * r for k in range(3)), col, None, aim(d), 5))
+    return out
+
+# =====================================================================================  ENEMIES
+build('Crab', mirror([
+    ('Body', 'ball', (.9, .75, .42), (0, 0, .4), 'orange'),
+    *[('Body', 'box', (.5, .07, .07), (s * .55, y, .22), 'orange', None, (0, s * 30, 0)) for s in (-1, 1) for y in (-.18, .05, .26)],
+    ('Limb_ClawL', 'box', (.12, .3, .12), (-.05, -.15, 0), 'orange', (-.4, -.3, .42)),
+    ('Limb_ClawL', 'ball', (.3, .36, .22), (-.12, -.4, .02), 'orange2', (-.4, -.3, .42)),
+    ('Limb_Eyes', 'cyl', (.05, .05, .22), (-.1, 0, .1), 'orange', (0, -.28, .5)),
+    ('Limb_Eyes', 'cyl', (.05, .05, .22), (.1, 0, .1), 'orange', (0, -.28, .5)),
+    ('Limb_Eyes', 'ball', (.12, .12, .12), (-.1, 0, .24), 'white', (0, -.28, .5)),
+    ('Limb_Eyes', 'ball', (.12, .12, .12), (.1, 0, .24), 'white', (0, -.28, .5)),
+    ('Limb_Eyes', 'ball', (.05, .05, .05), (-.1, -.06, .25), 'black', (0, -.28, .5)),
+    ('Limb_Eyes', 'ball', (.05, .05, .05), (.1, -.06, .25), 'black', (0, -.28, .5)),
+]))
+
+build('HermitCrab', mirror([
+    ('Body', 'ball', (.45, .5, .3), (0, -.1, .25), 'red'),
+    ('Limb_Shell', 'ball', (.7, .75, .65), (0, .15, .2), 'shell', (0, .1, .3)),
+    ('Limb_Shell', 'cone', (.4, .4, .45), (0, .45, .45), 'shell', (0, .1, .3), (-50, 0, 0)),
+    ('Limb_ClawL', 'ball', (.2, .26, .16), (-.08, -.15, 0), 'red2', (-.18, -.3, .25)),
+    ('Limb_Eyes', 'cyl', (.04, .04, .18), (0, 0, .08), 'red', (0, -.3, .35)),
+    ('Limb_Eyes', 'ball', (.1, .1, .1), (0, 0, .2), 'black', (0, -.3, .35)),
+]))
+
+build('Drowner', mirror([
+    ('Limb_LegL', 'box', (.18, .2, .85), (0, 0, -.42), 'fishG', (-.15, 0, .85)),
+    ('Body', 'box', (.55, .42, .75), (0, .05, 1.18), 'fishG', None, (-15, 0, 0)),
+    ('Body', 'box', (.4, .1, .5), (0, -.14, 1.12), 'fishL', None, (-15, 0, 0)),
+    ('Limb_ArmL', 'box', (.13, .65, .13), (0, -.32, -.08), 'fishG', (-.33, -.05, 1.42)),
+    ('Limb_ArmL', 'ball', (.18, .18, .18), (0, -.68, -.12), 'fishL', (-.33, -.05, 1.42)),
+    ('Limb_Head', 'ball', (.38, .42, .38), (0, -.05, .2), 'fishL', (0, -.12, 1.55)),
+    ('Limb_Head', 'cone', (.08, .3, .32), (0, .1, .44), 'teal', (0, -.12, 1.55)),
+    ('Limb_Head', 'ball', (.08, .08, .08), (-.09, -.24, .25), 'yellow', (0, -.12, 1.55)),
+    ('Limb_Head', 'ball', (.08, .08, .08), (.09, -.24, .25), 'yellow', (0, -.12, 1.55)),
+    ('Limb_Head', 'box', (.18, .02, .04), (0, -.26, .1), 'black', (0, -.12, 1.55)),
+]))
+
+build('Gull', mirror([
+    ('Body', 'ball', (.35, .6, .3), (0, 0, 0), 'white'),
+    ('Body', 'ball', (.22, .22, .22), (0, -.32, .08), 'white'),
+    ('Body', 'cone', (.08, .08, .18), (0, -.48, .06), 'orange', None, (90, 0, 0), 5),
+    ('Body', 'box', (.2, .15, .04), (0, .35, .02), 'grey'),
+    ('Body', 'ball', (.05, .05, .05), (-.08, -.4, .12), 'black'),
+    ('Body', 'ball', (.05, .05, .05), (.08, -.4, .12), 'black'),
+    ('Limb_WingL', 'box', (.6, .26, .04), (-.3, .02, 0), 'white', (-.15, 0, .05)),
+    ('Limb_WingL', 'box', (.18, .2, .045), (-.55, .04, 0), 'greyD', (-.15, 0, .05)),
+]))
+
+build('Puffer', [
+    ('Body', 'ball', (.8, .8, .8), (0, 0, .5), 'yellow'),
+    ('Body', 'ball', (.6, .5, .4), (0, -.08, .38), 'white'),
+    ('Body', 'ball', (.12, .12, .12), (-.2, -.32, .65), 'black'),
+    ('Body', 'ball', (.12, .12, .12), (.2, -.32, .65), 'black'),
+    ('Body', 'cone', (.12, .2, .1), (0, -.42, .48), 'orange', None, (90, 0, 0), 5),
+    *spikes(14, .38, (0, 0, .5), (.08, .08, .22), 'orange2'),
+])
+
+build('Eel', [
+    ('Limb_Head', 'ball', (.32, .42, .3), (0, -.1, 0), 'greyD', (0, -.95, .3)),
+    ('Limb_Head', 'ball', (.07, .07, .07), (-.1, -.25, .08), 'glow', (0, -.95, .3)),
+    ('Limb_Head', 'ball', (.07, .07, .07), (.1, -.25, .08), 'glow', (0, -.95, .3)),
+    ('Body', 'cyl', (.28, .28, .8), (0, -.5, .28), 'greyD', None, (90, 0, 0), 6),
+    ('Body', 'cyl', (.25, .25, .8), (0, .2, .26), 'greyD', None, (90, 0, 0), 6),
+    ('Body', 'box', (.03, 1.5, .12), (0, -.15, .44), 'teal'),
+    ('Limb_Tail', 'cone', (.22, .2, .9), (0, .45, 0), 'greyD', (0, .6, .25), (-90, 0, 0), 6),
+])
+
+build('Turtle', [
+    ('Body', 'ball', (1.2, 1.4, .7), (0, 0, .45), 'greenD'),
+    ('Body', 'box', (1.25, 1.45, .12), (0, 0, .3), 'brown'),
+    *[('Body', 'box', (.35, .25, .12), (sx * .6, sy * .45, .2), 'fishG') for sx in (-1, 1) for sy in (-1, 1)],
+    ('Limb_Head', 'ball', (.35, .45, .32), (0, -.2, .02), 'fishG', (0, -.7, .4)),
+    ('Limb_Head', 'ball', (.06, .06, .06), (-.1, -.38, .1), 'black', (0, -.7, .4)),
+    ('Limb_Head', 'ball', (.06, .06, .06), (.1, -.38, .1), 'black', (0, -.7, .4)),
+])
+
+build('Shark', [
+    ('Body', 'ball', (.9, 3.0, .9), (0, 0, .6), 'shark'),
+    ('Body', 'ball', (.75, 2.6, .55), (0, 0, .42), 'belly'),
+    ('Body', 'ball', (.62, .8, .55), (0, -1.35, .6), 'shark'),
+    ('Body', 'ball', (.1, .1, .1), (-.3, -1.3, .75), 'black'),
+    ('Body', 'ball', (.1, .1, .1), (.3, -1.3, .75), 'black'),
+    ('Body', 'box', (.45, .05, .08), (0, -1.62, .42), 'white'),
+    ('Body', 'box', (.8, .35, .06), (-.6, -.35, .38), 'shark', None, (0, -20, 0)),
+    ('Body', 'box', (.8, .35, .06), (.6, -.35, .38), 'shark', None, (0, 20, 0)),
+    ('Limb_Fin', 'cone', (.12, .7, .8), (0, .1, .35), 'shark', (0, -.1, .95), None, 6),
+    ('Limb_Tail', 'cone', (.35, .35, .8), (0, .35, 0), 'shark', (0, 1.35, .6), (-90, 0, 0), 6),
+    ('Limb_Tail', 'box', (.06, .45, 1.0), (0, .75, .1), 'shark', (0, 1.35, .6), (-25, 0, 0)),
+])
+
+build('Croc', [
+    ('Body', 'box', (1.0, 2.0, .45), (0, .1, .4), 'croc'),
+    *[('Body', 'box', (.18, .25, .1), (sx, y, .66), 'crocD') for sx in (-.25, .25) for y in (-.6, -.1, .4, .9)],
+    *[('Body', 'box', (.25, .3, .35), (sx * .55, sy * .6, .18), 'crocD') for sx in (-1, 1) for sy in (-1, 1)],
+    ('Limb_Head', 'box', (.7, .7, .35), (0, -.3, 0), 'croc', (0, -.9, .42)),
+    ('Limb_Head', 'box', (.5, .9, .25), (0, -1.0, -.04), 'croc', (0, -.9, .42)),
+    ('Limb_Head', 'box', (.04, .8, .05), (-.26, -1.0, -.13), 'white', (0, -.9, .42)),
+    ('Limb_Head', 'box', (.04, .8, .05), (.26, -1.0, -.13), 'white', (0, -.9, .42)),
+    ('Limb_Head', 'ball', (.13, .13, .13), (-.22, -.35, .2), 'yellow', (0, -.9, .42)),
+    ('Limb_Head', 'ball', (.13, .13, .13), (.22, -.35, .2), 'yellow', (0, -.9, .42)),
+    ('Limb_Head', 'box', (.03, .03, .1), (-.22, -.42, .22), 'black', (0, -.9, .42)),
+    ('Limb_Head', 'box', (.03, .03, .1), (.22, -.42, .22), 'black', (0, -.9, .42)),
+    ('Limb_Tail', 'cone', (.7, .4, 1.8), (0, .9, 0), 'croc', (0, 1.1, .4), (-90, 0, 0), 6),
+])
+
+build('Urchin', [
+    ('Body', 'ball', (.7, .7, .7), (0, 0, .42), 'purpleD'),
+    *spikes(18, .32, (0, 0, .42), (.07, .07, .42), 'purple'),
+])
+
+build('Jellyfish', [
+    ('Body', 'ball', (1.0, 1.0, .7), (0, 0, 1.35), 'pink'),
+    ('Body', 'ball', (.6, .6, .4), (0, 0, 1.28), 'pinkL'),
+    *[('Limb_Tent%d' % (i + 1), 'cyl', (.06, .06, .9), (0, 0, -.45), 'pinkL', p, None, 5) for i, p in enumerate(ring(4, .28, 1.05, .4))],
+])
+
+build('Octopus', [
+    ('Body', 'ball', (.9, .9, 1.1), (0, .15, .95), 'red'),
+    ('Body', 'ball', (.2, .2, .2), (-.2, -.28, .95), 'white'),
+    ('Body', 'ball', (.2, .2, .2), (.2, -.28, .95), 'white'),
+    ('Body', 'box', (.12, .03, .05), (-.2, -.38, .95), 'black'),
+    ('Body', 'box', (.12, .03, .05), (.2, -.38, .95), 'black'),
+    *[('Limb_Tent%d' % (i + 1), 'cone', (.22, .22, 1.0), (p[0] * 1.2, p[1] * 1.2, -.18), 'red2', p, aim((p[0], p[1], -.45)), 6)
+      for i, p in enumerate(ring(6, .35, .45))],
+])
+
+build('Lobster', mirror([
+    ('Body', 'ball', (.9, 1.1, .6), (0, -.1, .55), 'red'),
+    *[('Body', 'ball', (.75 - i * .12, .4, .45 - i * .05), (0, .55 + i * .33, .45 - i * .04), 'red') for i in range(3)],
+    ('Body', 'box', (.6, .25, .05), (0, 1.55, .32), 'red2'),
+    *[('Body', 'box', (.45, .06, .06), (s * .5, y, .25), 'red', None, (0, s * 30, 0)) for s in (-1, 1) for y in (-.2, .1, .4)],
+    ('Limb_Head', 'ball', (.5, .4, .35), (0, -.15, 0), 'red', (0, -.6, .65)),
+    ('Limb_Head', 'cyl', (.03, .03, 1.0), (-.1, -.55, .3), 'red2', (0, -.6, .65), (-60, 0, -10), 5),
+    ('Limb_Head', 'cyl', (.03, .03, 1.0), (.1, -.55, .3), 'red2', (0, -.6, .65), (-60, 0, 10), 5),
+    ('Limb_Head', 'ball', (.09, .09, .09), (-.12, -.3, .15), 'black', (0, -.6, .65)),
+    ('Limb_Head', 'ball', (.09, .09, .09), (.12, -.3, .15), 'black', (0, -.6, .65)),
+    ('Limb_ClawL', 'cyl', (.15, .15, .6), (-.1, -.3, 0), 'red', (-.45, -.55, .5), (90, 0, 0), 6),
+    ('Limb_ClawL', 'ball', (.45, .6, .3), (-.15, -.8, .05), 'red2', (-.45, -.55, .5)),
+    ('Limb_ClawL', 'cone', (.18, .18, .35), (-.08, -1.2, .05), 'red2', (-.45, -.55, .5), (90, 0, 0), 5),
+]))
+
+# =====================================================================================  PLAYER
+build('Sailor', [
+    ('Body', 'box', (.22, .24, .8), (-.14, 0, .4), 'navy'),
+    ('Body', 'box', (.22, .24, .8), (.14, 0, .4), 'navy'),
+    ('Body', 'box', (.6, .38, .7), (0, 0, 1.15), 'coat'),
+    ('Body', 'box', (.62, .4, .08), (0, 0, .84), 'black'),
+    ('Body', 'box', (.16, .16, .6), (-.36, -.18, 1.2), 'coat', None, (60, 0, 0)),
+    ('Body', 'box', (.16, .16, .6), (.36, -.18, 1.2), 'coat', None, (60, 0, 0)),
+    ('Body', 'ball', (.14, .14, .14), (-.36, -.45, 1.05), 'skin'),
+    ('Body', 'ball', (.14, .14, .14), (.36, -.45, 1.05), 'skin'),
+    ('Body', 'ball', (.42, .42, .42), (0, 0, 1.72), 'skin'),
+    ('Body', 'cyl', (.46, .46, .12), (0, 0, 1.94), 'white', None, None, 10),
+    ('Body', 'cyl', (.47, .47, .05), (0, 0, 1.89), 'navy', None, None, 10),
+    ('Body', 'ball', (.05, .05, .05), (-.08, -.2, 1.76), 'black'),
+    ('Body', 'ball', (.05, .05, .05), (.08, -.2, 1.76), 'black'),
+], sockets=[('Gun', (.3, -.5, 1.15)), ('Melee', (-.36, -.45, 1.05))])
+
+# =====================================================================================  WEAPONS (grip at origin, pointing -Y)
+build('Revolver', [
+    ('Body', 'box', (.06, .1, .2), (0, .03, -.08), 'woodD', None, (-15, 0, 0)),
+    ('Body', 'box', (.08, .2, .11), (0, -.08, .03), 'greyD'),
+    ('Body', 'cyl', (.12, .12, .1), (0, -.1, .04), 'steel', None, (90, 0, 0), 6),
+    ('Body', 'cyl', (.045, .045, .3), (0, -.3, .06), 'steel', None, (90, 0, 0), 6),
+], sockets=[('Muzzle', (0, -.46, .06))])
+build('Scattergun', [
+    ('Body', 'box', (.08, .35, .12), (0, .2, -.02), 'wood'),
+    ('Body', 'box', (.09, .25, .11), (0, -.08, .02), 'greyD'),
+    ('Body', 'cyl', (.075, .075, .6), (0, -.5, .05), 'steel', None, (90, 0, 0), 6),
+    ('Body', 'box', (.1, .18, .08), (0, -.45, -.03), 'wood'),
+], sockets=[('Muzzle', (0, -.82, .05))])
+build('HarpoonGun', [
+    ('Body', 'box', (.1, .5, .12), (0, -.15, 0), 'greyD'),
+    ('Body', 'box', (.08, .25, .14), (0, .2, -.03), 'woodD'),
+    ('Body', 'cyl', (.03, .03, 1.0), (0, -.65, .1), 'steel', None, (90, 0, 0), 5),
+    ('Body', 'cone', (.09, .09, .16), (0, -1.2, .1), 'steel', None, (90, 0, 0), 5),
+], sockets=[('Muzzle', (0, -1.25, .1))])
+build('FlareGun', [
+    ('Body', 'box', (.07, .1, .2), (0, .03, -.08), 'orange', None, (-15, 0, 0)),
+    ('Body', 'box', (.09, .22, .12), (0, -.08, .03), 'orange'),
+    ('Body', 'cyl', (.11, .11, .25), (0, -.28, .05), 'orange2', None, (90, 0, 0), 8),
+], sockets=[('Muzzle', (0, -.42, .05))])
+
+build('Oar', [
+    ('Body', 'cyl', (.05, .05, 1.5), (0, -.55, 0), 'wood', None, (90, 0, 0), 6),
+    ('Body', 'box', (.26, .5, .03), (0, -1.45, 0), 'wood'),
+])
+build('Cutlass', [
+    ('Body', 'box', (.035, .85, .09), (0, -.55, 0), 'steel'),
+    ('Body', 'box', (.2, .05, .09), (0, -.1, 0), 'gold'),
+    ('Body', 'box', (.05, .18, .06), (0, .02, 0), 'woodD'),
+])
+build('Anchor', [
+    ('Body', 'cyl', (.07, .07, 1.0), (0, -.5, 0), 'greyD', None, (90, 0, 0), 6),
+    ('Body', 'box', (.5, .06, .06), (0, -.12, 0), 'greyD'),
+    ('Body', 'tor', (.4, .4, .5), (0, .06, 0), 'greyD', None, (0, 90, 0), 8),
+    ('Body', 'box', (.7, .08, .08), (0, -.98, 0), 'greyD'),
+    ('Body', 'cone', (.16, .08, .28), (-.36, -.86, 0), 'greyD', None, (-90, 0, 0), 4),
+    ('Body', 'cone', (.16, .08, .28), (.36, -.86, 0), 'greyD', None, (-90, 0, 0), 4),
+])
+build('BoatHook', [
+    ('Body', 'cyl', (.04, .04, 1.7), (0, -.75, 0), 'wood', None, (90, 0, 0), 6),
+    ('Body', 'box', (.03, .22, .03), (0, -1.7, 0), 'steel'),
+    ('Body', 'box', (.03, .03, .2), (0, -1.8, .08), 'steel'),
+    ('Body', 'cone', (.04, .04, .1), (0, -1.75, .2), 'steel', None, (-60, 0, 0), 4),
+])
+build('Spade', [
+    ('Body', 'cyl', (.045, .045, .65), (0, -.3, 0), 'red', None, (90, 0, 0), 6),
+    ('Body', 'box', (.16, .045, .045), (0, .04, 0), 'red'),
+    ('Body', 'box', (.24, .3, .03), (0, -.75, 0), 'red2'),
+])
+
+# =====================================================================================  PROPS
+build('WallSegment', [
+    ('Body', 'box', (4, 1, 1.2), (0, 0, .6), 'stoneD'),
+    ('Body', 'box', (4.08, 1.1, .12), (0, 0, 1.26), 'stone'),
+    ('Body', 'box', (.7, 1.0, .38), (-1.3, 0, 1.5), 'stone'),
+    ('Body', 'box', (.7, 1.0, .38), (1.3, 0, 1.5), 'stone'),
+    *[('Body', 'box', (.6, .06, .3), (x, -.5, z), 'stone') for x, z in ((-1.4, .35), (.2, .75), (1.2, .3), (-.5, .8), (1.6, .9))],
+])
+build('Tower', [
+    ('Body', 'cyl', (2.4, 2.4, 4), (0, 0, 2), 'stoneD', None, None, 10),
+    ('Body', 'cyl', (2.7, 2.7, .3), (0, 0, 4.1), 'stone', None, None, 10),
+    *[('Body', 'box', (.5, .5, .5), (p[0], p[1], 4.5), 'stone') for p in ring(8, 1.15, 0)],
+    ('Body', 'cone', (2.6, 2.6, 1.8), (0, 0, 5.6), 'red', None, None, 10),
+])
+build('Lighthouse', [
+    *[('Body', 'cyl', (2.4 - i * .2, 2.4 - i * .2, 1.6), (0, 0, .8 + i * 1.6), 'white' if i % 2 == 0 else 'red', None, None, 10) for i in range(6)],
+    ('Body', 'cyl', (1.6, 1.6, 1.2), (0, 0, 10.2), 'ice', None, None, 8),
+    ('Body', 'cone', (1.9, 1.9, 1.2), (0, 0, 11.4), 'red', None, None, 8),
+], sockets=[('Lamp', (0, 0, 10.2))])
+build('ShopKiosk', [
+    ('Body', 'box', (2.4, 1.0, 1.0), (0, 0, .5), 'wood'),
+    ('Body', 'box', (2.5, 1.1, .08), (0, 0, 1.02), 'woodD'),
+    *[('Body', 'cyl', (.1, .1, 2.4), (x, y, 1.2), 'woodD', None, None, 6) for x in (-1.15, 1.15) for y in (-.45, .45)],
+    *[('Body', 'box', (.62, 1.4, .06), (-.93 + i * .62, -.1, 2.42), 'red' if i % 2 == 0 else 'white', None, (-12, 0, 0)) for i in range(4)],
+    ('Body', 'box', (1.6, .06, .45), (0, -.62, 1.95), 'navy'),
+    ('Body', 'box', (.4, .4, .4), (-.7, 0, 1.25), 'gold'),
+    ('Body', 'box', (.3, .5, .3), (.6, 0, 1.2), 'greyD'),
+])
+build('FishmongerCart', [
+    ('Body', 'box', (2.0, 1.0, .7), (0, 0, .75), 'wood'),
+    ('Body', 'box', (1.8, .85, .15), (0, 0, 1.15), 'ice'),
+    *[('Body', 'cyl', (.7, .7, .1), (x, 0, .35), 'woodD', None, (0, 90, 0), 8) for x in (-1.05, 1.05)],
+    ('Body', 'ball', (.6, .25, .2), (-.4, 0, 1.3), 'teal'),
+    ('Body', 'cone', (.25, .1, .25), (-.1, 0, 1.3), 'teal', None, (0, -90, 0), 4),
+    ('Body', 'ball', (.5, .22, .18), (.4, .1, 1.3), 'orange2'),
+    ('Body', 'box', (.08, .08, 1.4), (-.95, .45, 1.6), 'woodD'),
+    ('Body', 'box', (1.0, .06, .45), (-.5, .45, 2.2), 'blue'),
+])
+build('Bell', [
+    ('Body', 'box', (.15, .15, 2.4), (0, 0, 1.2), 'woodD'),
+    ('Body', 'box', (.9, .15, .15), (.35, 0, 2.35), 'woodD'),
+    ('Body', 'cone', (.55, .55, .55), (.65, 0, 1.95), 'gold', None, None, 10),
+    ('Body', 'ball', (.14, .14, .14), (.65, 0, 1.68), 'greyD'),
+])
+build('BeachUmbrella', [
+    ('Body', 'cyl', (.06, .06, 2.2), (0, 0, 1.1), 'white', None, None, 6),
+    ('Body', 'cone', (2.4, 2.4, .6), (0, 0, 2.3), 'red', None, None, 8),
+    ('Body', 'cone', (1.2, 1.2, .3), (0, 0, 2.48), 'white', None, None, 8),
+])
+build('Towel', [('Body', 'box', (1.0, 1.8, .03), (0, 0, .015), 'blue'), ('Body', 'box', (1.0, .3, .032), (0, .5, .016), 'white')])
+build('PalmTree', [
+    *[('Body', 'cyl', (.35 - i * .03, .35 - i * .03, 1.0), (i * .12, 0, .5 + i * .95), 'brown', None, (0, 7, 0), 6) for i in range(5)],
+    *[('Body', 'box', (.4, 2.0, .05), (.6 + math.cos(a) * .8, math.sin(a) * .8, 4.9), 'leaf', None, (-20 if i % 2 else 20, 0, math.degrees(a) + 90))
+      for i, a in enumerate([k * math.pi / 3 for k in range(6)])],
+    *[('Body', 'ball', (.25, .25, .25), (.6 + p[0], p[1], 4.75), 'brown') for p in ring(3, .2, 0)],
+])
+build('Rock', [('Body', 'ball', (1.4, 1.1, .8), (0, 0, .3), 'grey'), ('Body', 'ball', (.7, .6, .5), (.5, .3, .2), 'greyD')])
+build('Torch', [('Body', 'cyl', (.1, .1, 1.8), (0, 0, .9), 'woodD', None, None, 6), ('Body', 'cyl', (.25, .25, .2), (0, 0, 1.85), 'greyD', None, None, 6),
+                ('Body', 'cone', (.22, .22, .45), (0, 0, 2.15), 'flame', None, None, 5)], sockets=[('Flame', (0, 0, 2.15))])
+build('Crate', [('Body', 'box', (.8, .8, .8), (0, 0, .4), 'wood'), ('Body', 'box', (.82, .82, .12), (0, 0, .4), 'woodD'), ('Body', 'box', (.12, .82, .82), (0, 0, .4), 'woodD')])
+
+# =====================================================================================  WEBSITE MODELS (food, gas can, tire, glizzy)
+def import_glb(fname, target_size, name, axis_hint=None):
+    """Import a website .glb, normalise its size so its largest side is target_size, centre it on the ground."""
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.ops.import_scene.gltf(filepath=os.path.join(SRC, fname))
+    objs = [o for o in bpy.context.selected_objects]
+    for o in objs: o.name = name + '_' + o.name        # free the plain name for the export root
+    meshes = [o for o in objs if o.type == 'MESH']
+    # Keep imported models game-light: decimate anything above ~8k faces in total (the sculpted Glizzy Monster).
+    # Weld duplicate vertices first: the sculpt is stored as split triangles, which decimation would shred.
+    for o in meshes:
+        bm = bmesh.new(); bm.from_mesh(o.data)
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+        bm.to_mesh(o.data); bm.free()
+    faces = sum(len(o.data.polygons) for o in meshes)
+    if faces > 8000:
+        for o in meshes:
+            mod = o.modifiers.new('Decimate', 'DECIMATE')
+            mod.ratio = 8000 / faces
+            bpy.context.view_layer.objects.active = o
+            bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.context.view_layer.update()
+    pts = [o.matrix_world @ Vector(c) for o in meshes for c in o.bound_box]
+    lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
+    hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
+    s = target_size / max(hi - lo)
+    root = bpy.data.objects.new(name, None)
+    bpy.context.scene.collection.objects.link(root)
+    for o in objs:
+        if o.parent is None:
+            o.parent = root
+    root.scale = (s, s, s)
+    root.location = (-(lo.x + hi.x) / 2 * s, -(lo.y + hi.y) / 2 * s, -lo.z * s)
+    bpy.context.view_layer.update()
+    # bake the normalisation into the children so the exported root is clean
+    for o in root.children_recursive:
+        mw = o.matrix_world.copy()
+        o.parent = None
+        o.matrix_world = mw
+    root.scale = (1, 1, 1); root.location = (0, 0, 0)
+    for o in objs:
+        if o.parent is None: o.parent = root
+    for o in meshes:
+        o.name = 'Body' if len(meshes) == 1 else o.name
+    return root, (hi - lo) * s
+
+for fname, size, name in (('burger.glb', .35, 'Burger'), ('fries.glb', .32, 'Fries'), ('cup.glb', .38, 'Cup'), ('hotdog.glb', .42, 'Hotdog'),
+                          ('donut.glb', .3, 'Donut'), ('gascan.glb', .6, 'GasCan'), ('tire.glb', .8, 'Tire'), ('glizzymonster.glb', 3.2, 'GlizzyMonster')):
+    root, dims = import_glb(fname, size, name)
+    if name == "GlizzyMonster":   # the source sculpt is untextured white: make it a sausage
+        for o in root.children_recursive:
+            for m in (o.data.materials if o.type == "MESH" else []):
+                m.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (.62, .16, .08, 1)
+                m.diffuse_color = (.62, .16, .08, 1)
+    export(root)
+
+# Hotdog stand: a cart on two of the website's tires, with ketchup, mustard and ??? sauce bottles on the counter.
+root, dims = import_glb('tire.glb', .7, 'TireTmp')
+tire_parts = list(root.children_recursive)
+bpy.data.objects.remove(root, do_unlink=True)
+thin = min(range(3), key=lambda k: dims[k])          # the axle is the tire's thinnest axis
+stand = bpy.data.objects.new('HotdogStand', None)
+bpy.context.scene.collection.objects.link(stand)
+# Two wheels on the cart's long sides: turn the tire so its axle (thinnest axis) runs along Y.
+rot = {0: Euler((0, 0, math.pi / 2)), 1: Euler((0, 0, 0)), 2: Euler((math.pi / 2, 0, 0))}[thin].to_matrix().to_4x4()
+centre = Matrix.Translation((0, 0, -dims[2] / 2))
+for side in (-1, 1):
+    for o in tire_parts:
+        d = o if side == -1 else o.copy()
+        if side == 1:
+            if o.data: d.data = o.data.copy()
+            bpy.context.scene.collection.objects.link(d)
+        d.matrix_world = Matrix.Translation((.35, side * .55, .36)) @ rot @ centre @ o.matrix_world
+        d.name = 'Tire_' + ('L' if side < 0 else 'R')
+        d.parent = stand
+bpy.ops.object.select_all(action='DESELECT')
+for p in [
+    ('Cart', 'box', (1.8, .9, .8), (0, 0, .95), 'red'), ('Cart', 'box', (1.82, .92, .15), (0, 0, .75), 'white'),
+    ('Cart', 'box', (1.9, 1.0, .06), (0, 0, 1.38), 'steel'), ('Cart', 'cyl', (.06, .06, 1.8), (.6, .3, 2.2), 'white', None, None, 6),
+    ('Cart', 'cone', (2.2, 2.2, .55), (.6, .3, 3.1), 'yellow', None, None, 8), ('Cart', 'cone', (1.1, 1.1, .28), (.6, .3, 3.27), 'red', None, None, 8),
+    ('Cart', 'cyl', (.12, .12, .3), (-.6, -.25, 1.56), 'red', None, None, 6), ('Cart', 'cone', (.08, .08, .1), (-.6, -.25, 1.76), 'red', None, None, 5),
+    ('Cart', 'cyl', (.12, .12, .3), (-.4, -.25, 1.56), 'yellow', None, None, 6), ('Cart', 'cone', (.08, .08, .1), (-.4, -.25, 1.76), 'yellow', None, None, 5),
+    ('Cart', 'cyl', (.12, .12, .3), (-.2, -.25, 1.56), 'purple', None, None, 6), ('Cart', 'cone', (.08, .08, .1), (-.2, -.25, 1.76), 'purple', None, None, 5),
+    ('Cart', 'box', (.9, .05, .3), (0, -.47, 1.0), 'yellow'),
+]:
+    p = list(p) + [None] * (8 - len(p))
+    o = piece(p[0], p[1], p[2], p[3], p[4], (0, 0, 0), p[6] or (0, 0, 0), p[7] or 8)
+    o.parent = stand
+carts = [o for o in stand.children if o.name.startswith('Cart')]
+bpy.ops.object.select_all(action='DESELECT')
+for o in carts: o.select_set(True)
+bpy.context.view_layer.objects.active = carts[0]
+bpy.ops.object.join()
+bpy.context.view_layer.objects.active.name = 'Body'
+export(stand)
+
+print('TIDEWALL_MODELS_DONE', sorted(os.listdir(OUT)))
