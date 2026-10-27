@@ -6,6 +6,8 @@
 //   TideWall.exe -tidewall-join <address> -tidewall-capture <folder>
 //                                                           join that host as a client, screenshot what the
 //                                                           client sees, log TIDEWALL_CLIENT_OK, quit
+//   add -tidewall-relay to the host to host through Unity Relay instead (it logs TIDEWALL_JOIN_CODE <code>),
+//   and use -tidewall-join-code <code> instead of -tidewall-join on the client
 // The tour never saves (it starts unsaved runs) and never changes settings.
 using System;
 using System.Collections;
@@ -18,7 +20,8 @@ namespace TideWall
 {
     public class DemoCapture : MonoBehaviour
     {
-        string dir, join;
+        string dir, join, joinCode;
+        bool relay;
         float hostSeconds = -1;
         Gamepad pad1, pad2;
         Vector2 look1;
@@ -30,12 +33,15 @@ namespace TideWall
             if (FindAnyObjectByType<DemoCapture>() != null) return;
             var args = Environment.GetCommandLineArgs();
             int c = Array.IndexOf(args, "-tidewall-capture"), h = Array.IndexOf(args, "-tidewall-host-demo"), j = Array.IndexOf(args, "-tidewall-join");
+            int jc = Array.IndexOf(args, "-tidewall-join-code");
             if (c < 0 && h < 0) return;
             var d = new GameObject("DemoCapture").AddComponent<DemoCapture>();
             DontDestroyOnLoad(d.gameObject);
             d.dir = c >= 0 && c + 1 < args.Length ? args[c + 1] : "Captures";
             if (h >= 0) d.hostSeconds = h + 1 < args.Length && float.TryParse(args[h + 1], out var s) ? s : 60;
             if (j >= 0 && j + 1 < args.Length) d.join = args[j + 1];
+            if (jc >= 0 && jc + 1 < args.Length) d.joinCode = args[jc + 1];
+            d.relay = Array.IndexOf(args, "-tidewall-relay") >= 0;
         }
 
         void Update()
@@ -47,7 +53,7 @@ namespace TideWall
         IEnumerator Start()
         {
             if (hostSeconds > 0) return Host();
-            if (join != null) return Join();
+            if (join != null || joinCode != null) return Join();
             return Tour();
         }
 
@@ -187,7 +193,15 @@ namespace TideWall
             yield return new WaitForSecondsRealtime(1f);
             var gm = GameManager.I;
             // With a room password, so the check also covers the challenge-response handshake
-            if (Net.StartHost(NetProtocol.DefaultPort, "Host Bot", DemoPassword, out var error) == null) { Debug.LogError($"TIDEWALL_HOST_FAILED {error}"); Application.Quit(1); yield break; }
+            if (relay)
+            {
+                bool done = false; string relayError = null;
+                Net.StartRelayHost("Host Bot", DemoPassword, (host, why) => { relayError = why; done = true; });
+                for (float t = 0; !done && t < 30; t += Time.unscaledDeltaTime) yield return null;
+                if (!Net.IsHost) { Debug.LogError($"TIDEWALL_HOST_FAILED {relayError ?? "relay timed out"}"); Application.Quit(1); yield break; }
+                Debug.Log($"TIDEWALL_JOIN_CODE {Net.Host.JoinCode}");
+            }
+            else if (Net.StartHost(NetProtocol.DefaultPort, "Host Bot", DemoPassword, out var error) == null) { Debug.LogError($"TIDEWALL_HOST_FAILED {error}"); Application.Quit(1); yield break; }
             gm.StartRun(null, 0);
             pad1 = InputSystem.AddDevice<Gamepad>();
             var p = gm.Players.Join(new InputDevice[] { pad1 });
@@ -213,8 +227,9 @@ namespace TideWall
             yield return new WaitForSecondsRealtime(1.5f);
             var gm = GameManager.I;
             pad1 = InputSystem.AddDevice<Gamepad>();
-            Net.StartClient(join, NetProtocol.DefaultPort, "Client Bot", DemoPassword, new InputDevice[] { pad1 });
-            float give = Time.realtimeSinceStartup + 20, logT = 0;
+            if (joinCode != null) Net.StartRelayClient(joinCode, "Client Bot", DemoPassword, new InputDevice[] { pad1 });
+            else Net.StartClient(join, NetProtocol.DefaultPort, "Client Bot", DemoPassword, new InputDevice[] { pad1 });
+            float give = Time.realtimeSinceStartup + 30, logT = 0;
             while (Time.realtimeSinceStartup < give && (gm == null || gm.Players.Count < 2 || !gm.Players.All.Exists(x => x.Kind == PlayerKind.LocalProxy)))
             {
                 yield return new WaitForSecondsRealtime(.25f);

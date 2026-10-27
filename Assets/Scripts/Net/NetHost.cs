@@ -108,6 +108,7 @@ namespace TideWall
                     case NetLink.EventKind.Connected:
                         if (clients.Count >= NetProtocol.MaxConnections || LockedOut(e.Peer)) { link.Disconnect(e.Peer); break; }
                         clients.Add(new Client { peer = e.Peer, connectedAt = Time.unscaledTime });
+                        Debug.Log($"TideWall net: client {e.Peer} connected from {link.Address(e.Peer)}");
                         break;
                     case NetLink.EventKind.Disconnected:
                     {

@@ -101,12 +101,14 @@ namespace TideWall
                 {
                     case NetLink.EventKind.Connected:
                     {
+                        Debug.Log($"TideWall net: connected to {Address}");
                         hostPeer = e.Peer;
                         var hello = NetIO.Begin(Msg.Hello); hello.Write(NetProtocol.Version); hello.Write(nick ?? "Sailor"); hello.Write(nonce);
                         Send(Channel.Reliable, hello);
                         break;
                     }
                     case NetLink.EventKind.Disconnected:
+                        Debug.Log($"TideWall net: disconnected from {Address} ({Status})");
                         if (Status == State.Connecting) Fail(Error ?? $"No answer from {Address}.");
                         else if (Status == State.Connected) Lost(Error ?? "Lost the connection to the host.");
                         break;
