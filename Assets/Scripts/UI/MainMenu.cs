@@ -98,7 +98,7 @@ namespace TideWall
             var at = keep != null && keep.Sockets.TryGetValue("Camera", out var s) ? s.position : new Vector3(0, 6.6f, -33);
             // Turned a little left, so the window sits to the right of the menu panel
             cam.transform.SetPositionAndRotation(at, Quaternion.LookRotation(new Vector3(-10, 2.5f, 14) - at));
-            scenery = MenuScenery.Build(transform);
+            scenery = MenuScenery.Build(transform, cam.transform);
 
             // The panel
             canvas = Ui.CanvasFor(null, "Main Menu", 50);
@@ -154,9 +154,11 @@ namespace TideWall
             var m = new Menu { Title = "" };
             var latest = SaveSystem.Latest();
             if (latest != null)
-                m.Add("Continue run", $"Day {latest.day}", $"Slot {latest.slot}: {latest.Summary}.", pick: () => StartOffline(latest, latest.slot));
-            m.Add("New run", ">", "Start a new run. It saves every morning so you can stop and come back, but when the powerplant melts down the run (and its save) is over.",
-                  open: () => Slots("NEW RUN", true, (save, slot) => StartOffline(null, slot)));
+                m.Add("Continue run", Where(latest), $"Slot {latest.slot}: {latest.Summary}.", pick: () => StartOffline(latest, latest.slot));
+            m.Add("Part I · The Wall", ">", "Start a new run. It saves every morning so you can stop and come back, but when the powerplant melts down the run (and its save) is over.",
+                  open: () => Slots("PART I · THE WALL", true, (save, slot) => StartOffline(null, slot)));
+            m.Add("Part II · The Undertow", ">", "The sea steps back for one night. March out across the seabed, five stages deep, before the tide comes home. Saves between stages.",
+                  open: () => Slots("PART II · THE UNDERTOW", true, (save, slot) => StartOffline(Expedition.NewSave(gm, slot, 0), slot)));
             if (latest != null)
                 m.Add("Other runs", ">", "Continue a run from another slot.", open: () => Slots("CONTINUE A RUN", false, (save, slot) => StartOffline(save, slot)));
             m.Add("Host online game", ">", "Play with friends on other computers. You host; they join with your address (or find you on the same network).", open: HostMenu);
@@ -166,8 +168,10 @@ namespace TideWall
             m.Add("Quit", null, "Close TideWall.", pick: Application.Quit);
             var legacy = Legacy.Load();
             m.Header("");
-            m.Header(legacy.runs > 0 ? $"<size=13>Runs: {legacy.runs} · best: day {legacy.bestDay}, level {legacy.bestLevel}</size>"
+            m.Header(legacy.runs > 0 ? $"<size=13>Runs: {legacy.runs} · best: day {legacy.bestDay}, level {legacy.bestLevel}" +
+                                       (legacy.bestStage > 0 ? $", stage {legacy.bestStage} of the Undertow" : "") + "</size>"
                                      : "<size=13>Protect the Nuclear Sand Powerplant. Good luck.</size>");
+            if (legacy.ShardCount > 0) m.Header($"<size=13>Spiral Shards: {legacy.ShardCount} of {gm.Campaign.shardCount}</size>");
             m.Header("<size=13>Others join any time: press a button on a free controller (or any key).</size>");
             m.FirstSelectable();
             return m;
@@ -181,7 +185,7 @@ namespace TideWall
                 int slot = i;
                 var d = SaveSystem.Load(slot);
                 if (!forNew && d == null) continue;
-                string right = d == null ? "empty" : forNew ? "overwrite" : $"Day {d.day}";
+                string right = d == null ? "empty" : forNew ? "overwrite" : Where(d);
                 string info = d == null ? "An empty slot." : $"{d.Summary}. Saved {Ago(d.savedAt)}.";
                 m.Add($"Slot {slot}", right, forNew && d != null ? info + " Starting here replaces it." : info, pick: () => go(d, slot));
             }
@@ -189,6 +193,9 @@ namespace TideWall
             m.FirstSelectable();
             return m;
         }
+
+        /// <summary>A save's place in a few characters: its day in Part I, its stage in Part II.</summary>
+        static string Where(SaveData d) => d.part == "wall" ? $"Day {d.day}" : $"Stage {d.stage + 1}";
 
         static string Ago(string iso)
         {
@@ -205,7 +212,7 @@ namespace TideWall
                 int slot = i;
                 var d = SaveSystem.Load(slot);
                 if (d == null) continue;
-                m.Add($"Slot {slot}", $"Day {d.day}", $"{d.Summary}. You will be asked to confirm.", pick: () => Confirm($"Delete slot {slot}?", () => { SaveSystem.Delete(slot); Sfx.Play("deny"); Open(Root()); }));
+                m.Add($"Slot {slot}", Where(d), $"{d.Summary}. You will be asked to confirm.", pick: () => Confirm($"Delete slot {slot}?", () => { SaveSystem.Delete(slot); Sfx.Play("deny"); Open(Root()); }));
             }
             m.Add("Back", null, null, open: Root);
             m.FirstSelectable();
@@ -227,7 +234,8 @@ namespace TideWall
             var s = Settings.Current;
             var m = new Menu { Title = "HOST ONLINE GAME", Parent = Root, Rebuild = HostMenu };
             Action<SaveData, int> go = (save, slot) => { if (hostWithCode) StartRelayHost(save, slot); else StartHost(save, slot); };
-            m.Add("Host a new run", ">", "Saves to a slot like a normal run.", open: () => Slots("HOST A NEW RUN", true, go));
+            m.Add("Host Part I", ">", "Saves to a slot like a normal run.", open: () => Slots("HOST PART I", true, go));
+            m.Add("Host Part II", ">", "The Undertow, together. Saves between stages.", open: () => Slots("HOST PART II", true, (save, slot) => go(Expedition.NewSave(gm, slot, 0), slot)));
             if (SaveSystem.Latest() != null)
                 m.Add("Host a saved run", ">", "Continue a run with friends.", open: () => Slots("HOST A SAVED RUN", false, go));
             var mode = m.Add("Friends join by", hostWithCode ? "< Join code >" : "< LAN / address >",
@@ -293,6 +301,15 @@ namespace TideWall
         void StartOffline(SaveData save, int slot)
         {
             var devs = PlayerDevices();
+            if (save != null && save.part != "wall")
+            {
+                // Part II: its stage is a scene of its own; whoever is here comes along (an online host takes its clients)
+                var req = new RunRequest { save = save, slot = slot };
+                if (devs.Length > 0) req.devices.Add(devs);
+                Hide();
+                GameManager.Load(Expedition.SceneFor(gm.Campaign, save), req);
+                return;
+            }
             gm.StartRun(save, slot);
             if (devs.Length > 0) gm.Players.Join(devs);
         }
@@ -349,7 +366,7 @@ namespace TideWall
         {
             if (!shown) return;
             if (gm.State != GameState.MainMenu) { Hide(); return; }
-            World.SetupCameraSky(cam, gm.Phases.SkyColor);
+            Level.SetupCameraSky(cam, gm.Phases.SkyColor);
             NetDiscovery.Poll();
             if (Net.IsClient && Net.Client.Status == NetClient.State.Failed)
             {

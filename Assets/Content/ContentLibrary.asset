@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: TideWall::TideWall.ContentLibrary
   database: {fileID: 11400000, guid: ee292b8db70a50541b5ac84bd7b8a103, type: 2}
   phases: {fileID: 11400000, guid: b5ba14dba43d08844ad83e734b735d16, type: 2}
+  campaign: {fileID: 11400000, guid: e6670a6e2c186d24282b30582f535e33, type: 2}
   lit: {fileID: 2100000, guid: d7c4a7056d3c8264e98fe17b4f7e0369, type: 2}
   litTransparent: {fileID: 2100000, guid: 711edcb7c4b4d5f47a5280e516789f2d, type: 2}
   unlit: {fileID: 2100000, guid: e01348bbb013c944fa77b701d7d8500a, type: 2}
@@ -23,12 +24,16 @@ MonoBehaviour:
   models:
   - name: Anchor
     prefab: {fileID: 919132149155446097, guid: fe35e4f2fdbaa3a41a0842e23962cde5, type: 3}
+  - name: Arch
+    prefab: {fileID: 919132149155446097, guid: 2670a7faec7b2994eb95ab770ed15d1f, type: 3}
   - name: BaitBucket
     prefab: {fileID: 919132149155446097, guid: 23101b92737e04f45b9cb23b7f35c19a, type: 3}
   - name: Barricade
     prefab: {fileID: 919132149155446097, guid: cfefcb4b513ed0945a821f8abd04d196, type: 3}
   - name: BeachUmbrella
     prefab: {fileID: 919132149155446097, guid: a7ceb43fe4695324b838fcc05c421017, type: 3}
+  - name: Beacon
+    prefab: {fileID: 919132149155446097, guid: e90cab00c5ba30045ad71bfff2b24314, type: 3}
   - name: Bell
     prefab: {fileID: 919132149155446097, guid: 14fd68b7bf0e4054c9dac2b6c907f5cd, type: 3}
   - name: Blowtorch
@@ -37,6 +42,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: 9cf5860dba2519144848daff29e7ddf6, type: 3}
   - name: Breaker
     prefab: {fileID: 919132149155446097, guid: 92375c46467202945a4285f94a4f91e4, type: 3}
+  - name: BroodSpire
+    prefab: {fileID: 919132149155446097, guid: b81de2080c920e34dab3ae3540b6c77b, type: 3}
   - name: Burger
     prefab: {fileID: 919132149155446097, guid: 89bd0c927446381438c46b79ae609740, type: 3}
   - name: Clam
@@ -61,6 +68,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: b5a0041c63e8e3048850eae9469d40fa, type: 3}
   - name: EelCaster
     prefab: {fileID: 919132149155446097, guid: 75fb67cc73fbe714eb89d47fd6f22e09, type: 3}
+  - name: ExitGate
+    prefab: {fileID: 919132149155446097, guid: 438dcfbdd372d9741941c4ca7606ac0b, type: 3}
   - name: FishmongerCart
     prefab: {fileID: 919132149155446097, guid: 7947b88818a439a468ab4c5713d3290c, type: 3}
   - name: FlareGun
@@ -77,6 +86,10 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: 490a2bfd572cb134c9d21cc27c8a616d, type: 3}
   - name: HarpoonTurret
     prefab: {fileID: 919132149155446097, guid: eccb47229c23c3d4aabc85fc21f2983c, type: 3}
+  - name: Heart
+    prefab: {fileID: 919132149155446097, guid: 280e670f088b4de48b1d25af4bcf4547, type: 3}
+  - name: HeartCradle
+    prefab: {fileID: 919132149155446097, guid: c1768f7123aca834b829c2c79ac4b01c, type: 3}
   - name: HermitCrab
     prefab: {fileID: 919132149155446097, guid: 6f9172c765107cc4e8b5b41768929bde, type: 3}
   - name: Hotdog
@@ -97,6 +110,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: a55e625993046164e91ceadcf3956e61, type: 3}
   - name: Longrifle
     prefab: {fileID: 919132149155446097, guid: f589d586cdc99814d92059fc1a57e1e8, type: 3}
+  - name: MuralSlab
+    prefab: {fileID: 919132149155446097, guid: ff454624852f9b047a3587316e640eda, type: 3}
   - name: Oar
     prefab: {fileID: 919132149155446097, guid: 6819e81d4ed86cc47aee1722e100b1f8, type: 3}
   - name: Octopus
@@ -107,6 +122,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: 24b46651c5318b14fb9f83e29e2500ce, type: 3}
   - name: PearlCannon
     prefab: {fileID: 919132149155446097, guid: 6e457df40f520ce4cbe1766e40804079, type: 3}
+  - name: PetalSeat
+    prefab: {fileID: 919132149155446097, guid: cc000478a70e73645880b1ee6fb11363, type: 3}
   - name: Powerplant
     prefab: {fileID: 919132149155446097, guid: eb12c2159fee3de45a9ac51c6c38ad0d, type: 3}
   - name: Puffer
@@ -125,6 +142,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: b9a5fec2e473bcd448f4f0ddd005b03a, type: 3}
   - name: Scattergun
     prefab: {fileID: 919132149155446097, guid: aed2030b2210dd745af89413fe962e28, type: 3}
+  - name: ShardStone
+    prefab: {fileID: 919132149155446097, guid: 9e2a8941b7a93c442a1eb297a442e1ad, type: 3}
   - name: Shark
     prefab: {fileID: 919132149155446097, guid: 63e5394b55cc45c498a8f4d6fea30654, type: 3}
   - name: Shell
@@ -137,8 +156,12 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: 38381f18eef341240a11eb72a93e2cec, type: 3}
   - name: Starfish
     prefab: {fileID: 919132149155446097, guid: fd44c1633504c3843aceef73406acc69, type: 3}
+  - name: SupplyCache
+    prefab: {fileID: 919132149155446097, guid: 9f72022103113344287221702053671d, type: 3}
   - name: Surfboard
     prefab: {fileID: 919132149155446097, guid: a2ab8f3dbf5cef94ca77782372461de6, type: 3}
+  - name: Tidemother
+    prefab: {fileID: 919132149155446097, guid: f6f0a9dab3395194abb2cc345b6e98ef, type: 3}
   - name: Tire
     prefab: {fileID: 919132149155446097, guid: dc86acc330ad68449aa1b74c2d132399, type: 3}
   - name: Torch
@@ -167,6 +190,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: 7fce8d55f35551b458075b9981f70f3a, type: 3}
   - name: WallSegment
     prefab: {fileID: 919132149155446097, guid: 5dc9da91b016bfc4884922df31c481c4, type: 3}
+  - name: WreckHull
+    prefab: {fileID: 919132149155446097, guid: a770be7820be89941b6b4ed0b41f340d, type: 3}
   sounds:
   - name: bell
     clip: {fileID: 8300000, guid: c40a87b8e0bc3674d971351856720feb, type: 3}
@@ -224,3 +249,28 @@ MonoBehaviour:
     clip: {fileID: 8300000, guid: e7e51bd909381314cac44baf1d4bc1ae, type: 3}
   - name: zap
     clip: {fileID: 8300000, guid: 5b32635b5a628864cb17d24264b02124, type: 3}
+  glyphs:
+  - name: spiral
+    texture: {fileID: 2800000, guid: 8ad1367c3d8a7f545a5167d821adf88d, type: 3}
+  - name: crest
+    texture: {fileID: 2800000, guid: 983f40db46b588342b4fb3e166a45467, type: 3}
+  - name: mark
+    texture: {fileID: 2800000, guid: 8ea5b07a357cf834e830dc2c06453609, type: 3}
+  - name: petals
+    texture: {fileID: 2800000, guid: edcc4bec8039c8f4a8e12bb8c48c6d09, type: 3}
+  - name: tally
+    texture: {fileID: 2800000, guid: 0e3665fdbf6b134468991805d7a25554, type: 3}
+  - name: hand
+    texture: {fileID: 2800000, guid: 669d36e2e06a15d4b91d24189bf9c0ef, type: 3}
+  - name: eye
+    texture: {fileID: 2800000, guid: 778883f9d9689d54c81dc1b35c6e5a5f, type: 3}
+  - name: heart
+    texture: {fileID: 2800000, guid: 95c3273875b91a7418eb72b20f73e3f8, type: 3}
+  - name: wave
+    texture: {fileID: 2800000, guid: 82dcd0dce7c3641429520edc1b996548, type: 3}
+  - name: figure
+    texture: {fileID: 2800000, guid: 3bf0682ff2e7a9444b87f63a250ac3b4, type: 3}
+  - name: keep
+    texture: {fileID: 2800000, guid: 8a54bae95cb59e847a434b7e20ee7f13, type: 3}
+  - name: boat
+    texture: {fileID: 2800000, guid: 048c5bcd700b06d4a8158b8f81670e55, type: 3}

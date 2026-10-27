@@ -249,6 +249,7 @@ namespace TideWall
         {
             c.welcomed = true;
             var w = NetIO.Begin(Msg.Welcome); w.Write(c.peer); w.Write(Nick);
+            w.Write(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);   // where the game is (a Part II stage?)
             link.Send(c.peer, Channel.Reliable, w.Bytes());
         }
 
@@ -333,6 +334,10 @@ namespace TideWall
         public void Toast(Player p, string msg, Color color) => For(p, true, NetEvent.Toast, w => { w.Write((byte)p.Index); w.Write(msg ?? ""); w.Write(color); });
         public void Shake(Player p, float amount) => For(p, false, NetEvent.Shake, w => { w.Write((byte)p.Index); w.Write(amount); });
         public void HitMarker(Player p, bool crit) => For(p, false, NetEvent.Hit, w => { w.Write((byte)p.Index); w.Write(crit); });
+        /// <summary>A Spiral Shard was found: everyone keeps it.</summary>
+        public void Shard(int stage) => Global(true, NetEvent.Shard, w => w.Write((byte)stage));
+        /// <summary>The Heart was answered: everyone sees the ending.</summary>
+        public void Ending(string ending) { Global(true, NetEvent.Ending, w => w.Write(ending ?? "")); FlushEvents(); }
 
         public void SendGameOver(string reason)
         {
@@ -341,11 +346,11 @@ namespace TideWall
             foreach (var c in clients) if (c.welcomed) link.Send(c.peer, Channel.Reliable, w.Bytes());
         }
 
-        /// <summary>The host is restarting the run: clients reload too and wait for their slots.</summary>
-        public void SendReload()
+        /// <summary>The host is going to a scene (a new run, the next stage): clients go too and wait for their slots.</summary>
+        public void SendReload(string scene)
         {
             FlushEvents();
-            var w = NetIO.Begin(Msg.Reload);
+            var w = NetIO.Begin(Msg.Reload); w.Write(scene ?? "");
             foreach (var c in clients) if (c.welcomed) link.Send(c.peer, Channel.Reliable, w.Bytes());
         }
 
@@ -386,7 +391,8 @@ namespace TideWall
             if (beaconT <= 0)
             {
                 beaconT = 1;
-                NetDiscovery.Beacon(Nick, Port, JoinCode ?? "", $"Day {gm.Phases.Day} · {gm.Players.Count}/{PlayerManager.MaxPlayers} players{(HasPassword ? " · password" : "")}");
+                string where = gm.Assault ? gm.Expedition.Stage.title : $"Day {gm.Phases.Day}";
+                NetDiscovery.Beacon(Nick, Port, JoinCode ?? "", $"{where} · {gm.Players.Count}/{PlayerManager.MaxPlayers} players{(HasPassword ? " · password" : "")}");
             }
             snapT -= Time.unscaledDeltaTime;
             if (snapT <= 0 && clients.Count > 0)
@@ -403,9 +409,10 @@ namespace TideWall
             var shared = new BinaryWriter(new MemoryStream(1024));
             shared.Write((byte)gm.State); shared.Write(gm.Phases.Index); shared.Write(gm.Phases.Day); shared.Write(gm.Phases.Elapsed);
             shared.Write(gm.SandDollars); shared.Write(gm.Pearls);
-            shared.Write((byte)gm.Wall.Sections.Count);
-            foreach (var sec in gm.Wall.Sections) { shared.Write(sec.hp); shared.Write(sec.max); }
-            shared.Write(gm.Plant.Hp); shared.Write(gm.Plant.MaxHp);
+            // Part I's wall and powerplant (Part II has neither: no sections, and a zero plant)
+            shared.Write((byte)(gm.Wall != null ? gm.Wall.Sections.Count : 0));
+            if (gm.Wall != null) foreach (var sec in gm.Wall.Sections) { shared.Write(sec.hp); shared.Write(sec.max); }
+            shared.Write(gm.Plant != null ? gm.Plant.Hp : 0); shared.Write(gm.Plant != null ? gm.Plant.MaxHp : 0);
             // Tidal cards: the active ones, and any vote in progress
             shared.Write((byte)gm.Cards.Actives.Count);
             foreach (var a in gm.Cards.Actives) { shared.Write(a.def.id); shared.Write((byte)a.wavesLeft); }
@@ -422,6 +429,7 @@ namespace TideWall
             shared.Write(gm.Waves.Wave); shared.Write(gm.Waves.WaveCount); shared.Write(gm.EnemiesLeft); shared.Write(gm.Waves.RunWave); shared.Write(gm.Waves.Preview);
             shared.Write((byte)gm.Players.Count);
             foreach (var p in gm.Players.All) NetPlayerState.From(p).Write(shared);
+            gm.Level.WriteNet(shared);   // Part II: the tide clock and the objectives
             var sharedBytes = ((MemoryStream)shared.BaseStream).ToArray();
 
             var current = new Dictionary<int, byte[]>();
@@ -446,6 +454,7 @@ namespace TideWall
 
                 var w = NetIO.Begin(Msg.Snapshot);
                 w.Write(seq);
+                w.Write((short)UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);   // a client mid-move ignores the old scene's
                 w.Write(sharedBytes);
                 // This client's own players: what Interact does, any open menu, and their movement as simulated here
                 var mine = gm.Players.All.FindAll(p => p.Kind == PlayerKind.Remote && p.Owner == c.peer);

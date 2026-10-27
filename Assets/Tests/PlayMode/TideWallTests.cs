@@ -321,6 +321,7 @@ namespace TideWall.Tests
                     if (type == Msg.Snapshot)
                     {
                         lastSnapshot = r.ReadUInt32();
+                        r.ReadInt16();   // scene
                         r.ReadByte(); r.ReadInt32(); r.ReadInt32(); r.ReadSingle(); r.ReadInt32(); r.ReadInt32();   // state, phase, day, elapsed, sand dollars, pearls
                         int sections = r.ReadByte();
                         for (int i = 0; i < sections; i++) { r.ReadSingle(); r.ReadSingle(); }

@@ -15,15 +15,17 @@ namespace TideWall
         public static ContentLibrary Library { get; private set; }
         static readonly Dictionary<string, GameObject> models = new();
         static readonly Dictionary<string, AudioClip> sounds = new();
+        static readonly Dictionary<string, Texture2D> glyphs = new();
 
         /// <summary>The GameManager hands over its library when it wakes.</summary>
         public static void Use(ContentLibrary library)
         {
             Library = library;
-            models.Clear(); sounds.Clear();
+            models.Clear(); sounds.Clear(); glyphs.Clear();
             if (library == null) return;
             foreach (var m in library.models) if (m.prefab != null) models[m.name] = m.prefab;
             foreach (var s in library.sounds) if (s.clip != null) sounds[s.name] = s.clip;
+            foreach (var g in library.glyphs) if (g.texture != null) glyphs[g.name] = g.texture;
         }
 
         static void Ensure()
@@ -45,6 +47,9 @@ namespace TideWall
 
         public static IReadOnlyDictionary<string, AudioClip> Sounds { get { Ensure(); return sounds; } }
 
+        /// <summary>A symbol's texture from Assets/Content/Glyphs, or null (Glyphs draws it then).</summary>
+        public static Texture2D Glyph(string name) { Ensure(); return glyphs.TryGetValue(name, out var t) ? t : null; }
+
         public static Material Material(string name)
         {
             Ensure();
@@ -59,5 +64,6 @@ namespace TideWall
 
         public static GameDatabase Database { get { Ensure(); return Library != null ? Library.database : null; } }
         public static PhaseCycle Phases { get { Ensure(); return Library != null ? Library.phases : null; } }
+        public static Campaign Campaign { get { Ensure(); return Library != null ? Library.campaign : null; } }
     }
 }

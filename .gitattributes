@@ -1,0 +1,20 @@
+# Text files keep LF line endings everywhere (Unity reads either; this stops CRLF churn and warnings on Windows)
+* text=auto eol=lf
+
+# Binary assets
+*.fbx binary
+*.FBX binary
+*.glb binary
+*.blend binary
+*.wav binary
+*.png binary
+*.jpg binary
+*.ttf binary
+*.otf binary
+*.exe binary
+*.dll binary
+
+# Unity YAML (scenes, prefabs, assets) can be merged with Unity's Smart Merge if it's configured
+*.unity merge=unityyamlmerge
+*.prefab merge=unityyamlmerge
+*.asset merge=unityyamlmerge

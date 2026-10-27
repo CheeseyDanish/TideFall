@@ -57,6 +57,22 @@ namespace TideWall
             }
         }
 
+        /// <summary>Part II: a newcomer to the expedition starts at the part's level, with the stat points (and any mod)
+        /// those levels would have earned.</summary>
+        public void StartAtLevel(int level)
+        {
+            if (!Simulated || Level >= level) return;
+            for (int l = Level + 1; l <= level; l++)
+            {
+                StatPoints += db.statPointsPerLevel;
+                if (db.modEveryLevels > 0 && l % db.modEveryLevels == 0) PendingMods++;
+            }
+            Level = level;
+            Xp = 0;
+            if (PendingMods > 0 && ModOffer == null) RollModOffer();
+            Toast($"Level {Level}: {StatPoints} stat points to spend ({Glyph(Btn.Stats)} Stats)", new Color(1, .9f, .4f));
+        }
+
         /// <summary>XP from a kill (cards and Fortune scale it). Level-ups give stat points; every few levels, a mod.</summary>
         public void GainXp(float amount)
         {

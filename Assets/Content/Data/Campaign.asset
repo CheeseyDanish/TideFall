@@ -1,0 +1,301 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b391e42d9203ff46a0523a6d3d8b325, type: 3}
+  m_Name: Campaign
+  m_EditorClassIdentifier: TideWall::TideWall.Campaign
+  parts:
+  - id: wall
+    numeral: I
+    title: The Wall
+    subtitle: Hold the sea wall. Keep the core alive.
+    intro:
+    - Saltmarrow has always had the wall, and the wall has always had the night.
+    - Every dusk the sea sends its creatures up the sand. Every dawn the town sells
+      what is left of them.
+    - Keep the Nuclear Sand Powerplant burning. While it burns, Saltmarrow stands.
+    kind: 0
+    scene: TideWall
+    stages: []
+    startSandDollars: 0
+    startLevel: 1
+  - id: undertow
+    numeral: II
+    title: The Undertow
+    subtitle: Take the war to the sea.
+    intro:
+    - The engineers found another setting on the core.
+    - 'Run it hot enough and the sea steps back: two walls of standing water, and
+      the seabed open all the way down.'
+    - One night. One tide. March out, find the Heart of the Tide, and end this.
+    kind: 1
+    scene: 
+    stages:
+    - id: ebb
+      title: The Ebb
+      epigraph: The water stepped aside as if it had been asked.
+      scene: Undertow 1 - The Ebb
+      objectiveText: Topple the brood spires
+      objective: 0
+      count: 4
+      holdSeconds: 90
+      tideSeconds: 600
+      difficultyDay: 3
+      enemies:
+      - crab
+      - drowner
+      - hermit
+      - urchin
+      - puffer
+      maxAlive: 14
+      spawnEvery: 5
+      look:
+        id: stage
+        displayName: Low Tide
+        subtitle: 
+        durationSeconds: 0
+        endWhenAllReady: 0
+        endWhenWavesCleared: 0
+        advancesDay: 0
+        saveOnStart: 0
+        shopOpen: 0
+        waves: 0
+        budgetMultiplier: 1
+        enemyPool: []
+        bossEveryDays: 0
+        bossId: glizzy
+        spawnFood: 0
+        spawnGasCans: 0
+        tidalDraft: 0
+        corpseThieves: 0
+        skyColor: {r: 0.22, g: 0.3, b: 0.48, a: 1}
+        sunColor: {r: 0.75, g: 0.82, b: 1, a: 1}
+        sunIntensity: 0.55
+        sunPitch: 28
+        sunYaw: 160
+        ambientColor: {r: 0.3, g: 0.34, b: 0.45, a: 1}
+        fogColor: {r: 0.24, g: 0.3, b: 0.42, a: 1}
+        fogDensity: 0.006
+        torchesLit: 1
+        lanterns: 1
+    - id: kelp
+      title: The Kelp Cathedral
+      epigraph: Someone built these arches. Not us.
+      scene: Undertow 2 - The Kelp Cathedral
+      objectiveText: Light the beacons
+      objective: 1
+      count: 3
+      holdSeconds: 90
+      tideSeconds: 600
+      difficultyDay: 4
+      enemies:
+      - drowner
+      - jelly
+      - octopus
+      - crab
+      - eel
+      maxAlive: 16
+      spawnEvery: 4.5
+      look:
+        id: stage
+        displayName: Low Tide
+        subtitle: 
+        durationSeconds: 0
+        endWhenAllReady: 0
+        endWhenWavesCleared: 0
+        advancesDay: 0
+        saveOnStart: 0
+        shopOpen: 0
+        waves: 0
+        budgetMultiplier: 1
+        enemyPool: []
+        bossEveryDays: 0
+        bossId: glizzy
+        spawnFood: 0
+        spawnGasCans: 0
+        tidalDraft: 0
+        corpseThieves: 0
+        skyColor: {r: 0.16, g: 0.3, b: 0.32, a: 1}
+        sunColor: {r: 0.6, g: 0.95, b: 0.85, a: 1}
+        sunIntensity: 0.45
+        sunPitch: 34
+        sunYaw: 160
+        ambientColor: {r: 0.22, g: 0.34, b: 0.32, a: 1}
+        fogColor: {r: 0.15, g: 0.3, b: 0.28, a: 1}
+        fogDensity: 0.011
+        torchesLit: 1
+        lanterns: 1
+    - id: hulls
+      title: The Hull Graveyard
+      epigraph: So many ships. Who sailed them?
+      scene: Undertow 3 - The Hull Graveyard
+      objectiveText: Carry fire to the wreck-wall
+      objective: 2
+      count: 3
+      holdSeconds: 90
+      tideSeconds: 560
+      difficultyDay: 5
+      enemies:
+      - croc
+      - lobster
+      - hermit
+      - crab
+      - turtle
+      maxAlive: 16
+      spawnEvery: 4.5
+      look:
+        id: stage
+        displayName: Low Tide
+        subtitle: 
+        durationSeconds: 0
+        endWhenAllReady: 0
+        endWhenWavesCleared: 0
+        advancesDay: 0
+        saveOnStart: 0
+        shopOpen: 0
+        waves: 0
+        budgetMultiplier: 1
+        enemyPool: []
+        bossEveryDays: 0
+        bossId: glizzy
+        spawnFood: 0
+        spawnGasCans: 0
+        tidalDraft: 0
+        corpseThieves: 0
+        skyColor: {r: 0.2, g: 0.2, b: 0.26, a: 1}
+        sunColor: {r: 0.85, g: 0.75, b: 0.65, a: 1}
+        sunIntensity: 0.4
+        sunPitch: 22
+        sunYaw: 160
+        ambientColor: {r: 0.27, g: 0.26, b: 0.28, a: 1}
+        fogColor: {r: 0.2, g: 0.2, b: 0.24, a: 1}
+        fogDensity: 0.012
+        torchesLit: 1
+        lanterns: 1
+    - id: keep
+      title: The Drowned Keep
+      epigraph: It has a window that faces the shore.
+      scene: Undertow 4 - The Drowned Keep
+      objectiveText: Hold the keep
+      objective: 3
+      count: 3
+      holdSeconds: 120
+      tideSeconds: 520
+      difficultyDay: 6
+      enemies:
+      - drowner
+      - lobster
+      - croc
+      - octopus
+      - jelly
+      - eel
+      - urchin
+      maxAlive: 20
+      spawnEvery: 3
+      look:
+        id: stage
+        displayName: Low Tide
+        subtitle: 
+        durationSeconds: 0
+        endWhenAllReady: 0
+        endWhenWavesCleared: 0
+        advancesDay: 0
+        saveOnStart: 0
+        shopOpen: 0
+        waves: 0
+        budgetMultiplier: 1
+        enemyPool: []
+        bossEveryDays: 0
+        bossId: glizzy
+        spawnFood: 0
+        spawnGasCans: 0
+        tidalDraft: 0
+        corpseThieves: 0
+        skyColor: {r: 0.12, g: 0.18, b: 0.2, a: 1}
+        sunColor: {r: 0.5, g: 0.9, b: 0.7, a: 1}
+        sunIntensity: 0.35
+        sunPitch: 40
+        sunYaw: 160
+        ambientColor: {r: 0.18, g: 0.25, b: 0.22, a: 1}
+        fogColor: {r: 0.1, g: 0.18, b: 0.16, a: 1}
+        fogDensity: 0.016
+        torchesLit: 1
+        lanterns: 1
+    - id: heart
+      title: The Heart
+      epigraph: She was waiting.
+      scene: Undertow 5 - The Heart
+      objectiveText: Reach the Heart of the Tide
+      objective: 4
+      count: 3
+      holdSeconds: 90
+      tideSeconds: 600
+      difficultyDay: 6
+      enemies:
+      - crab
+      - drowner
+      - jelly
+      maxAlive: 10
+      spawnEvery: 7
+      look:
+        id: stage
+        displayName: Low Tide
+        subtitle: 
+        durationSeconds: 0
+        endWhenAllReady: 0
+        endWhenWavesCleared: 0
+        advancesDay: 0
+        saveOnStart: 0
+        shopOpen: 0
+        waves: 0
+        budgetMultiplier: 1
+        enemyPool: []
+        bossEveryDays: 0
+        bossId: glizzy
+        spawnFood: 0
+        spawnGasCans: 0
+        tidalDraft: 0
+        corpseThieves: 0
+        skyColor: {r: 0.06, g: 0.1, b: 0.14, a: 1}
+        sunColor: {r: 0.45, g: 1, b: 0.6, a: 1}
+        sunIntensity: 0.3
+        sunPitch: 60
+        sunYaw: 160
+        ambientColor: {r: 0.14, g: 0.22, b: 0.2, a: 1}
+        fogColor: {r: 0.05, g: 0.12, b: 0.12, a: 1}
+        fogDensity: 0.02
+        torchesLit: 1
+        lanterns: 1
+    startSandDollars: 400
+    startLevel: 4
+  endings:
+  - id: strike
+    title: THE SEA FALLS QUIET
+    choice: Strike the Heart
+    lines:
+    - The Heart breaks like a wave on stone.
+    - The water walls come down slowly, almost gently, and the sailors walk home
+      dry.
+    - Saltmarrow rings every bell it has.
+    - Someone carves a new mark on the keep wall.
+    - The next night, the tide comes in.
+    needsShards: 0
+  - id: spiral
+    title: THE SPIRAL
+    choice: Lay down the Crest
+    lines:
+    - The five stones close around the crest.
+    - The Tidemother lowers her shell.
+    - Far behind them, on the shore, a green light goes out.
+    - The tide comes in.
+    - Nothing comes with it.
+    needsShards: 1
+  shardCount: 5

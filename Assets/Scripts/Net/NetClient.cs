@@ -131,7 +131,7 @@ namespace TideWall
             {
                 MainMenu.Notice = why;
                 Net.Shutdown(null);
-                GameManager.Reload();
+                GameManager.ReloadTo(GameManager.MenuScene);
                 reloading = true;
             }
         }
@@ -152,11 +152,21 @@ namespace TideWall
                     break;
                 }
                 case Msg.Welcome:
+                {
                     ClientId = r.ReadInt32(); HostNick = r.ReadText(64);
+                    string scene = r.ReadText(128);
                     Status = State.Connected;
-                    gm?.BeginClient();
                     if (first != null) { gm?.Players.PendingJoins.Add(first); RequestJoin(first); first = null; }
+                    if (scene.Length > 0 && scene != UnityEngine.SceneManagement.SceneManager.GetActiveScene().name)
+                    {
+                        // The host is somewhere else (a Part II stage): go there; our slot arrives meanwhile
+                        reloading = true;
+                        GameManager.ReloadTo(scene);
+                        break;
+                    }
+                    gm?.BeginClient();
                     break;
+                }
                 case Msg.Assigned:
                 {
                     int token = r.ReadInt32(), index = r.ReadInt32();
@@ -180,7 +190,9 @@ namespace TideWall
                 case Msg.Snapshot:
                 {
                     uint seq = r.ReadUInt32();
+                    int scene = r.ReadInt16();
                     if (seq <= lastSnapshot || gm == null) return;   // the unreliable channel never delivers older ones, but be sure
+                    if (scene != UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex) return;   // from the scene we just left
                     lastSnapshot = seq;
                     ApplySnapshot(r, gm);
                     break;
@@ -189,11 +201,15 @@ namespace TideWall
                 case Msg.Effects: if (gm != null) ApplyEvents(r, gm); break;
                 case Msg.GameOver: gm?.NetGameOver(r.ReadText(200)); break;
                 case Msg.Reload:
-                    // The host is trying again: start a fresh mirror; our slots are re-assigned after the reload.
+                {
+                    // The host is starting over or moving on to another scene: follow it with a fresh mirror; our slots
+                    // are re-assigned once the host has loaded too.
+                    string scene = r.ReadText(128);
                     owned.Clear(); entities.Clear(); lastSnapshot = 0;
                     reloading = true;
-                    GameManager.Reload();
+                    GameManager.ReloadTo(scene);
                     break;
+                }
                 case Msg.Bye:
                 {
                     string why = r.ReadText(200);
@@ -204,7 +220,7 @@ namespace TideWall
                     {
                         MainMenu.Notice = Error;
                         Net.Shutdown(null);
-                        GameManager.Reload();
+                        GameManager.ReloadTo(GameManager.MenuScene);
                     }
                     reloading = true;
                     break;
@@ -239,11 +255,11 @@ namespace TideWall
             if (gm.State == GameState.MainMenu) gm.BeginClient();
             if (phase >= 0) gm.Phases.NetFollow(phase, day, elapsed);
             gm.ApplyNet(sandDollars, pearls, left);
-            gm.Wall.Restore(hps, maxes);
-            gm.Plant.Restore(plantHp, plantMax);
+            if (gm.Wall != null) gm.Wall.Restore(hps, maxes);
+            if (gm.Plant != null) gm.Plant.Restore(plantHp, plantMax);
             gm.Cards.ApplyNet(actives, draft, draftLeft, votes, reroll);
             gm.Waves.ApplyNet(wave, waveCount, preview); gm.Waves.RunWave = runWave;
-            if (state == GameState.GameOver && gm.State == GameState.Playing) gm.NetGameOver("The wall has fallen.");
+            if (state == GameState.GameOver && gm.State == GameState.Playing) gm.NetGameOver(gm.Assault ? "The expedition is over." : "The wall has fallen.");
 
             // Players
             int n = r.ReadByte();
@@ -259,6 +275,7 @@ namespace TideWall
                 p.ApplyNet(s);
             }
             foreach (var p in gm.Players.All.ToArray()) if (!seen.Contains(p.Index)) { owned.Remove(p.Index); gm.Players.Remove(p); }
+            gm.Level.ReadNet(r);
 
             // Our players: prompts, menus, and where the host has them (we reconcile our prediction against it)
             int mine = r.ReadByte();
@@ -347,6 +364,8 @@ namespace TideWall
                     case NetEvent.Toast: { var p = gm.Players.ByIndex(r.ReadByte()); var msg = r.ReadString(); var c = r.ReadColor(); p?.Toast(msg, c); break; }
                     case NetEvent.Shake: { var p = gm.Players.ByIndex(r.ReadByte()); float a = r.ReadSingle(); p?.Shake(a); break; }
                     case NetEvent.Hit: { var p = gm.Players.ByIndex(r.ReadByte()); bool crit = r.ReadBoolean(); if (p?.Hud != null) p.Hud.HitMarker(crit); break; }
+                    case NetEvent.Shard: ShardStone.Collect(r.ReadByte(), announce: false); break;
+                    case NetEvent.Ending: Expedition.ShowEnding(r.ReadText(32), host: false); break;
                     default: return;   // unknown event: the rest of this batch can't be read
                 }
             }

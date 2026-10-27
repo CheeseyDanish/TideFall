@@ -25,6 +25,8 @@ namespace TideWall
         public float Progress => queue.Count == 0 ? 1 : qi / (float)queue.Count;
         /// <summary>Waves started this run (1 = the first wave). Saved with the run.</summary>
         public int RunWave { get; set; }
+        /// <summary>How tough creatures spawned now are (Part I: the current day; Part II: the stage's).</summary>
+        public int Day { get => day; set => day = Mathf.Max(1, value); }
         /// <summary>What's coming, for the HUD ("Next: 4 Crabling, 2 Drowner"). Sent to online clients.</summary>
         public string Preview { get; private set; } = "";
         int runWaveAtPhaseStart;
@@ -121,7 +123,7 @@ namespace TideWall
         {
             var gull = gm.DB.enemies.Find(e => e.behaviour == EnemyBehaviour.Flyer);
             if (gull == null) return;
-            int corpses = Corpse.All.Count;
+            int corpses = Corpse.Live.Count;
             for (int i = 0; i < Mathf.Min(count, corpses); i++)
             {
                 var g = Enemy.Spawn(gull, new Vector3(Random.Range(-40f, 40f), 12, Arena.ShoreZ + 25 + i * 4), day, -1);

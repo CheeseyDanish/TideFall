@@ -8,5 +8,20 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/TideWall.unity
     guid: 37782c74292bc1c4da2d37be3bce8454
+  - enabled: 1
+    path: Assets/Scenes/Undertow 1 - The Ebb.unity
+    guid: f07b23f91f9b2654285a0e81d0e4309b
+  - enabled: 1
+    path: Assets/Scenes/Undertow 2 - The Kelp Cathedral.unity
+    guid: db0bae0417005714f8c4a16e0eb18c76
+  - enabled: 1
+    path: Assets/Scenes/Undertow 3 - The Hull Graveyard.unity
+    guid: cb84a08cb1bef544da07be8a9182faa3
+  - enabled: 1
+    path: Assets/Scenes/Undertow 4 - The Drowned Keep.unity
+    guid: 67dce450be564d64e95eea84d997dc26
+  - enabled: 1
+    path: Assets/Scenes/Undertow 5 - The Heart.unity
+    guid: 33f81e7354b486644a23bf77d4c117ef
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

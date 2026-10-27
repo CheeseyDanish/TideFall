@@ -19,7 +19,7 @@ namespace TideWall
             foreach (var p in gm.Players.All)
             {
                 if (!p.IsTargetable) continue;
-                if (beachOnly && !Arena.Inside(transform.position) && p.transform.position.z < Arena.WallFront - .2f) continue;   // behind the wall: out of reach (unless we're through a breach too)
+                if (beachOnly && gm.World != null && !Arena.Inside(transform.position) && p.transform.position.z < Arena.WallFront - .2f) continue;   // behind the wall: out of reach (unless we're through a breach too)
                 float d = FlatDist(p.transform.position);
                 if (d < bd) { bd = d; best = p; }
             }
@@ -66,7 +66,7 @@ namespace TideWall
             }
             else
             {
-                var goal = gm.World.Goal(transform.position, Radius, out var kind);
+                var goal = gm.Level.Goal(transform.position, Radius, out var kind);
                 bool there = MoveToward(goal, Speed * speedScale, dt, .05f);
                 if (kind == GoalKind.Plant) { if (there || gm.World.plant.InReach(transform.position, Def.attackRange)) TryAttackPlant(dt); }
                 else if (kind == GoalKind.Wall && there) TryAttackWall(dt);
@@ -76,6 +76,7 @@ namespace TideWall
         /// <summary>Damage whatever defence is nearest: the powerplant if we're at it, otherwise the wall.</summary>
         void HitDefences(float amount)
         {
+            if (gm.World == null) return;   // Part II: there's no wall or powerplant out here
             if (gm.World.plant.InReach(transform.position, Mathf.Max(2, Def.attackRange))) gm.World.plant.Damage(amount, transform.position);
             else if (!Arena.Inside(transform.position)) gm.Wall.Damage(amount, transform.position);
         }
@@ -135,11 +136,12 @@ namespace TideWall
         void Puffer(float dt)
         {
             var p = NearestPlayer(Def.aggroRange, true);
-            Vector3 target = p != null ? p.transform.position : gm.World.Goal(transform.position, Radius, out _);
+            Vector3 target = p != null ? p.transform.position : gm.Level.Goal(transform.position, Radius, out _);
             float d = FlatDist(target);
             swelling = d < 4;
             puff = Mathf.MoveTowards(puff, swelling ? 1 - d / 4 * .6f : 0, dt * 3);   // puffs up as it closes in
-            if (MoveToward(target, Speed, dt, Radius * .6f + .3f) && (p != null || d < .5f || gm.World.plant.InReach(transform.position, 1.5f) || !Arena.Inside(transform.position) && transform.position.z <= Arena.WallFront + Radius + .2f))
+            bool atDefences = gm.World != null && (gm.World.plant.InReach(transform.position, 1.5f) || !Arena.Inside(transform.position) && transform.position.z <= Arena.WallFront + Radius + .2f);
+            if (MoveToward(target, Speed, dt, Radius * .6f + .3f) && (p != null || (gm.World != null && d < .5f) || atDefences))
             {
                 Combat.Explode(transform.position + Vector3.up * .5f, 3f, Damage, Element.None, null, hurtsPlayers: true, exclude: this);
                 if (p == null) HitDefences(Damage);
@@ -239,7 +241,7 @@ namespace TideWall
         {
             // Hovers just above the sand, drifting toward the nearest target, stinging everyone close.
             var p = NearestPlayer(Def.aggroRange + 4, true);
-            Vector3 target = p != null ? p.transform.position : gm.World.Goal(transform.position, Radius, out _);
+            Vector3 target = p != null ? p.transform.position : gm.Level.Goal(transform.position, Radius, out _);
             MoveToward(target, Speed, dt, Radius * .5f);
             var pos = transform.position;
             pos.y = Mathf.Max(Arena.GroundY(pos.z), Arena.InWater(pos) ? -.6f : 0) + .4f + Mathf.Sin(animT * 2) * .15f;
@@ -253,7 +255,7 @@ namespace TideWall
                     pl.TakeDamage(Damage * stingMult * wetBonus, this, "a jellyfish sting");
                     stung = true;
                 }
-            if ((!Arena.Inside(pos) && pos.z <= Arena.WallFront + Radius + .2f) || gm.World.plant.InReach(pos, Def.attackRange)) { HitDefences(Damage * stingMult * .5f); stung = true; }
+            if (gm.World != null && ((!Arena.Inside(pos) && pos.z <= Arena.WallFront + Radius + .2f) || gm.World.plant.InReach(pos, Def.attackRange))) { HitDefences(Damage * stingMult * .5f); stung = true; }
             if (stung) { Sfx.Play("zap"); Fx.Sparks(bounds.center, new Color(.7f, .9f, 1f), 8); }
         }
 
@@ -287,7 +289,7 @@ namespace TideWall
             {
                 // Pick the nearest corpse nobody is carrying
                 Corpse best = null; float bd = float.MaxValue;
-                foreach (var c in Corpse.All)
+                foreach (var c in Corpse.Live)
                 {
                     if (c.Holder != null || c.Thief != null || c.gameObject == gameObject) continue;
                     float d = Vector3.Distance(c.transform.position, pos);
@@ -326,8 +328,8 @@ namespace TideWall
         void Flyer(float dt)
         {
             var p = NearestPlayer(40, false);
-            // Flyers ignore the wall: no player nearby means straight for the powerplant
-            Vector3 target = p != null ? p.transform.position + Vector3.up * 1.2f : gm.World.plant.transform.position + Vector3.up * 3;
+            // Flyers ignore the wall: no player nearby means straight for the level's target (Part I: the powerplant)
+            Vector3 target = p != null ? p.transform.position + Vector3.up * 1.2f : gm.Level.FlyerTarget(transform.position);
             var pos = transform.position;
             var flat = target - pos; flat.y = 0;
             if (diveState <= 0)
@@ -345,7 +347,7 @@ namespace TideWall
                 Face(d, dt);
                 if (d.magnitude < .9f)
                 {
-                    if (p != null) p.TakeDamage(Damage, this, Def.displayName); else gm.World.plant.Damage(Damage, pos);
+                    if (p != null) p.TakeDamage(Damage, this, Def.displayName); else if (gm.World != null) gm.World.plant.Damage(Damage, pos);
                     diveState = 2;
                 }
             }
@@ -358,6 +360,7 @@ namespace TideWall
 
         void Boss(float dt)
         {
+            if (Def.id == "tidemother") { Tidemother(dt); return; }
             summonT -= dt;
             if (summonT <= 0)
             {
@@ -369,6 +372,42 @@ namespace TideWall
             }
             Walker(dt, 1);
             if (swingT > .2f) foreach (var pl in gm.Players.All) pl.Shake(.25f);
+        }
+
+        /// <summary>The Heart's keeper: calls her children from the stage's own creatures, and every few seconds brings
+        /// her claws down in a ring that throws everyone near her back.</summary>
+        void Tidemother(float dt)
+        {
+            summonT -= dt;
+            if (summonT <= 0)
+            {
+                summonT = Hp < MaxHp * .5f ? 9 : 13;
+                var pool = gm.Expedition != null ? gm.Expedition.Stage.enemies : null;
+                for (int i = 0; i < 3; i++)
+                {
+                    var def = pool != null && pool.Count > 0 ? gm.DB.Enemy(pool[Random.Range(0, pool.Count)]) : gm.DB.Enemy("crab");
+                    if (def != null && def.behaviour != EnemyBehaviour.Boss)
+                        gm.Waves.SpawnExtra(def, transform.position + Quaternion.Euler(0, i * 120 + Random.Range(-30, 30), 0) * Vector3.forward * 5);
+                }
+                Sfx.Play("horn");
+            }
+            specialT -= dt;
+            if (specialT <= 0 && stunT <= 0)
+            {
+                specialT = Hp < MaxHp * .5f ? 5 : 7;
+                Fx.Splash(transform.position + Vector3.up * .3f, 30);
+                Sfx.Play("splash", 1, .05f);
+                foreach (var pl in gm.Players.All)
+                {
+                    if (!pl.IsTargetable) continue;
+                    var to = pl.transform.position - transform.position; to.y = 0;
+                    if (to.magnitude > 7) { pl.Shake(.3f); continue; }
+                    pl.TakeDamage(Damage * .8f, this, Def.displayName);
+                    pl.Push(to.normalized * 4);
+                    pl.Shake(.7f);
+                }
+            }
+            Walker(dt, 1);
         }
 
         void UpdateGrab(float dt)
@@ -400,7 +439,6 @@ namespace TideWall
         {
             if (ride == null) return;
             ride = null;
-            wipeout = true;
             tumble = 1.2f;
             ShowBoard(false, launch: true);
             Fx.Splash(transform.position + Vector3.up * .5f, 10);
@@ -460,9 +498,9 @@ namespace TideWall
             bool flying = Def.behaviour == EnemyBehaviour.Flyer && !grounded;
             if (!flying)
             {
-                // Nothing on foot gets past the wall, except through a breach
-                bool inside = Arena.Inside(p);
-                if (!inside && !gm.Wall.IsOpen(p.x, Radius)) p.z = Mathf.Max(p.z, Arena.WallFront + Radius * .9f);
+                // Nothing on foot gets past the wall, except through a breach (Part I)
+                bool inside = gm.World != null && Arena.Inside(p);
+                if (gm.World != null && !inside && !gm.Wall.IsOpen(p.x, Radius)) p.z = Mathf.Max(p.z, Arena.WallFront + Radius * .9f);
                 if (inside)
                 {
                     p.z = Mathf.Max(p.z, Arena.TownMinZ);

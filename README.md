@@ -6,9 +6,13 @@ A co-op wall-defense **roguelike** for **1–4 players, in split screen, online,
 
 Shoot their limbs off, swing an anchor, throw a gas can, and keep the core cool.
 
+Then turn it around. In **Part II, The Undertow**, the core runs hot enough to push the sea back for one night, and the expedition marches out across the seabed, five stages deep, to find the Heart of the Tide and end the war. Underneath both parts runs a second story that's never written down: it's told in the symbols on the town's banners, the creatures' shells and the walls of the drowned places.
+
 Built with **Unity 6.5 (URP)**. Every model was generated in **Blender** from a script. It's the 3D follow-up to [Tidewall 2D](https://github.com/CheeseyDanish/Website) (the browser game on my website).
 
 ## Highlights
+- **Two parts.** Part I holds the wall; Part II, the Undertow, is the inverse: an assault down a lane of drained seabed between two standing walls of sea, against a tide clock. Topple brood spires, light the old beacons, blow open a wall of wrecks, hold a drowned keep's courtyard, and face the Tidemother at the Heart. More parts can follow (they're data).
+- **A story beneath the waves.** Symbols carry a hidden history of why the war never ends. Find the five Spiral Shards, one hidden in every stage, and a second ending appears.
 - **Roguelike runs.** A meltdown ends the run (and deletes its save); a Legacy record keeps your best. Runs are suspendable each morning.
 - **Tidal cards.** Vote on a modifier at the start of every fight (Red Tide, King Tide, Gold Rush, Glass Cannon…). Cards last several waves and stack. Some exist **only online** (Buddy Beam, Message in a Bottle) or **only in split screen** (Screen Swap, Shared Snacks).
 - **Levels, stats and weapon mods.** XP from kills, stat points to spend (Vigor, Brawn, Aim, Swiftness, Quick Hands, Fortune) in the Stats menu, respec for sand dollars, and a choice of weapon mods every 5 levels.
@@ -37,7 +41,7 @@ Built with **Unity 6.5 (URP)**. Every model was generated in **Blender** from a 
 1. Install **Unity 6000.5.10f1** (via Unity Hub).
 2. Open this folder as a project. On first open, run **TideWall → Setup Project**; it only needs to run once.
 3. Press Play, or build with **TideWall → Build Windows**.
-4. Pick **New game** in the main menu (or Continue, Load, Host or Join). Others press any button or key to join.
+4. Pick **Part I · The Wall** or **Part II · The Undertow** in the main menu (or Continue, Host or Join). Others press any button or key to join.
 
 | | Gamepad | Keyboard + mouse |
 |---|---|---|
@@ -72,4 +76,4 @@ unity test . --mode PlayMode --output Logs/TestResults.xml
 ```
 
 ## Status
-Split screen, online play (join codes through Unity Relay, LAN and by address), saves, settings and the roguelike systems are in. Online play is host-authoritative over Unity Transport, with client prediction. The game opens muted (Settings → Sound / Start muted). Balance (card numbers, XP curve, mod strength, the doubled beach's pacing) hasn't been playtested yet.
+Split screen, online play (join codes through Unity Relay, LAN and by address), saves, settings, the roguelike systems and Part II (five stages, the Tidemother, Spiral Shards and both endings) are in. Online play is host-authoritative over Unity Transport, with client prediction. The game opens muted (Settings → Sound / Start muted). Balance (card numbers, XP curve, mod strength, the doubled beach's pacing, Part II's tide clocks and the Tidemother) hasn't been playtested yet.

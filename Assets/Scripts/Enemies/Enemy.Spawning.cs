@@ -52,6 +52,18 @@ namespace TideWall
                 limb.Phase = Random.value * 6.28f;
                 Limbs.Add(limb);
             }
+            if (def.mark)
+            {
+                // The Mark, painted on its back where only someone looking down (a defender on the wall) would see it
+                Glyphs.Decal(transform, "mark", new Vector3(0, bounds.max.y - transform.position.y + .01f, 0), Quaternion.Euler(90, 0, 0),
+                             Mathf.Clamp(Radius * 1.1f, .4f, 3f), new Color(.55f, .1f, .12f, .85f));
+                // The Tidemother's flanks are scratched with tallies: she has done this before
+                if (def.id == "tidemother")
+                    foreach (float side in new[] { -1f, 1f })
+                        for (int k = 0; k < 3; k++)
+                            Glyphs.Decal(transform, "tally", new Vector3(side * 1.83f, 1.7f + (k % 2) * .35f, -.9f + k * .9f), Quaternion.Euler(0, -90 * side, (k - 1) * 8),
+                                         .75f, new Color(.95f, .9f, .8f, .7f));
+            }
             if (def.behaviour == EnemyBehaviour.Flyer) { flyHeight = Random.Range(4f, 6f); Wet = 0; }
             lungeCd = Random.Range(1f, 3f);
             specialT = Random.Range(3f, 6f);

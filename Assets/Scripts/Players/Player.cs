@@ -103,7 +103,8 @@ namespace TideWall
         /// <summary>0 → 1 through the current melee swing (wind-up, strike, recovery); -1 when not swinging.</summary>
         public float SwingProgress => swingT > 0 && Melee != null ? 1 - swingT / Mathf.Max(.01f, Melee.SwingTime) : -1;
         /// <summary>Guns are holstered for the run's first waves: Fire swings the melee weapon instead.</summary>
-        public bool GunsLocked => gm.Waves.RunWave < db.gunsUnlockWave;
+        /// <summary>The first waves of Part I are melee only. Part II's sailors come armed.</summary>
+        public bool GunsLocked => !gm.Assault && gm.Waves.RunWave < db.gunsUnlockWave;
         /// <summary>Build mode: the defence being placed (null = not building).</summary>
         public StructureDef Building { get; private set; }
         public float BuildYaw { get; private set; }
@@ -224,7 +225,7 @@ namespace TideWall
             lantern.transform.SetParent(transform, false);
             lantern.transform.localPosition = new Vector3(0, 2.4f, 0);
             lantern.type = LightType.Point; lantern.range = 9; lantern.color = Color.Lerp(Color, new Color(1, .85f, .6f), .6f); lantern.shadows = LightShadows.None;
-            gm.World.lanterns.Add(lantern);
+            gm.Level.lanterns.Add(lantern);
             // A name tag, so teammates know who's who in first person
             nameTag = Ui.Label(visual, "NameTag", new Vector3(0, 2.35f, 0), .28f, Color.Lerp(Color, Color.white, .35f));
             Billboard.Add(nameTag.gameObject);

@@ -3,8 +3,9 @@
 //
 //   client → host   Hello(version, nick, nonce) R · Auth(proof) R · Join(token, device) R · Leave(player) R
 //                   · Input(ack, per player: aim + the last few commands) U
-//   host → client   Challenge(salt, nonce) R · Welcome(clientId, hostNick) R · Assigned(token, player) R
-//                   · Refused(token, reason) R · Notices(banners, toasts) R · GameOver(reason) R · Reload R · Bye(reason) R
+//   host → client   Challenge(salt, nonce) R · Welcome(clientId, hostNick, scene) R · Assigned(token, player) R
+//                   · Refused(token, reason) R · Notices(banners, toasts, shards, endings) R · GameOver(reason) R
+//                   · Reload(scene) R · Bye(reason) R
 //                   · Snapshot(seq, …) U · Effects(sounds, particles, shakes, hit markers) U
 //   (R = reliable, U = unreliable)
 //
@@ -36,11 +37,11 @@ namespace TideWall
     }
 
     /// <summary>Things that happen once. Banners and toasts go reliably (Notices); the rest are cosmetic (Effects).</summary>
-    public enum NetEvent : byte { Banner = 1, Sound, Fx, Toast, Shake, Hit }
+    public enum NetEvent : byte { Banner = 1, Sound, Fx, Toast, Shake, Hit, Shard, Ending }
 
     public static class NetProtocol
     {
-        public const int Version = 5;
+        public const int Version = 6;
         public const int DefaultPort = 7777;
         public const int DiscoveryPort = 47777;
         public const string DiscoveryTag = "TIDEWALL2";

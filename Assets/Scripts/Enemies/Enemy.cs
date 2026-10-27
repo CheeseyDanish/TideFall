@@ -48,7 +48,6 @@ namespace TideWall
         Corpse stolen;
         Structure blockedBy;
         GameObject board;
-        bool wipeout;
         float tumble;
         public bool Thief => thief;
         public float ClamOpen => clamOpen;

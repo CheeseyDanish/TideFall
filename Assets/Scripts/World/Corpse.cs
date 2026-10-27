@@ -7,7 +7,7 @@ namespace TideWall
     public class Corpse : Carryable
     {
         /// <summary>Every corpse on the beach (so nothing has to search the scene for them every frame).</summary>
-        public static readonly System.Collections.Generic.List<Corpse> All = new();
+        public static readonly System.Collections.Generic.List<Corpse> Live = new();
         public EnemyDef Def;
         public int Value;
         /// <summary>A thieving gull has it in its beak.</summary>
@@ -16,8 +16,9 @@ namespace TideWall
         Bounds bounds;
         float dripAcc, boundsT;
 
-        void OnEnable() => All.Add(this);
-        void OnDisable() => All.Remove(this);
+        // Also an Interactable: the base registers it for Interact, this list is just the corpses
+        protected override void OnEnable() { base.OnEnable(); Live.Add(this); }
+        protected override void OnDisable() { base.OnDisable(); Live.Remove(this); }
 
         public override string DisplayName => $"{Def.displayName} corpse ({Value})";
 

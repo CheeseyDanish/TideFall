@@ -25,10 +25,24 @@ namespace TideWall
 
         void Awake() => gm = GetComponent<GameManager>();
 
+        /// <summary>Part II: one fixed look for the whole stage; nothing cycles or ends by itself.</summary>
+        public bool Holding { get; private set; }
+
         void Start()
         {
+            if (gm.Assault) { Hold(gm.Expedition.Stage.look); return; }
             // Lobby: show the first phase's look behind the title.
             if (gm.Cycle.phases.Count > 0) { from = Current = gm.Cycle.phases[0]; ApplyLook(1); }
+        }
+
+        /// <summary>Show this look and stay in it (Part II stages).</summary>
+        public void Hold(PhaseDefinition look)
+        {
+            Holding = true;
+            from = Current = look;
+            Index = -1;
+            ApplyLook(1);
+            gm.Players.OnPhaseStart(Current);
         }
 
         public void Begin() => Enter(0);
@@ -48,7 +62,7 @@ namespace TideWall
             blend = 0;
             if (!Current.endWhenAllReady && !Current.endWhenWavesCleared && Current.durationSeconds <= 0)
                 Debug.LogWarning($"TideWall: phase '{Current.id}' has no end condition; it will end after 60 s.");
-            gm.World.OnPhaseStart(Current, gm.Team.ExtraGasCans);
+            gm.Level.OnPhaseStart(Current, gm.Team.ExtraGasCans);
             gm.Waves.StartPhase(Current, Day);
             gm.Players.OnPhaseStart(Current);
             gm.Banner($"{Current.displayName.ToUpperInvariant()} · DAY {Day}", Current.subtitle);
@@ -62,7 +76,7 @@ namespace TideWall
         public void NetFollow(int index, int day, float elapsed)
         {
             Day = day; Elapsed = elapsed;
-            if (index == Index || gm.Cycle.phases.Count == 0) return;
+            if (Holding || index == Index || gm.Cycle.phases.Count == 0) return;
             from = Current;
             Index = ((index % gm.Cycle.phases.Count) + gm.Cycle.phases.Count) % gm.Cycle.phases.Count;
             Current = gm.Cycle.phases[Index];
@@ -78,7 +92,7 @@ namespace TideWall
             // Tidal cards can thicken the fog (Fog Bank, Downpour)
             cardFog = Mathf.MoveTowards(cardFog, gm.Cards.Fog, Time.deltaTime * .01f);
             RenderSettings.fogDensity = baseFog + cardFog;
-            if (gm.State != GameState.Playing || Net.IsClient) return;
+            if (gm.State != GameState.Playing || Net.IsClient || Holding) return;
             Elapsed += Time.deltaTime;
             if (ShouldEnd()) Advance();
         }
@@ -106,7 +120,7 @@ namespace TideWall
             var a = from ?? Current; var b = Current;
             float k = Mathf.SmoothStep(0, 1, t);
             SkyColor = Color.Lerp(a.skyColor, b.skyColor, k);
-            var sun = gm.World.sun;
+            var sun = gm.Level.sun;
             sun.color = Color.Lerp(a.sunColor, b.sunColor, k);
             sun.intensity = Mathf.Lerp(a.sunIntensity, b.sunIntensity, k);
             sun.transform.rotation = Quaternion.Slerp(Quaternion.Euler(a.sunPitch, a.sunYaw, 0), Quaternion.Euler(b.sunPitch, b.sunYaw, 0), k);
@@ -117,8 +131,8 @@ namespace TideWall
             RenderSettings.fogColor = Color.Lerp(a.fogColor, b.fogColor, k);
             baseFog = Mathf.Lerp(a.fogDensity, b.fogDensity, k);
             RenderSettings.fogDensity = baseFog + cardFog;
-            gm.World.SetSky(Color.Lerp(a.skyColor, b.skyColor, k), Mathf.Lerp(a.sunIntensity, b.sunIntensity, k));
-            gm.World.SetNightLights(Mathf.Lerp(a.torchesLit ? 1 : 0, b.torchesLit ? 1 : 0, k), Mathf.Lerp(a.lanterns ? 1 : 0, b.lanterns ? 1 : 0, k));
+            gm.Level.SetSky(Color.Lerp(a.skyColor, b.skyColor, k), Mathf.Lerp(a.sunIntensity, b.sunIntensity, k));
+            gm.Level.SetNightLights(Mathf.Lerp(a.torchesLit ? 1 : 0, b.torchesLit ? 1 : 0, k), Mathf.Lerp(a.lanterns ? 1 : 0, b.lanterns ? 1 : 0, k));
         }
 
         public bool LanternsOn => Current != null && Current.lanterns;

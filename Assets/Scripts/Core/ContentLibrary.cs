@@ -11,10 +11,12 @@ namespace TideWall
     {
         [Serializable] public struct NamedModel { public string name; public GameObject prefab; }
         [Serializable] public struct NamedSound { public string name; public AudioClip clip; }
+        [Serializable] public struct NamedGlyph { public string name; public Texture2D texture; }
 
         [Header("Data")]
         public GameDatabase database;
         public PhaseCycle phases;
+        public Campaign campaign;
 
         [Header("Base materials (runtime colours are copies of these)")]
         public Material lit;
@@ -23,5 +25,6 @@ namespace TideWall
         [Header("Models and sounds, by name")]
         public List<NamedModel> models = new();
         public List<NamedSound> sounds = new();
+        [Tooltip("The hidden story's symbols (docs/STORY.md), from Assets/Content/Glyphs")] public List<NamedGlyph> glyphs = new();
     }
 }

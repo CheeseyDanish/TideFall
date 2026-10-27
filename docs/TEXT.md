@@ -20,6 +20,12 @@ The same text is also in **`Assets/Scripts/Core/GameDatabase.cs`**, in `FillDefa
 ## 2. Phases
 **`Assets/Content/Data/PhaseCycle.asset`** (defaults in `Assets/Scripts/Core/PhaseCycle.cs`) holds each phase's `displayName` ("Morning") and `subtitle` (the banner line under "MORNING · DAY 1").
 
+## 2b. The campaign (parts, stages, endings)
+**`Assets/Content/Data/Campaign.asset`** (defaults in `Assets/Scripts/Core/Campaign.cs`, `FillDefaults()`) holds each
+part's numeral, title, subtitle and opening lines (`intro`), each stage's title, epigraph and objective text, and the
+endings' titles, choice text ("Strike the Heart") and closing lines. **Read `docs/STORY.md` before changing any of it**:
+the epigraphs and endings may hint, never explain.
+
 ## 3. Menus
 | What | File |
 |---|---|
@@ -45,6 +51,10 @@ The same text is also in **`Assets/Scripts/Core/GameDatabase.cs`**, in `FillDefa
 | Status effect names (RAGE, WRONG VIEW…) and ??? sauce lines | `Assets/Scripts/Players/StatusEffects.cs` (`Label`, `Sauce.Table`) |
 | Online: host left, version mismatch, game full, connecting | `Assets/Scripts/Net/NetHost.cs`, `Assets/Scripts/Net/NetClient.cs`, `Assets/Scripts/UI/MainMenu.cs` |
 | Stall signs over the shop/stands ("SHOP", "HOTDOGS"…) | in the scene: select the stall's `Sign` under World/Town in `Assets/Scenes/TideWall.unity` and edit its TextMeshPro text (the generator's defaults are in `WorldBuilder.cs`) |
+| Part II: the status line (objective, tide clock), "THE WAY IS OPEN", "THE TIDE IS TURNING", objective banners | `Assets/Scripts/World/Expedition.cs` |
+| Part II objectives' banners and progress words (spires, beacons, wreck-wall, courtyard, the Tidemother) | `Assets/Scripts/World/BroodSpire.cs`, `Beacon.cs`, `WreckBarrier.cs`, `HoldRing.cs`, `HeartAltar.cs` |
+| "Take the stone", "A SPIRAL SHARD", the supply cache's prompt | `Assets/Scripts/World/ShardStone.cs`, `SupplyCache.cs` |
+| Story cards' layout ("PART II · 1 OF 5"); their words come from the campaign | `Assets/Scripts/UI/StoryCard.cs` |
 | Online menus and messages (join code, password, "Wrong password.", relay errors) | `Assets/Scripts/UI/MainMenu.cs` (`HostMenu`, `JoinMenu`), `Assets/Scripts/Net/NetHost.cs`, `NetClient.cs`, `NetRelay.cs` (`Explain`) |
 
 Tips:

@@ -304,7 +304,9 @@ Top-left: name, health, **level + XP bar** (unspent points and "MOD!" when one's
 ## Main menu
 A still picture from the upper room of the **keep**, through its big arched window: the town, the wall, the morning beach with beach volleyball, umbrellas, sandcastles, gulls overhead and shark fins circling offshore; torches, a map table and a chest of sand dollars in the room. It's the 3D version of the 2D game's shop screen.
 
-Menu: **Continue run** · **New run** (pick a slot) · **Other runs** · **Host online game** · **Join online game** · **Settings** · **Delete a save** · **Quit**, plus the Legacy record. Mouse, keyboard or any controller; whoever picks becomes player 1.
+Menu: **Continue run** · **Part I · The Wall** (pick a slot) · **Part II · The Undertow** (pick a slot) · **Other runs** · **Host online game** (either part) · **Join online game** · **Settings** · **Delete a save** · **Quit**, plus the Legacy record and, once any are found, the Spiral Shards. Mouse, keyboard or any controller; whoever picks becomes player 1.
+
+Low on the wall beside the window, someone has been keeping count: one scratch for every run you've played, in fives. Nobody mentions it.
 
 ## Pause menu and settings
 **Start / Esc**: Resume · Switch view · **Stats & mods** · Settings · Save game · Quit to main menu · Quit to desktop. Offline, the game pauses while anyone has it open; online the beach keeps going.
@@ -326,6 +328,34 @@ Menu: **Continue run** · **New run** (pick a slot) · **Other runs** · **Host 
 - **Join:** Games on the same network are listed; otherwise type the join code (or the host's address). Several people on one machine can join (couch + online, 4 players in total).
 - LAN / address games over the internet need UDP port 7777 forwarded on the host's router; join codes don't.
 - The host runs everything (creatures, breakers, sand dollars, cards, levels, and everyone's movement); your own movement and looking still respond instantly on your machine, and the host gently corrects it if they disagree.
+
+## Part II — The Undertow
+The inverse of Part I. The engineers run the core hot enough to push the sea back for one night, and the expedition
+marches out across the drained seabed to find the **Heart of the Tide** and end the war. Instead of holding a line you
+push down a lane between two standing walls of sea; instead of waves arriving, creatures step out of the water walls
+ahead of you. A **tide clock** (the overdriven core) ends the run if it runs out.
+
+Five stages, each its own scene, played in order. The team, its sand dollars, pearls, upgrades and levels travel
+between them, and the run saves at every gate. New sailors start at level 4.
+
+| Stage | Objective | Its line |
+|---|---|---|
+| 1. The Ebb | Topple 4 **brood spires** (explosions do far more; they hatch creatures while you're close) | "The water stepped aside as if it had been asked." |
+| 2. The Kelp Cathedral | Light 3 **beacons** (stand by one while it catches; the sea comes harder) | "Someone built these arches. Not us." |
+| 3. The Hull Graveyard | Blow open the **wreck-wall** (only blasts move it; gas cans wait in a cache) | "So many ships. Who sailed them?" |
+| 4. The Drowned Keep | **Hold the courtyard** for 2 minutes (the clock only runs while someone's inside) | "It has a window that faces the shore." |
+| 5. The Heart | Defeat **the Tidemother**, then choose | "She was waiting." |
+
+- **Supply caches** at the start of every stage open the shop (wall and powerplant upgrades aren't offered out here).
+- **Regrouping**: finishing an objective sets a checkpoint there and gets the fallen back up.
+- **The Tidemother**: 6000 HP, armoured, calls her children from the stage's creatures, and brings her claws down in a
+  ring that throws everyone near her back (faster below half health). Her claws and her eye can be broken.
+- **Spiral Shards**: one hidden off the path in every stage. They're kept for good, across runs.
+- **Endings**: *Strike the Heart* ends the expedition the way the town has always ended them. With all five shards a
+  second choice appears: *Lay down the Crest*. What it means is never explained; see `docs/STORY.md`.
+
+The story under the story (why the war never ends) is told only in symbols: the town's Crest, the creatures' Mark,
+the Spiral, five petals, tally marks. `docs/STORY.md` is the key, and the rules for adding to it.
 
 ## Adding content
 For a **new enemy**:

@@ -72,17 +72,17 @@ namespace TideWall
             return index < MaxPlayers ? index : -1;
         }
 
-        public static Vector3 SpawnPoint(int index) => new(-3 + index * 2, 0, -7);
+        public static Vector3 SpawnPoint(int index) => GameManager.I.Level.SpawnPoint(index);
 
         /// <summary>Add a local player using these devices (also used by tests with virtual gamepads).</summary>
-        public Player Join(InputDevice[] devices)
+        public Player Join(InputDevice[] devices, bool quiet = false)
         {
             int index = FreeIndex();
             if (index < 0) return null;
             if (gm.State == GameState.MainMenu) gm.StartGame();
             var player = Player.Create(index, new PlayerControls(devices), SpawnPoint(index));
             Add(player);
-            gm.Banner($"{player.Name.ToUpperInvariant()} JOINS", player.DeviceName);
+            if (!quiet) gm.Banner($"{player.Name.ToUpperInvariant()} JOINS", player.DeviceName);
             return player;
         }
 
@@ -176,10 +176,11 @@ namespace TideWall
             overview.enabled = gm.State != GameState.MainMenu && (views == 0 || views == 3);
             if (overview.enabled)
             {
-                World.SetupCameraSky(overview, gm.Phases.SkyColor);
+                Level.SetupCameraSky(overview, gm.Phases.SkyColor);
                 overview.transform.SetPositionAndRotation(new Vector3(0, 42, -20), Quaternion.Euler(58, 0, 0));
                 var ph = gm.Phases.Current;
-                string status = ph == null ? "" : $"<size=30><b>Day {gm.Phases.Day} · {ph.displayName}</b></size>\nWall {Mathf.CeilToInt(gm.Wall.Hp)}/{Mathf.RoundToInt(gm.Wall.MaxHp)} · {gm.SandDollars} sand dollars\n";
+                string heading = gm.Assault ? $"Part {gm.Expedition.Part.numeral} · {gm.Expedition.Stage.title}" : ph != null ? $"Day {gm.Phases.Day} · {ph.displayName}" : null;
+                string status = heading == null ? "" : $"<size=30><b>{heading}</b></size>\n{gm.Level.StatusLine()} · {gm.SandDollars} sand dollars\n";
                 info.text = views == 0
                     ? status + (pendingJoins.Count > 0 ? "Joining…" : Net.IsClient && !Net.Client.Connected ? "Connecting…" : "<b>Press any button or key to join</b>")
                     : status + "<size=16>A 4th player can join here</size>";
@@ -213,7 +214,7 @@ namespace TideWall
         {
             if (All.Count == 0 || Net.IsClient || gm.State != GameState.Playing) return;
             foreach (var p in All) if (!p.IsDowned && !p.IsOut) return;
-            gm.GameOver("Everyone went down on the beach.");
+            gm.GameOver(gm.Assault ? "Everyone went down on the seabed." : "Everyone went down on the beach.");
         }
 
         /// <summary>Client: forget join requests the host refused.</summary>

@@ -19,6 +19,7 @@ namespace TideWall.EditorTools
         public const string ScenePath = "Assets/Scenes/TideWall.unity";
         public const string LibraryPath = "Assets/Content/ContentLibrary.asset";
         const string SoundsPath = "Assets/Content/Sounds";
+        const string GlyphsPath = "Assets/Content/Glyphs";
 
         [UnityEditor.MenuItem("TideWall/Setup Project")]
         public static void Run()
@@ -26,12 +27,15 @@ namespace TideWall.EditorTools
             Directory.CreateDirectory("Assets/Content/Materials");
             Directory.CreateDirectory("Assets/Content/Data");
             Directory.CreateDirectory(SoundsPath);
+            Directory.CreateDirectory(GlyphsPath);
             Directory.CreateDirectory("Assets/Scenes");
             TextMeshProResources();
             Materials();
             Data(false);
             Sounds(false);
+            GlyphFiles(false);
             AssetDatabase.Refresh();
+            GlyphImport();
             Library();
             Scene();
             Settings();
@@ -72,6 +76,36 @@ namespace TideWall.EditorTools
             }
         }
 
+        [UnityEditor.MenuItem("TideWall/Redraw Glyphs")]
+        public static void RedrawGlyphs() { GlyphFiles(true); AssetDatabase.Refresh(); GlyphImport(); Library(); AssetDatabase.SaveAssets(); }
+
+        /// <summary>The symbols (GlyphArt) → PNGs in Assets/Content/Glyphs (only missing ones, unless overwrite).</summary>
+        static void GlyphFiles(bool overwrite)
+        {
+            foreach (var name in GlyphArt.Names)
+            {
+                string path = Path.Combine(GlyphsPath, name + ".png");
+                if (!overwrite && File.Exists(path)) continue;
+                var tex = GlyphArt.Texture(name);
+                File.WriteAllBytes(path, tex.EncodeToPNG());
+                Object.DestroyImmediate(tex);
+            }
+        }
+
+        static void GlyphImport()
+        {
+            foreach (var name in GlyphArt.Names)
+            {
+                var ti = AssetImporter.GetAtPath($"{GlyphsPath}/{name}.png") as TextureImporter;
+                if (ti == null || (ti.alphaIsTransparency && ti.wrapMode == TextureWrapMode.Clamp)) continue;
+                ti.textureType = TextureImporterType.Default;
+                ti.alphaIsTransparency = true;
+                ti.wrapMode = TextureWrapMode.Clamp;
+                ti.mipmapEnabled = true;
+                ti.SaveAndReimport();
+            }
+        }
+
         /// <summary>The content library: the data, base materials, and every model and sound in Assets/Content.</summary>
         static void Library()
         {
@@ -88,6 +122,10 @@ namespace TideWall.EditorTools
                 var path = AssetDatabase.GUIDToAssetPath(guid);
                 lib.models.Add(new ContentLibrary.NamedModel { name = Path.GetFileNameWithoutExtension(path), prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path) });
             }
+            lib.glyphs = new List<ContentLibrary.NamedGlyph>();
+            foreach (var name in GlyphArt.Names)
+                lib.glyphs.Add(new ContentLibrary.NamedGlyph { name = name, texture = AssetDatabase.LoadAssetAtPath<Texture2D>($"{GlyphsPath}/{name}.png") });
+            lib.campaign = AssetDatabase.LoadAssetAtPath<Campaign>("Assets/Content/Data/Campaign.asset");
             lib.sounds = new List<ContentLibrary.NamedSound>();
             foreach (var guid in AssetDatabase.FindAssets("t:AudioClip", new[] { SoundsPath }))
             {
@@ -137,9 +175,27 @@ namespace TideWall.EditorTools
             var db = AssetDatabase.LoadAssetAtPath<GameDatabase>(dbPath);
             if (db == null) { db = ScriptableObject.CreateInstance<GameDatabase>(); db.FillDefaults(); AssetDatabase.CreateAsset(db, dbPath); }
             else if (overwrite) { db.FillDefaults(); EditorUtility.SetDirty(db); }
+            else
+            {
+                // Keep the asset's edits, but bring in creatures added to the defaults since (the Tidemother), and who
+                // carries the Mark
+                var fresh = ScriptableObject.CreateInstance<GameDatabase>();
+                fresh.FillDefaults();
+                foreach (var e in fresh.enemies)
+                {
+                    var have = db.enemies.Find(x => x.id == e.id);
+                    if (have == null) { db.enemies.Add(e); EditorUtility.SetDirty(db); }
+                    else if (e.mark && !have.mark) { have.mark = true; EditorUtility.SetDirty(db); }
+                }
+                Object.DestroyImmediate(fresh);
+            }
             var cycle = AssetDatabase.LoadAssetAtPath<PhaseCycle>(cyclePath);
             if (cycle == null) { cycle = ScriptableObject.CreateInstance<PhaseCycle>(); cycle.FillDefaults(); AssetDatabase.CreateAsset(cycle, cyclePath); }
             else if (overwrite) { cycle.FillDefaults(); EditorUtility.SetDirty(cycle); }
+            const string campaignPath = "Assets/Content/Data/Campaign.asset";
+            var campaign = AssetDatabase.LoadAssetAtPath<Campaign>(campaignPath);
+            if (campaign == null) { campaign = ScriptableObject.CreateInstance<Campaign>(); campaign.FillDefaults(); AssetDatabase.CreateAsset(campaign, campaignPath); }
+            else if (overwrite) { campaign.FillDefaults(); EditorUtility.SetDirty(campaign); }
         }
 
         /// <summary>The game's one scene: post-processing, the GameManager (with the content library) and the level.</summary>
@@ -155,6 +211,8 @@ namespace TideWall.EditorTools
             if (content.objectReferenceValue == null) { content.objectReferenceValue = AssetDatabase.LoadAssetAtPath<ContentLibrary>(LibraryPath); so.ApplyModifiedPropertiesWithoutUndo(); changed = true; }
             if (changed) EditorSceneManager.SaveScene(scene);
             if (Object.FindAnyObjectByType<World>() == null) WorldBaker.Rebuild();
+            // Part II's stages, one scene each, the first time
+            if (ExpeditionBaker.ScenePaths().Exists(path => !File.Exists(path))) ExpeditionBaker.Rebuild();
         }
 
         static void NewScene()
@@ -188,10 +246,18 @@ namespace TideWall.EditorTools
             tags.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        /// <summary>The build's scenes: the town (Part I and the menu) first, then every stage that exists.</summary>
+        public static void BuildScenes()
+        {
+            var scenes = new List<EditorBuildSettingsScene> { new(ScenePath, true) };
+            foreach (var path in ExpeditionBaker.ScenePaths()) if (File.Exists(path)) scenes.Add(new EditorBuildSettingsScene(path, true));
+            EditorBuildSettings.scenes = scenes.ToArray();
+        }
+
         static void Settings()
         {
             SortingLayers();
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+            BuildScenes();
             PlayerSettings.productName = "TideWall";
             PlayerSettings.companyName = "CheeseyDanish";
             PlayerSettings.defaultScreenWidth = 1920;

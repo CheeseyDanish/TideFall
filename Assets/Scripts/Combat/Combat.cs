@@ -55,6 +55,14 @@ namespace TideWall
                         continue;
                     }
                     if (c.GetComponentInParent<GasCan>() is { } can) { can.Hit(g.element, p); end = h.point; break; }
+                    if (c.GetComponentInParent<IShootable>() is { Alive: true } shootable)
+                    {
+                        shootable.Shot(new DamageInfo { amount = g.damage * damageMult, element = g.element, source = p, point = h.point, dir = dir });
+                        Fx.Sparks(h.point, new Color(.9f, 1f, .9f), 4);
+                        if (g.splash > 0) Explode(h.point, g.splash, g.damage * damageMult * .5f, g.element, p, false);
+                        end = h.point;
+                        break;
+                    }
                     if (c.isTrigger || c.GetComponentInParent<Corpse>() != null) continue;
                     // Hit the world (sand, rocks, stalls)
                     end = h.point;
@@ -73,6 +81,7 @@ namespace TideWall
             var blade = center + forward * m.range * .65f;
             struck.Clear();
             var cans = new List<GasCan>();
+            var targets = new HashSet<IShootable>();
             int landed = 0;
             for (int i = 0; i < count; i++)
             {
@@ -80,6 +89,12 @@ namespace TideWall
                 var to = c.bounds.ClosestPoint(center) - center; to.y = 0;
                 if (to.sqrMagnitude > .01f && Vector3.Angle(forward, to) > m.arcDegrees / 2) continue;
                 if (c.GetComponentInParent<GasCan>() is { Holder: null } can) { cans.Add(can); continue; }
+                if (c.GetComponentInParent<IShootable>() is { Alive: true } target && targets.Add(target))
+                {
+                    target.Shot(new DamageInfo { amount = m.damage * damageMult, element = m.element, melee = true, source = p, point = c.bounds.ClosestPoint(blade), dir = forward });
+                    landed++;
+                    continue;
+                }
                 var e = c.GetComponentInParent<Enemy>();
                 if (e == null || e.Dead || !struck.Add(e)) continue;
                 var limb = e.LimbNearest(blade);
@@ -104,10 +119,16 @@ namespace TideWall
             // Own buffers: explosions can happen inside a shot or swing loop (a gas can going off), which use the shared ones.
             var found = Physics.OverlapSphere(pos, radius, ~0, QueryTriggerInteraction.Collide);
             var hitSet = new HashSet<Enemy>();
+            var targets = new HashSet<IShootable>();
             var cans = new List<GasCan>();
             foreach (var c in found)
             {
                 if (c.GetComponentInParent<GasCan>() is { } can) { cans.Add(can); continue; }
+                if (c.GetComponentInParent<IShootable>() is { Alive: true } target && targets.Add(target))
+                {
+                    target.Shot(new DamageInfo { amount = damage, element = element, explosion = true, ignoreArmor = true, source = source, point = pos });
+                    continue;
+                }
                 var e = c.GetComponentInParent<Enemy>();
                 if (e == null || e == exclude || e.Dead || !hitSet.Add(e)) continue;
                 float d = Vector3.Distance(pos, e.transform.position);

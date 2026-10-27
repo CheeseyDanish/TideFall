@@ -11,8 +11,10 @@ namespace TideWall
     [Serializable]
     public class SaveData
     {
-        public int version = 3;
+        public int version = 4;
         public int slot;
+        [Tooltip("Campaign part id: \"wall\" (Part I) or \"undertow\" (Part II)")] public string part = "wall";
+        [Tooltip("Part II: the stage to play next (0-based)")] public int stage;
         public string savedAt;          // ISO 8601, for "Continue" (most recent wins)
         public int day = 1, phaseIndex;
         public int sandDollars, pearls, runWave;
@@ -27,7 +29,9 @@ namespace TideWall
         public List<PlayerSave> players = new();
         public int kills, severs;
 
-        public string Summary => $"Day {day} · {sandDollars} sand dollars · powerplant {Mathf.CeilToInt(plantHp)}/{Mathf.RoundToInt(plantMaxHp)}";
+        public string Summary => part == "wall"
+            ? $"Day {day} · {sandDollars} sand dollars · powerplant {Mathf.CeilToInt(plantHp)}/{Mathf.RoundToInt(plantMaxHp)}"
+            : $"Part II · stage {stage + 1} · {sandDollars} sand dollars";
     }
 
     [Serializable] public class UpgradeLevel { public string id; public int level; }
@@ -90,13 +94,17 @@ namespace TideWall
             var d = new SaveData
             {
                 slot = gm.SaveSlot, day = gm.Phases.Day, phaseIndex = Mathf.Max(0, gm.Phases.Index), sandDollars = gm.SandDollars, pearls = gm.Pearls, runWave = gm.Waves.RunWave,
-                wallHp = gm.Wall.Hp, wallMaxHp = gm.Wall.MaxHp, plantHp = gm.Plant.Hp, plantMaxHp = gm.Plant.MaxHp,
                 gunDamage = gm.Team.GunDamage, meleeDamage = gm.Team.MeleeDamage, magazine = gm.Team.Magazine,
                 playerHpBonus = gm.Team.PlayerHpBonus, extraGasCans = gm.Team.ExtraGasCans,
             };
-            foreach (var st in Structure.All)
-                if (st != null && !st.Dead) d.structures.Add(new StructureSave { id = st.Def.id, x = st.transform.position.x, z = st.transform.position.z, yaw = st.transform.eulerAngles.y, hp = st.Hp });
-            foreach (var sec in gm.Wall.Sections) { d.wallSections.Add(sec.hp); d.wallSectionMax.Add(sec.max); }
+            if (gm.World != null)
+            {
+                d.wallHp = gm.Wall.Hp; d.wallMaxHp = gm.Wall.MaxHp; d.plantHp = gm.Plant.Hp; d.plantMaxHp = gm.Plant.MaxHp;
+                foreach (var st in Structure.All)
+                    if (st != null && !st.Dead) d.structures.Add(new StructureSave { id = st.Def.id, x = st.transform.position.x, z = st.transform.position.z, yaw = st.transform.eulerAngles.y, hp = st.Hp });
+                foreach (var sec in gm.Wall.Sections) { d.wallSections.Add(sec.hp); d.wallSectionMax.Add(sec.max); }
+            }
+            else { d.part = gm.Campaign.parts.Find(p => p.kind == PartKind.Assault)?.id ?? "undertow"; d.stage = gm.Expedition.StageIndex; }
             foreach (var a in gm.Cards.Actives) d.cards.Add(new CardSave { id = a.def.id, wavesLeft = a.wavesLeft });
             foreach (var u in gm.DB.upgrades) if (gm.Team.Level(u.id) > 0) d.upgrades.Add(new UpgradeLevel { id = u.id, level = gm.Team.Level(u.id) });
             foreach (var p in gm.Players.All)

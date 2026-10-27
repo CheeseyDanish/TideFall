@@ -26,7 +26,7 @@ namespace TideWall.EditorTools
         public static void Rebuild()
         {
             var scene = EditorSceneManager.OpenScene(TideWallSetup.ScenePath, OpenSceneMode.Single);
-            foreach (var old in Object.FindObjectsByType<World>(FindObjectsInactive.Include, FindObjectsSortMode.None)) Object.DestroyImmediate(old.gameObject);
+            foreach (var old in Object.FindObjectsByType<World>(FindObjectsInactive.Include)) Object.DestroyImmediate(old.gameObject);
             if (AssetDatabase.IsValidFolder(Generated)) AssetDatabase.DeleteAsset(Generated);
             Directory.CreateDirectory(Generated + "/Meshes");
             Directory.CreateDirectory(Generated + "/Materials");
@@ -38,7 +38,7 @@ namespace TideWall.EditorTools
             try { world = WorldBuilder.Build(null); }
             finally { ModelFactory.Instantiate = instantiate; }
 
-            Persist(world.gameObject);
+            Persist(world.gameObject, Generated);
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             AssetDatabase.SaveAssets();
@@ -46,7 +46,7 @@ namespace TideWall.EditorTools
         }
 
         /// <summary>Save every mesh and material that only exists in memory as an asset, so the scene keeps it.</summary>
-        static void Persist(GameObject root)
+        internal static void Persist(GameObject root, string folder)
         {
             var saved = new HashSet<Object>();
             var names = new HashSet<string>();
@@ -64,7 +64,7 @@ namespace TideWall.EditorTools
                 if (mf.GetComponent<TMP_Text>() != null) continue;   // TextMeshPro rebuilds its own mesh
                 var mesh = mf.sharedMesh;
                 if (mesh == null || EditorUtility.IsPersistent(mesh) || !saved.Add(mesh)) continue;
-                AssetDatabase.CreateAsset(mesh, Unique(Generated + "/Meshes", mesh.name.Length > 0 ? mesh.name : mf.name, "asset"));
+                AssetDatabase.CreateAsset(mesh, Unique(folder + "/Meshes", mesh.name.Length > 0 ? mesh.name : mf.name, "asset"));
             }
             foreach (var r in root.GetComponentsInChildren<Renderer>(true))
             {
@@ -72,7 +72,7 @@ namespace TideWall.EditorTools
                 foreach (var m in r.sharedMaterials)
                 {
                     if (m == null || EditorUtility.IsPersistent(m) || !saved.Add(m)) continue;
-                    AssetDatabase.CreateAsset(m, Unique(Generated + "/Materials", m.name.Length > 0 ? m.name : r.name, "mat"));
+                    AssetDatabase.CreateAsset(m, Unique(folder + "/Materials", m.name.Length > 0 ? m.name : r.name, "mat"));
                 }
             }
         }

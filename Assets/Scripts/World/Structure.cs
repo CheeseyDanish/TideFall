@@ -66,11 +66,8 @@ namespace TideWall
         public static string WhyNot(StructureDef def, Vector3 spot)
         {
             if (def == null) return "Nothing selected";
-            if (spot.z > Arena.ShoreZ - 1) return "Too close to the sea";
-            if (Mathf.Abs(spot.z - Arena.WallZ) < def.radius + .9f) return "Too close to the wall";
-            if (spot.z < Arena.TownMinZ + 1 || Mathf.Abs(spot.x) > Arena.BoundX - 1) return "Out of bounds";
-            var plant = Arena.PlantPos - spot; plant.y = 0;
-            if (plant.magnitude < Arena.PlantRadius + def.radius) return "Too close to the powerplant";
+            // The level's own rules first (Part I: not in the sea, on the wall or at the powerplant)
+            if (GameManager.I != null && GameManager.I.Level.BuildRule(spot, def.radius) is { } why) return why;
             foreach (var s in All)
             {
                 if (s == null || s.Dead) continue;

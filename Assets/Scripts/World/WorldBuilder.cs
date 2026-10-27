@@ -44,6 +44,10 @@ namespace TideWall
                 {
                     // A gatehouse over the sally port keeps the wall one piece; its pillars are solid, the arch is open
                     var gate = ModelFactory.Spawn("WallGate", wallGo.transform, new Vector3(x, 0, Arena.WallZ));
+                    // Banners with the town's Crest, both ways
+                    var gb = ModelFactory.Bounds(gate.root);
+                    Glyphs.DecalOn(gate.root.transform, "crest", new Vector3(x, gb.max.y - .75f, gb.max.z + .03f), Vector3.forward, .9f, new Color(.8f, .14f, .1f, .95f));
+                    Glyphs.DecalOn(gate.root.transform, "crest", new Vector3(x, gb.max.y - .75f, gb.min.z - .03f), Vector3.back, .9f, new Color(.8f, .14f, .1f, .95f));
                     foreach (float px in new[] { -1.71f, 1.71f }) Solid(gate.root, new Vector3(px, 1.45f, 0), new Vector3(.62f, 2.9f, 1.34f));
                     Prop(wallGo.transform, "Crate", new Vector3(x - 2.6f, 0, -1.4f), 20);
                     continue;
@@ -60,6 +64,10 @@ namespace TideWall
 
             // --- the Nuclear Sand Powerplant, centre of town
             world.plant = PowerPlant.Build(t, Arena.PlantPos, db.plantMaxHp);
+            // The town's Crest on its landward side. On the side facing the sea, faint in the core's glow: the whole Spiral
+            var pb = ModelFactory.Bounds(world.plant.gameObject);
+            Glyphs.DecalOn(world.plant.transform, "crest", new Vector3(pb.center.x, pb.min.y + pb.size.y * .45f, pb.min.z - .04f), Vector3.back, 1.8f, new Color(.75f, .12f, .1f, .9f));
+            Glyphs.DecalOn(world.plant.transform, "spiral", new Vector3(pb.center.x, pb.min.y + pb.size.y * .55f, pb.max.z + .04f), Vector3.forward, 1.6f, new Color(.45f, 1f, .6f, .45f), glow: true);
 
             // --- town: stalls face the camera (toward -Z)
             var town = new GameObject("Town").transform;
@@ -85,6 +93,8 @@ namespace TideWall
             }
             // The keep behind the town: its upper room is the main menu's view out to sea
             world.keep = ModelFactory.Spawn("Keep", t, new Vector3(0, 0, -27.5f));
+            var kb = ModelFactory.Bounds(world.keep.root);
+            Glyphs.DecalOn(world.keep.root.transform, "crest", new Vector3(kb.center.x - 6, kb.min.y + kb.size.y * .6f, kb.max.z + .04f), Vector3.forward, 2.4f, new Color(.8f, .14f, .1f, .9f));
             Solid(world.keep.root, new Vector3(0, 6.7f, -5f), new Vector3(22, 13.4f, 11.2f));
             foreach (var s in new[] { "TorchL", "TorchR", "Candle" })
                 if (world.keep.Sockets.TryGetValue(s, out var sock))
@@ -141,7 +151,7 @@ namespace TideWall
                 var c = ModelFactory.Spawn("Cloud", t, new Vector3((float)(rng.NextDouble() * 440 - 220), 55 + (float)rng.NextDouble() * 25, 60 + (float)rng.NextDouble() * 150),
                                            1.5f + (float)rng.NextDouble() * 2);
                 foreach (var r in c.Renderers) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false; }
-                world.clouds.Add(new World.Cloud { t = c.root.transform, speed = 1.5f + (float)rng.NextDouble() * 2 });
+                world.clouds.Add(new Level.Cloud { t = c.root.transform, speed = 1.5f + (float)rng.NextDouble() * 2 });
             }
 
             // --- invisible bounds for players

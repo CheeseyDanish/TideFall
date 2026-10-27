@@ -6,9 +6,10 @@
 //   TideWall.exe -tidewall-join <address> -tidewall-capture <folder>
 //                                                           join that host as a client, screenshot what the
 //                                                           client sees, log TIDEWALL_CLIENT_OK, quit
+//   add -tidewall-stage <1-5> to the host to host a Part II stage instead of Part I's evening
 //   add -tidewall-relay to the host to host through Unity Relay instead (it logs TIDEWALL_JOIN_CODE <code>),
 //   and use -tidewall-join-code <code> instead of -tidewall-join on the client
-// The tour never saves (it starts unsaved runs) and never changes settings.
+// Every mode keeps settings, saves and the legacy record in a temporary folder: never the player's files.
 using System;
 using System.Collections;
 using System.IO;
@@ -23,6 +24,7 @@ namespace TideWall
         string dir, join, joinCode;
         bool relay;
         float hostSeconds = -1;
+        int hostStage = -1;
         Gamepad pad1, pad2;
         Vector2 look1;
         bool fire;
@@ -35,13 +37,22 @@ namespace TideWall
             int c = Array.IndexOf(args, "-tidewall-capture"), h = Array.IndexOf(args, "-tidewall-host-demo"), j = Array.IndexOf(args, "-tidewall-join");
             int jc = Array.IndexOf(args, "-tidewall-join-code");
             if (c < 0 && h < 0) return;
+            // Never the player's files: settings, saves and the legacy record (a tour's run can end and be recorded)
+            // live in a temporary folder for the whole session
+            Storage.Root = Path.Combine(Application.temporaryCachePath, "tidewall-capture-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Storage.Root);
+            Settings.Reload();
+            Storage.Write("legacy.json", "{\"runs\": 7}");   // a few runs behind us, so the keep wall's tally shows
             var d = new GameObject("DemoCapture").AddComponent<DemoCapture>();
             DontDestroyOnLoad(d.gameObject);
-            d.dir = c >= 0 && c + 1 < args.Length ? args[c + 1] : "Captures";
+            // Absolute: ScreenCapture resolves a relative path against the data folder, not the working directory
+            d.dir = Path.GetFullPath(c >= 0 && c + 1 < args.Length ? args[c + 1] : "Captures");
             if (h >= 0) d.hostSeconds = h + 1 < args.Length && float.TryParse(args[h + 1], out var s) ? s : 60;
             if (j >= 0 && j + 1 < args.Length) d.join = args[j + 1];
             if (jc >= 0 && jc + 1 < args.Length) d.joinCode = args[jc + 1];
             d.relay = Array.IndexOf(args, "-tidewall-relay") >= 0;
+            int st = Array.IndexOf(args, "-tidewall-stage");
+            if (st >= 0 && st + 1 < args.Length && int.TryParse(args[st + 1], out var stage)) d.hostStage = stage - 1;
         }
 
         void Update()
@@ -71,6 +82,7 @@ namespace TideWall
             pad2 = InputSystem.AddDevice<Gamepad>();
             var p1 = gm.Players.Join(new InputDevice[] { pad1 });
             var p2 = gm.Players.Join(new InputDevice[] { pad2 });
+            StoryCard.Close();   // (a first run opens with Part I's card)
             yield return new WaitForSecondsRealtime(3f);
             yield return Shot("03-morning-first-person-two-players");
 
@@ -126,7 +138,7 @@ namespace TideWall
                 b.Carry(gm.Waves.SpawnExtra(gm.DB.Enemy(id), b.RiderPosition(UnityEngine.Random.Range(-8f, 8f), 0)), UnityEngine.Random.Range(-8f, 8f), .3f);
             var view = new GameObject("TowerCam").AddComponent<Camera>();
             view.depth = 40; view.fieldOfView = 55;
-            World.SetupCameraSky(view, gm.Phases.SkyColor);
+            Level.SetupCameraSky(view, gm.Phases.SkyColor);
             view.transform.SetPositionAndRotation(new Vector3(-20, 14, -4), Quaternion.LookRotation(new Vector3(-6, 0, 36) - new Vector3(-20, 14, -4)));
             yield return new WaitForSecondsRealtime(1.5f);
             yield return Shot("05b-breakers-rolling-in");
@@ -183,8 +195,61 @@ namespace TideWall
             gm.Players.Join(new InputDevice[] { pad3 }); gm.Players.Join(new InputDevice[] { pad4 });
             yield return new WaitForSecondsRealtime(2f);
             yield return Shot("11-four-players");
+            yield return Undertow(gm);
             Debug.Log("TIDEWALL_CAPTURE_DONE");
             Application.Quit();
+        }
+
+        /// <summary>Part II: each stage in turn (the team carried through the gates), its title card, the lane, and at
+        /// the Heart the Tidemother, the choice, and the Spiral ending's card.</summary>
+        IEnumerator Undertow(GameManager gm)
+        {
+            var part = gm.Campaign.parts.Find(x => x.kind == PartKind.Assault);
+            for (int i = 0; i < part.stages.Count; i++)
+            {
+                var req = gm.Carry(Expedition.NewSave(gm, 0, i), 0);
+                while (req.devices.Count > 2) req.devices.RemoveAt(req.devices.Count - 1);   // two sailors
+                GameManager.Load(part.stages[i].scene, req);
+                yield return new WaitForSecondsRealtime(i == 0 ? 2.2f : 1.4f);
+                gm = GameManager.I;
+                yield return Shot($"20-{i + 1}a-card");
+                StoryCard.Close();
+                var ex = gm.Expedition;
+                var p1 = gm.Players.All[0];
+                var target = ex.objectives.Count > 0 ? ex.objectives[0].transform.position : new Vector3(0, 0, 60);
+                Teleport(p1, target + new Vector3(3, 0, -16));
+                p1.SetLook(Mathf.Atan2(-3, 16) * Mathf.Rad2Deg, 8);
+                if (gm.Players.Count > 1) Teleport(gm.Players.All[1], target + new Vector3(-2, 0, -13));
+                yield return new WaitForSecondsRealtime(2.5f);
+                yield return Shot($"20-{i + 1}b-{part.stages[i].id}");
+                // From above the lane
+                var view = new GameObject("StageCam").AddComponent<Camera>();
+                view.depth = 40; view.fieldOfView = 60;
+                Level.SetupCameraSky(view, gm.Phases.SkyColor);
+                var at = new Vector3(0, 26, target.z - 34);
+                view.transform.SetPositionAndRotation(at, Quaternion.LookRotation(target + new Vector3(0, 0, 10) - at));
+                yield return new WaitForSecondsRealtime(.4f);
+                yield return Shot($"20-{i + 1}c-{part.stages[i].id}-above");
+                Destroy(view.gameObject);
+                if (ex.objectives.Count > 0 && ex.objectives[0] is HeartAltar altar)
+                {
+                    Teleport(p1, altar.transform.position + new Vector3(0, 0, -18));
+                    p1.SetLook(0, 6);
+                    yield return new WaitForSecondsRealtime(3f);
+                    yield return Shot("21-tidemother");
+                    if (altar.Boss != null) altar.Boss.Die(new DamageInfo { source = p1 });
+                    Teleport(p1, altar.transform.position + new Vector3(0, 0, -6));
+                    p1.SetLook(0, 12);
+                    yield return new WaitForSecondsRealtime(2f);
+                    yield return Shot("22-the-heart-and-the-hollow");
+                    StoryCard.Ending(gm.Campaign.Ending("spiral"), null);
+                    yield return new WaitForSecondsRealtime(1.6f);
+                    yield return Shot("23-crest-and-mark");
+                    yield return new WaitForSecondsRealtime(3.4f);
+                    yield return Shot("24-the-spiral");
+                    StoryCard.Close();
+                }
+            }
         }
 
         /// <summary>Host an online game for a client test: one virtual player shooting, some enemies.</summary>
@@ -202,17 +267,26 @@ namespace TideWall
                 Debug.Log($"TIDEWALL_JOIN_CODE {Net.Host.JoinCode}");
             }
             else if (Net.StartHost(NetProtocol.DefaultPort, "Host Bot", DemoPassword, out var error) == null) { Debug.LogError($"TIDEWALL_HOST_FAILED {error}"); Application.Quit(1); yield break; }
-            gm.StartRun(null, 0);
+            if (hostStage >= 0)
+            {
+                // A Part II stage: go there (clients that join later load it on connecting)
+                var part = gm.Campaign.parts.Find(x => x.kind == PartKind.Assault);
+                StoryCard.Disabled = true;
+                GameManager.Load(part.stages[hostStage].scene, new RunRequest { save = Expedition.NewSave(gm, 0, hostStage) });
+                yield return new WaitForSecondsRealtime(1.5f);
+                gm = GameManager.I;
+            }
+            else gm.StartRun(null, 0);
             pad1 = InputSystem.AddDevice<Gamepad>();
             var p = gm.Players.Join(new InputDevice[] { pad1 });
-            Debug.Log("TIDEWALL_HOST_READY");
-            gm.Phases.Advance();   // evening: a fight to watch
+            Debug.Log($"TIDEWALL_HOST_READY {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
+            if (!gm.Assault) gm.Phases.Advance();   // evening: a fight to watch
             float end = Time.time + hostSeconds;
             while (Time.time < end)
             {
                 if (GameManager.Enemies.Count < 6)
                     foreach (var id in new[] { "crab", "drowner", "shark", "croc" })
-                        gm.Waves.SpawnExtra(gm.DB.Enemy(id), new Vector3(UnityEngine.Random.Range(-8f, 8f), 0, UnityEngine.Random.Range(12f, 18f)));
+                        gm.Waves.SpawnExtra(gm.DB.Enemy(id), p.transform.position + new Vector3(UnityEngine.Random.Range(-8f, 8f), 0, UnityEngine.Random.Range(12f, 18f)));
                 fire = Time.time % 3 < 1;
                 yield return new WaitForSecondsRealtime(.5f);
             }

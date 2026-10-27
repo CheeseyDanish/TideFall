@@ -30,15 +30,23 @@ namespace TideWall
 
         public GameDatabase DB { get; private set; }
         public PhaseCycle Cycle { get; private set; }
+        public Campaign Campaign { get; private set; }
         public GameState State { get; private set; } = GameState.MainMenu;
         public bool Paused { get; private set; }
         public int SandDollars { get; private set; }
         /// <summary>Golden pearls: rare (giant clams drop them), spent on the best defences.</summary>
         public int Pearls { get; private set; }
         public readonly TeamStats Team = new();
-        public World World { get; private set; }
-        public Wall Wall => World.wall;
-        public PowerPlant Plant => World.plant;
+        /// <summary>This scene's level: Part I's World (the town and beach) or a Part II Expedition stage.</summary>
+        public Level Level { get; private set; }
+        public World World => Level as World;
+        public Expedition Expedition => Level as Expedition;
+        /// <summary>Part II: attacking on the seabed rather than defending the wall.</summary>
+        public bool Assault => Level is Expedition;
+        public Wall Wall => World != null ? World.wall : null;
+        public PowerPlant Plant => World != null ? World.plant : null;
+        /// <summary>The scene with the main menu (Part I's town).</summary>
+        public const string MenuScene = "TideWall";
         public TidalCards Cards { get; private set; }
         /// <summary>The record this run's game over produced (null until then).</summary>
         public Legacy RunRecord { get; private set; }
@@ -73,24 +81,26 @@ namespace TideWall
             Time.timeScale = 1;
             DB = GameDatabase.Load();
             Cycle = PhaseCycle.Load();
+            Campaign = Campaign.Load();
             SandDollars = DB.startSandDollars;
             gameObject.AddComponent<AudioListener>();
             Settings.Changed(save: false);
             Fx.Init(transform);
             Sfx.Init(gameObject);
             Cards = gameObject.AddComponent<TidalCards>();
-            // The level is saved in the scene (TideWall → Rebuild World In Scene regenerates it)
-            World = FindAnyObjectByType<World>();
-            if (World == null)
+            // The level is saved in the scene (TideWall → Rebuild World In Scene / Rebuild Stages regenerate them)
+            Level = FindAnyObjectByType<Level>();
+            if (Level == null)
             {
-                Debug.LogError("TideWall: this scene has no World. Building one for now; open the TideWall scene or use TideWall → Rebuild World In Scene.");
-                World = WorldBuilder.Build(null);
+                Debug.LogError("TideWall: this scene has no level. Building Part I's for now; open the TideWall scene or use TideWall → Rebuild World In Scene.");
+                Level = WorldBuilder.Build(null);
             }
-            World.Init(DB);
+            Arena.Seabed = Assault;
+            Level.Init(DB);
             Phases = gameObject.AddComponent<PhaseManager>();
             Waves = gameObject.AddComponent<WaveDirector>();
             Players = gameObject.AddComponent<PlayerManager>();
-            Menu = gameObject.AddComponent<MainMenu>();
+            if (World != null) Menu = gameObject.AddComponent<MainMenu>();   // the main menu lives in Part I's keep
         }
 
         void Start()
@@ -98,9 +108,11 @@ namespace TideWall
             // After a reload: a client keeps mirroring its host; a host or a "retry" starts its run straight away.
             if (Net.IsClient) { BeginClient(); return; }
             var req = Pending; Pending = null;
+            // A Part II stage opened on its own (the editor, tests): an unsaved expedition starting here
+            if (req == null && Assault) req = new RunRequest { save = Expedition.NewSave(this, 0, Expedition.StageIndex) };
             if (req == null) return;
             StartRun(req.save, req.slot);
-            foreach (var devs in req.devices) if (Array.TrueForAll(devs, d => d != null && d.added)) Players.Join(devs);
+            foreach (var devs in req.devices) if (Array.TrueForAll(devs, d => d != null && d.added)) Players.Join(devs, quiet: true);   // the same sailors, carried over
             if (Net.IsHost) Net.Host.Rebind(this);
         }
 
@@ -122,7 +134,20 @@ namespace TideWall
             SaveSlot = slot;
             Loaded = save;
             State = GameState.Playing;
-            Menu.Hide();
+            Menu?.Hide();
+            if (Assault)
+            {
+                // Part II: the team, its money and its upgrades come with the save from the last stage
+                if (save != null) { SandDollars = save.sandDollars; Pearls = save.pearls; Team.Restore(save); }
+                Expedition.Begin(save);
+                return;
+            }
+            if (save != null && save.part != "wall")
+            {
+                // A Part II save opened from the main menu: go to its stage
+                Load(Expedition.SceneFor(Campaign, save), new RunRequest { save = save, slot = slot });
+                return;
+            }
             if (save != null)
             {
                 SandDollars = save.sandDollars;
@@ -136,7 +161,12 @@ namespace TideWall
                 Phases.SetDay(save.day);
                 Phases.Enter(save.phaseIndex);
             }
-            else Phases.Begin();
+            else
+            {
+                Phases.Begin();
+                // The very first run: Part I's opening words
+                if (Legacy.Load().runs == 0) StoryCard.Part(Campaign.parts.Find(p => p.kind == PartKind.Defense));
+            }
         }
 
         /// <summary>A client mirrors the host: no simulation, state arrives in snapshots.</summary>
@@ -144,7 +174,7 @@ namespace TideWall
         {
             State = GameState.Playing;
             SaveSlot = 0;
-            Menu.Hide();
+            Menu?.Hide();
         }
 
         /// <summary>Called by the first player to join while the main menu is up (tests, capture): a new, unsaved run.</summary>
@@ -159,7 +189,7 @@ namespace TideWall
             return SaveSystem.Write(d);
         }
 
-        public bool CanSaveNow => SaveSlot > 0 && !Net.IsClient && State == GameState.Playing && Phases.Current != null && Phases.Current.saveOnStart;
+        public bool CanSaveNow => SaveSlot > 0 && !Net.IsClient && State == GameState.Playing && !Assault && Phases.Current != null && Phases.Current.saveOnStart;
 
         public void Banner(string title, string subtitle)
         {
@@ -210,7 +240,7 @@ namespace TideWall
             if (SaveSlot > 0) SaveSystem.Delete(SaveSlot);
             int level = 0, kills = 0;
             foreach (var p in Players.All) { level = Mathf.Max(level, p.Level); kills += p.Kills; }
-            RunRecord = Legacy.Record(Phases.Day, level, kills);
+            RunRecord = Assault ? Legacy.RecordExpedition(Expedition.StageIndex, level, kills) : Legacy.Record(Phases.Day, level, kills);
             if (Net.IsHost) Net.Host.SendGameOver(reason);
         }
 
@@ -227,9 +257,10 @@ namespace TideWall
             if (Net.IsClient) return;   // the host decides
             var req = new RunRequest { slot = SaveSlot, save = null };
             foreach (var p in Players.All) if (p.Controls != null) req.devices.Add(p.Controls.Devices);
-            Pending = req;
-            if (Net.IsHost) Net.Host.SendReload();
-            Reload();
+            // Part II starts over from its first stage
+            string scene = SceneManager.GetActiveScene().name;
+            if (Assault) { req.save = Expedition.NewSave(this, SaveSlot, 0); scene = Expedition.SceneFor(Campaign, req.save); }
+            Load(scene, req);
         }
 
         /// <summary>Back to the main menu (saving first if this phase allows it). Leaves any online session.</summary>
@@ -238,13 +269,39 @@ namespace TideWall
             if (CanSaveNow) SaveNow();
             Net.Shutdown(Net.IsHost ? "The host closed the game." : null);
             Pending = null;
-            Reload();
+            Load(MenuScene, null);
+        }
+
+        /// <summary>Go to a scene, starting a run there with `req` (the players and the save to bring). An online host
+        /// takes its clients along.</summary>
+        public static void Load(string scene, RunRequest req)
+        {
+            Pending = req;
+            if (Net.IsHost) Net.Host.SendReload(scene);
+            Time.timeScale = 1;
+            SceneManager.LoadScene(scene);
+        }
+
+        /// <summary>The players on this machine, to bring into the next scene.</summary>
+        public RunRequest Carry(SaveData save, int slot)
+        {
+            var req = new RunRequest { slot = slot, save = save };
+            foreach (var p in Players.All) if (p.Controls != null) req.devices.Add(p.Controls.Devices);
+            return req;
         }
 
         public static void Reload()
         {
             Time.timeScale = 1;
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+
+        /// <summary>Client: the host went to another scene; follow it.</summary>
+        public static void ReloadTo(string scene)
+        {
+            Time.timeScale = 1;
+            if (string.IsNullOrEmpty(scene) || !Application.CanStreamedLevelBeLoaded(scene)) { Reload(); return; }
+            SceneManager.LoadScene(scene);
         }
 
         // ------------------------------------------------------------------ client mirror
@@ -272,6 +329,8 @@ namespace TideWall
         public string Blocked(UpgradeDef u)
         {
             if (Maxed(u)) return "Maxed";
+            bool home = u.kind is UpgradeKind.RepairWall or UpgradeKind.WallMaxHp or UpgradeKind.PlantRepair or UpgradeKind.PlantMaxHp;
+            if (home && GameManager.I.Assault) return "The wall is far behind you";
             if (u.kind == UpgradeKind.RepairWall && !GameManager.I.Wall.Damaged) return "The wall is in one piece";
             if (u.kind == UpgradeKind.PlantRepair && GameManager.I.Plant.Hp >= GameManager.I.Plant.MaxHp - .5f) return "The core is cool";
             return null;

@@ -743,4 +743,125 @@ bpy.ops.object.join()
 bpy.context.view_layer.objects.active.name = 'Body'
 export(stand)
 
+# =====================================================================================  PART II: THE UNDERTOW
+# The seabed the sea gave up for one night. The game puts the symbols on these (docs/STORY.md) as decals, so
+# the faces they sit on are plain: keep them where the code expects (World/*.cs, the Glyphs.Decal calls).
+COL.update({'coral': (.78, .36, .42), 'coralD': (.45, .16, .26), 'egg': (.95, .7, .6), 'kelpD': (.12, .3, .2),
+            'wet': (.33, .36, .38), 'wetD': (.2, .22, .25), 'heart': (.45, 1, .75), 'bone': (.88, .84, .74), 'rust': (.5, .26, .14)})
+
+# Brood spire: a twisted coral tower that hatches the sea's creatures. Egg sacs cluster on it; the code puts the
+# Spiral at 3.1 m and the Eye at 5.2 m on its face.
+spire = []
+for i in range(9):
+    z = .4 + i * .75
+    r = 1.7 - i * .14
+    spire.append(('Body', 'cyl', (r * 2, r * 2, .8), (0, 0, z), 'coralD' if i % 2 else 'coral', None, (0, 0, i * 17), 6))
+spire += [('Body', 'cone', (.9, .9, 1.4), (0, 0, 7.3), 'coral', None, None, 6)]
+for k, (x, y, z, s) in enumerate([(1.1, .5, 1.2, .7), (-1.0, .8, 2.0, .6), (.6, -1.0, 2.6, .55), (-.7, -.6, 3.8, .5), (.8, .3, 4.6, .45),
+                                  (-.5, .4, 5.6, .4), (1.4, -.3, .6, .8), (-1.4, -.4, .7, .75)]):
+    spire.append(('Body', 'ball', (s, s, s * 1.2), (x, y, z), 'egg'))
+for a in range(5):
+    ang = a * 72 + 20
+    d = (math.cos(math.radians(ang)), math.sin(math.radians(ang)), .35)
+    spire.append(('Body', 'cone', (.7, .7, 2.2), (d[0] * 1.6, d[1] * 1.6, .6), 'coralD', None, aim(d), 5))
+build('BroodSpire', spire)
+
+# Beacon: an old stone bowl on a pillar, built by Saltmarrow's founders to light the way home. The game lights it.
+build('Beacon', [
+    ('Body', 'cyl', (1.4, 1.4, .3), (0, 0, .15), 'stoneD', None, None, 5),
+    ('Body', 'cyl', (.7, .7, 2.4), (0, 0, 1.5), 'stone', None, None, 5),
+    ('Body', 'cone', (1.6, 1.6, .7), (0, 0, 3.0), 'stoneD', None, (180, 0, 0), 5),
+    ('Body', 'cyl', (1.5, 1.5, .12), (0, 0, 3.36), 'stone', None, None, 5),
+    ('Body', 'box', (.12, .12, 1.1), (0, .38, 1.4), 'kelpD'), ('Body', 'box', (.1, .1, .8), (.3, -.3, 1.0), 'kelpD'),
+], sockets=[('Flame', (0, 0, 3.5))])
+
+# Wreck hull: a ship on its side, ribs showing. 1.2 m across (the code's crest sits at 0.62), 5 m long.
+hull = [('Body', 'box', (1.2, 5, .25), (0, 0, .12), 'woodD'),
+        ('Body', 'box', (.15, 5, 1.6), (.55, 0, .9), 'wood'), ('Body', 'box', (.15, 4.2, 1.2), (-.55, -.4, .7), 'wood'),
+        ('Body', 'cone', (1.2, 1.2, 1.2), (0, -2.9, .9), 'woodD', None, (90, 0, 0), 4),
+        ('Body', 'box', (.1, .1, 3.2), (0, 1.0, 1.7), 'woodD', None, (25, 0, 0))]
+for i in range(6):
+    hull.append(('Body', 'box', (1.3, .12, .14), (0, -2 + i * .8, 1.75), 'woodD'))
+hull.append(('Body', 'box', (.16, 1.6, .16), (.62, .6, 1.62), 'rust'))
+build('WreckHull', hull)
+
+# Shard stone: a standing stone the size of a hand-span, a fifth of the Spiral cut into its face.
+build('ShardStone', [
+    ('Body', 'cyl', (.8, .8, .14), (0, 0, .07), 'stoneD', None, None, 5),
+    ('Body', 'box', (.5, .3, .72), (0, 0, .5), 'wet', None, (0, 0, 0)),
+    ('Body', 'cone', (.5, .3, .22), (0, 0, .97), 'wet', None, None, 4),
+])
+
+# Supply cache: a sea chest the expedition sent ahead. 1.4 m wide and deep (the crest sits on its face at 0.71).
+build('SupplyCache', [
+    ('Body', 'box', (1.4, 1.4, .8), (0, 0, .4), 'wood'),
+    ('Body', 'box', (1.44, 1.44, .12), (0, 0, .2), 'woodD'), ('Body', 'box', (1.44, 1.44, .12), (0, 0, .7), 'woodD'),
+    ('Body', 'cyl', (1.4, 1.4, 1.4), (0, 0, .85), 'woodD', None, (0, 90, 0), 8),
+    ('Body', 'box', (.2, .08, .25), (0, -.72, .7), 'gold'),
+    ('Body', 'box', (.1, 1.5, 1.5), (-.68, 0, .75), 'steel'), ('Body', 'box', (.1, 1.5, 1.5), (.68, 0, .75), 'steel'),
+])
+
+# Exit gate: two weathered pillars and a lintel over the way on, 6 m apart. The Wave glows on the lintel.
+build('ExitGate', [
+    ('Body', 'box', (1.1, 1.1, 5), (-3, 0, 2.5), 'stone'), ('Body', 'box', (1.1, 1.1, 5), (3, 0, 2.5), 'stone'),
+    ('Body', 'box', (1.4, 1.4, .4), (-3, 0, .2), 'stoneD'), ('Body', 'box', (1.4, 1.4, .4), (3, 0, .2), 'stoneD'),
+    ('Body', 'box', (7.6, 1.2, .9), (0, 0, 5.35), 'stoneD'),
+    ('Body', 'box', (.14, .14, 2), (-2.5, -.6, 4), 'kelpD'), ('Body', 'box', (.12, .12, 1.4), (3.4, .55, 4.2), 'kelpD'),
+])
+
+# Heart cradle: five bone-white ribs closing over a stone basin, like fingers. One holds the Heart; the other is
+# empty, and its basin is the shape the town's core was cut to fit.
+cradle = [('Body', 'cyl', (2.8, 2.8, .4), (0, 0, .2), 'stoneD', None, None, 10),
+          ('Body', 'cyl', (2.0, 2.0, .3), (0, 0, .5), 'stone', None, None, 10)]
+for i in range(5):
+    a = math.radians(i * 72 + 90)
+    d = (-math.cos(a) * .35, -math.sin(a) * .35, 1)
+    cradle.append(('Body', 'cone', (.4, .4, 2.6), (math.cos(a) * 1.2, math.sin(a) * 1.2, 1.6), 'bone', None, aim(d), 5))
+build('HeartCradle', cradle)
+
+# The Heart of the Tide: what was taken. Green, warm, slow.
+build('Heart', [
+    ('Body', 'ball', (1.6, 1.6, 1.6), (0, 0, 0), 'heart'),
+    ('Body', 'ball', (.8, .8, .8), (.45, -.35, .4), 'heart'), ('Body', 'ball', (.7, .7, .7), (-.5, -.2, -.35), 'heart'),
+])
+
+# Petal seat: one of five stones around the cradles, each a founder's place. A crest glows on it for each shard.
+build('PetalSeat', [
+    ('Body', 'cyl', (1.2, 1.2, 1.1), (0, 0, .55), 'stone', None, None, 5),
+    ('Body', 'cyl', (1.3, 1.3, .1), (0, 0, 1.15), 'stoneD', None, None, 5),
+])
+
+# The Tidemother: the Heart's keeper. A shelled thing the size of a cottage; the Mark is painted on her shell by
+# the game. Claws and her one eye can be broken.
+tm = [
+    ('Body', 'ball', (3.6, 4.2, 2.2), (0, 0, 1.9), 'coralD'),
+    ('Body', 'ball', (3.2, 3.6, 1.4), (0, .2, 2.7), 'shell'),
+    ('Body', 'cone', (1.2, 1.2, 1.4), (0, .9, 3.6), 'coral', None, None, 6),
+    ('Body', 'box', (2.2, .6, .5), (0, -2.0, 1.6), 'coralD'),
+    ('Limb_Eye', 'ball', (.9, .9, .9), (0, -.1, .2), 'heart', (0, -2.0, 2.2)),
+    ('Limb_ClawL', 'box', (.5, .5, 1.8), (0, 0, -.8), 'coralD', (-1.9, -1.3, 2.0), (-35, 0, 0)),
+    ('Limb_ClawL', 'ball', (1.0, 1.6, .7), (0, -1.6, -1.2), 'coral', (-1.9, -1.3, 2.0)),
+    ('Limb_ClawL', 'cone', (.4, .4, .9), (0, -2.6, -1.2), 'bone', (-1.9, -1.3, 2.0), (90, 0, 0), 5),
+]
+for i in range(3):
+    tm.append(('Body', 'box', (.3, .3, 2.0), (-2.1, -.8 + i * 1.0, .9), 'coralD', None, (0, -35, 0)))
+    tm.append(('Body', 'box', (.3, .3, 2.0), (2.1, -.8 + i * 1.0, .9), 'coralD', None, (0, 35, 0)))
+build('Tidemother', mirror(tm))
+
+# Set dressing for the stages.
+# Arch: the kelp cathedral's ribs. Someone built these.
+arch = [('Body', 'box', (1, 1, 7), (-3.5, 0, 3.5), 'wet'), ('Body', 'box', (1, 1, 7), (3.5, 0, 3.5), 'wet')]
+for i in range(7):
+    a = math.radians(i * 30)
+    arch.append(('Body', 'box', (1.4, 1, .9), (-math.cos(a) * 3.5, 0, 7 + math.sin(a) * 2.2), 'wetD', None, (0, math.degrees(a) - 90, 0)))
+for x in (-3.3, 3.6, 0.4):
+    arch.append(('Body', 'box', (.16, .16, 3.0), (x, -.55, 5.0), 'kelpD'))
+build('Arch', arch)
+
+# Mural slab: a carved stone panel. The game cuts the story into it (glyph decals on its -Y face at 0.26).
+build('MuralSlab', [
+    ('Body', 'box', (3.2, .5, 2.6), (0, 0, 1.6), 'wet'),
+    ('Body', 'box', (3.6, .7, .3), (0, 0, .15), 'wetD'), ('Body', 'box', (3.4, .6, .25), (0, 0, 3.0), 'wetD'),
+])
+
 print('TIDEWALL_MODELS_DONE', sorted(os.listdir(OUT)))

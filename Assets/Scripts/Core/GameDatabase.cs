@@ -106,6 +106,7 @@ namespace TideWall
         [Tooltip("How often it's picked compared with others (1 = normal, 0.15 = rare)")] public float spawnWeight = 1;
         [Tooltip("Golden pearls it drops when killed")] public int pearls;
         public int Xp => xp > 0 ? xp : 10 + 12 * cost;
+        [Tooltip("Carries the Mark (the inner half of the Spiral) on its back: the sea's own (docs/STORY.md)")] public bool mark;
         public List<LimbDef> limbs = new();
     }
 
@@ -345,7 +346,7 @@ namespace TideWall
                 new() { id = "gull", displayName = "Gull", model = "Gull", behaviour = EnemyBehaviour.Flyer, hp = 20, speed = 6, damage = 5, aggroRange = 14,
                         bounty = 3, corpseValue = 6, cost = 2, minWave = 5, limbs = { L("WingL", LimbEffect.Ground, .3f), L("WingR", LimbEffect.Ground, .3f) } },
                 new() { id = "hermit", displayName = "Hermit Crab", model = "HermitCrab", behaviour = EnemyBehaviour.Walker, hp = 40, speed = 1.8f, damage = 5, armor = 4,
-                        bounty = 3, corpseValue = 15, cost = 2, minDay = 2, limbs = { L("Shell", LimbEffect.ShellOff, .6f), L("ClawL", LimbEffect.WeakenAttack),
+                        bounty = 3, corpseValue = 15, cost = 2, minDay = 2, mark = true, limbs = { L("Shell", LimbEffect.ShellOff, .6f), L("ClawL", LimbEffect.WeakenAttack),
                         L("ClawR", LimbEffect.WeakenAttack), L("Eyes", LimbEffect.Kill, .25f, 2f) } },
                 new() { id = "puffer", displayName = "Puffer", model = "Puffer", behaviour = EnemyBehaviour.Puffer, hp = 30, speed = 2, damage = 35,
                         bounty = 3, corpseValue = 10, cost = 3, minDay = 2 },
@@ -360,22 +361,26 @@ namespace TideWall
                 new() { id = "eel", displayName = "Eel", model = "Eel", behaviour = EnemyBehaviour.Leaper, hp = 35, speed = 3.2f, damage = 6, aggroRange = 8,
                         bounty = 3, corpseValue = 12, cost = 2, minDay = 3, limbs = { L("Head", LimbEffect.Kill, .35f, 2f), L("Tail", LimbEffect.Slow, .35f) } },
                 new() { id = "turtle", displayName = "Shellback", model = "Turtle", behaviour = EnemyBehaviour.Walker, hp = 160, speed = .9f, damage = 14, attackRate = .7f, armor = 6,
-                        attackRange = 1.5f, bounty = 6, corpseValue = 25, cost = 5, minDay = 3, limbs = { L("Head", LimbEffect.Kill, .3f, 2.5f) } },
+                        attackRange = 1.5f, bounty = 6, corpseValue = 25, cost = 5, minDay = 3, mark = true, limbs = { L("Head", LimbEffect.Kill, .3f, 2.5f) } },
                 new() { id = "croc", displayName = "Saltwater Croc", model = "Croc", behaviour = EnemyBehaviour.Croc, hp = 220, speed = 2.2f, waterSpeedMult = 1.6f, damage = 20,
                         attackRange = 2.2f, armor = 5, aggroRange = 8, bounty = 10, corpseValue = 60, cost = 8, minDay = 4,
-                        limbs = { L("Head", LimbEffect.Kill, .35f, 2f), L("Tail", LimbEffect.NoTail, .3f) } },
+                        mark = true, limbs = { L("Head", LimbEffect.Kill, .35f, 2f), L("Tail", LimbEffect.NoTail, .3f) } },
                 new() { id = "octopus", displayName = "Octopus", model = "Octopus", behaviour = EnemyBehaviour.Octopus, hp = 140, speed = 1.6f, damage = 10, attackRange = 3.5f,
                         aggroRange = 9, bounty = 8, corpseValue = 35, cost = 6, minDay = 4,
                         limbs = { L("Tent1", LimbEffect.Slow, .18f), L("Tent2", LimbEffect.Slow, .18f), L("Tent3", LimbEffect.Slow, .18f),
                                   L("Tent4", LimbEffect.Slow, .18f), L("Tent5", LimbEffect.Slow, .18f), L("Tent6", LimbEffect.Slow, .18f) } },
                 new() { id = "lobster", displayName = "Clawback", model = "Lobster", behaviour = EnemyBehaviour.Walker, hp = 300, speed = 1.2f, damage = 22, attackRate = .6f,
                         armor = 4, attackRange = 2f, bounty = 12, corpseValue = 40, cost = 10, minDay = 5,
-                        limbs = { L("ClawL", LimbEffect.WeakenAttack, .3f), L("ClawR", LimbEffect.WeakenAttack, .3f), L("Head", LimbEffect.Kill, .3f, 2f) } },
+                        mark = true, limbs = { L("ClawL", LimbEffect.WeakenAttack, .3f), L("ClawR", LimbEffect.WeakenAttack, .3f), L("Head", LimbEffect.Kill, .3f, 2f) } },
                 new() { id = "clam", displayName = "Giant Clam", model = "Clam", behaviour = EnemyBehaviour.Clam, hp = 90, speed = .9f, damage = 14, attackRange = 1.6f,
                         armor = 10, aggroRange = 6, bounty = 6, corpseValue = 30, cost = 3, spawnWeight = .15f, pearls = 2,
                         limbs = { L("Lid", LimbEffect.ShellOff, .5f) } },
                 new() { id = "glizzy", displayName = "Glizzy Monster", model = "GlizzyMonster", behaviour = EnemyBehaviour.Boss, hp = 2500, speed = 1f, damage = 40,
                         attackRate = .5f, attackRange = 3f, armor = 3, aggroRange = 10, bounty = 150, corpseValue = 300, cost = 0, minDay = 5 },
+                // Part II's last stage: the Heart's keeper. Never sent by the wave director (cost 0, Boss)
+                new() { id = "tidemother", displayName = "The Tidemother", model = "Tidemother", behaviour = EnemyBehaviour.Boss, hp = 6000, speed = .8f, damage = 45,
+                        attackRate = .45f, attackRange = 3.6f, armor = 5, aggroRange = 60, bounty = 400, corpseValue = 600, cost = 0, minDay = 99, pearls = 10, mark = true,
+                        limbs = { L("ClawL", LimbEffect.WeakenAttack, .2f), L("ClawR", LimbEffect.WeakenAttack, .2f), L("Eye", LimbEffect.Slow, .15f, 2f) } },
             };
 
             guns = new List<GunDef>

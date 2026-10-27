@@ -20,7 +20,8 @@ namespace TideWall
         CardsView cardsView;
         Image killMarker;
         ReticleHud reticle;
-        HudLine nameLine, hpLine, statusLine, coinLine, levelLine, cardsLine, voteLine, phaseLine, wallLine, gunLine;
+        float statusT;
+        HudLine nameLine, hpLine, statusLine, coinLine, levelLine, cardsLine, voteLine, phaseLine, gunLine;
 
         /// <summary>Remembers what a line of text last showed (as a hash of its inputs), so it's rebuilt only on change.</summary>
         struct HudLine
@@ -199,7 +200,13 @@ namespace TideWall
                     ? $"Tidal card vote: {gm.Cards.Votes.Count}/{gm.Players.Count} voted · {draftLeft}s"
                     : $"TIDAL CARD VOTE · {draftLeft}s · {p.Glyph(Btn.Stats)} to vote";
 
-            if (ph != null && gm.State != GameState.MainMenu)
+            if (gm.Assault && gm.State != GameState.MainMenu)
+            {
+                var ex = gm.Expedition;
+                if (phaseLine.Changed(System.HashCode.Combine(ex.StageIndex, gm.EnemiesLeft)))
+                    phaseText.text = $"<b>Part {ex.Part.numeral} · {ex.Stage.title}</b> · {gm.EnemiesLeft} creatures";
+            }
+            else if (ph != null && gm.State != GameState.MainMenu)
             {
                 int timeLeft = phases.TimeLeft >= 0 ? Mathf.CeilToInt(phases.TimeLeft) : -1;
                 if (phaseLine.Changed(System.HashCode.Combine(phases.Day, ph.displayName, timeLeft, gm.Waves.Wave, gm.Waves.WaveCount, gm.EnemiesLeft)))
@@ -209,13 +216,14 @@ namespace TideWall
                     phaseText.text = $"<b>Day {phases.Day} · {ph.displayName}</b>{timing}{waves}";
                 }
             }
-            float plant = gm.Plant.Fraction;
-            wallFill.fillAmount = plant;
-            wallFill.color = plant > .5f ? new Color(.4f, .95f, .45f) : plant > .3f ? new Color(.95f, .8f, .2f) : new Color(1f, .3f, .25f);
-            int breached = gm.Wall.BreachCount, sections = gm.Wall.Sections.Count, plantHp = Mathf.CeilToInt(gm.Plant.Hp), plantMax = Mathf.RoundToInt(gm.Plant.MaxHp);
-            if (wallLine.Changed(System.HashCode.Combine(breached, sections, plantHp, plantMax)))
-                wallText.text = $"Powerplant {plantHp}/{plantMax} · Wall {sections - breached}/{sections}" +
-                                (breached > 0 ? $" <color=#fca5a5>({breached} breached)</color>" : "");
+            // The bar and line under it: Part I the powerplant and the wall, Part II the objective and the tide clock
+            float status = gm.Level.StatusFraction();
+            wallFill.fillAmount = status;
+            wallFill.color = gm.Assault ? Color.Lerp(new Color(1f, .3f, .25f), new Color(.45f, .85f, 1f), Mathf.Clamp01(status * 3))
+                           : status > .5f ? new Color(.4f, .95f, .45f) : status > .3f ? new Color(.95f, .8f, .2f) : new Color(1f, .3f, .25f);
+            // (Built as words by the level, so it's refreshed a few times a second rather than every frame)
+            statusT -= dt;
+            if (statusT <= 0) { statusT = .2f; Ui.Set(wallText, gm.Level.StatusLine()); }
 
             bool reloading = p.ReloadProgress >= 0;
             int perfect = Mathf.RoundToInt(p.PerfectBonus * 100), weight = Mathf.RoundToInt(p.CarryWeight);
@@ -280,7 +288,8 @@ namespace TideWall
                 string retry = Net.IsClient ? "Waiting for the host to start a new run" : $"{p.Glyph(Btn.Interact)} New run";
                 var rec = gm.RunRecord;
                 string best = rec != null ? $"\n<size=16>Runs: {rec.runs} · best day {rec.bestDay} · best level {rec.bestLevel}</size>" : "";
-                return $"<size=44><b>RUN OVER</b></size>\n{gm.GameOverReason}\nYou held out until day {gm.Phases.Day} (level {p.Level}).{best}\n\n" +
+                string reached = gm.Assault ? $"The expedition reached {gm.Expedition.Stage.title}" : $"You held out until day {gm.Phases.Day}";
+                return $"<size=44><b>RUN OVER</b></size>\n{gm.GameOverReason}\n{reached} (level {p.Level}).{best}\n\n" +
                        $"<size=20>{retry} · {p.Glyph(Btn.Back)} {(Net.IsClient ? "Leave" : "Main menu")}</size>";
             }
             if (Net.IsClient && !Net.Client.Connected) return "<b>Connection lost</b>\nReturning to the main menu…";

@@ -21,10 +21,13 @@ namespace TideWall
         public static readonly Vector3 PlantPos = new(17, 0, -15);  // the Nuclear Sand Powerplant (east side of town, clear of the keep's window)
         public const float PlantRadius = 5.5f;
 
-        /// <summary>Ground height: flat sand and town, then the seabed sloping away from the shore.</summary>
-        public static float GroundY(float z) => z <= ShoreZ ? 0f : Mathf.Max(-6f, -(z - ShoreZ) * .12f);
+        /// <summary>Part II: the sea is held back in two walls and the seabed between them is flat, open and dry.</summary>
+        public static bool Seabed;
 
-        public static bool InWater(Vector3 p) => p.z > ShoreZ && GroundY(p.z) < WaterLevel - .05f;
+        /// <summary>Ground height: flat sand and town, then the seabed sloping away from the shore.</summary>
+        public static float GroundY(float z) => Seabed || z <= ShoreZ ? 0f : Mathf.Max(-6f, -(z - ShoreZ) * .12f);
+
+        public static bool InWater(Vector3 p) => !Seabed && p.z > ShoreZ && GroundY(p.z) < WaterLevel - .05f;
 
         /// <summary>How deep the water is at this point (0 on land).</summary>
         public static float Depth(Vector3 p) => Mathf.Max(0, WaterLevel - GroundY(p.z));
@@ -36,7 +39,7 @@ namespace TideWall
         }
 
         /// <summary>Inside the walls (town side)?</summary>
-        public static bool Inside(Vector3 p) => p.z < WallZ - .4f;
+        public static bool Inside(Vector3 p) => !Seabed && p.z < WallZ - .4f;
 
         /// <summary>The spot on the wall an enemy at x should attack (gaps redirect to the nearest stone).</summary>
         public static Vector3 WallTarget(float x, float radius)

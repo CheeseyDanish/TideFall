@@ -93,7 +93,7 @@ namespace TideWall
             if (reticle) Destroy(reticle.gameObject);
             if (Cam) Destroy(Cam.gameObject);
             if (Hud) Destroy(Hud.gameObject);
-            if (gm != null && gm.World != null) gm.World.lanterns.Remove(lantern);
+            if (gm != null && gm.Level != null) gm.Level.lanterns.Remove(lantern);
             foreach (var c in Carrying) if (c) { c.Holder = null; c.transform.SetParent(null, true); SetLayer(c.transform, 0); }
         }
     }
