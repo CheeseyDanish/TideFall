@@ -25,9 +25,9 @@ The run's **first 3 waves are melee only**: guns stay holstered (`gunsUnlockWave
 
 ## Views
 - **First person** (the default). The camera is at your eyes; you see your gun bottom-right (and your melee weapon sweeping across when you swing), and a small crosshair in your colour. Shots go to whatever is under the crosshair. Mouse or right stick looks around; the left stick / WASD moves relative to where you look.
-- **Top-down** (the original view). The camera floats above and behind, looking out to sea. Aim with the mouse cursor or the right stick; a ring in your colour shows the exact point you're aiming at.
+- **Third person**. The camera sits over your right shoulder and looks where you look, with the same mouse / right-stick look and centre crosshair as first person; you see your sailor, their gun (and its attachments) and what's around you. Movement is relative to where you look. The camera pulls in when a wall or the ground gets between it and your sailor. (It replaced the original top-down view.)
 - Switch any time with **View** (R3, V) or from the pause menu. Each player picks their own view. The default view for new players is a setting.
-- In first person your own body is hidden from your camera, and name tags float over teammates. Controllers get gentle aim assist in both views (it can be turned off).
+- In first person your own body is hidden from your camera; in either view your own name tag is too, and name tags float over teammates. Controllers get gentle aim assist in both views (it can be turned off).
 
 ## The playfield
 The beach is **twice the size of the original**: 88 m of wall, 40 m of sand to the waterline.
@@ -200,6 +200,20 @@ Behind a breach, creatures go for the powerplant and anyone in town. Bosses arri
 ### Gunplay
 Every shot kicks: the view snaps up and settles (heavier guns kick harder), the gun jolts back, a muzzle flash and an ejected shell, the crosshair spreads and recovers. Hits flash the creature, make it flinch, and pop a **damage number** (yellow with "!" on weak points); kills flash a red X with a thunk.
 
+### Gun attachments (shop → Attachments, for the gun in your hands)
+Four slots per gun (sight, barrel, magazine, grip), one attachment each; buying a second for a taken slot replaces the first. They stay on that gun (switching guns doesn't move them), are saved with the run, and show on the gun model (and in first person).
+
+| Attachment | Slot | Price | Effect |
+|---|---|---|---|
+| Brass Sight | Sight | 120 | 45% less spread |
+| Spyglass Scope | Sight | 260 | +60% range, +10% damage, 60% less spread, 10% slower fire |
+| Barnacle Brake | Barrel | 140 | half the kick, 15% less spread |
+| Long Barrel | Barrel | 220 | +20% damage, +30% range, +15% kick |
+| Drum Magazine | Magazine | 180 | +60% magazine (comes loaded), 15% slower reload |
+| Quick-Draw Clip | Magazine | 160 | reloads 35% faster |
+| Sharkskin Grip | Grip | 150 | +15% fire rate, 15% less kick |
+| Driftwood Stock | Grip | 130 | 40% less kick, 20% less spread |
+
 ### Guns (each player's own; bought with team sand dollars)
 | Gun | Price | Notes | Reload minigame |
 |---|---|---|---|
@@ -246,7 +260,7 @@ Each weapon swings in its own style, with a wind-up, the strike (when the hit la
 Repair Wall (every section +40%, breaches rebuilt) · Reinforce Wall (+20% section HP) · **Cool the Core** (+25% powerplant HP) · **Lead Lining** (+20% powerplant max HP) · Sea Legs (+25 HP each) · Heavier Rounds (+15% gun damage) · Whetstone (+15% melee) · Deep Pockets (+30% magazine) · Gas Delivery (+2 gas cans each morning).
 
 ## The shop and the vendors
-- **The shop** works like the 2D game's: tabs (**Guns**, **Melee**, **Upgrades**, **Defences**; Swap/Reload to switch) of **item cards** with a **picture of the item**, its stats, its price, and whether you own or have it equipped.
+- **The shop** works like the 2D game's: tabs (**Guns**, **Attachments**, **Melee**, **Upgrades**, **Defences**; Swap/Reload to switch) of **item cards** with a **picture of the item**, its stats, its price, and whether you own or have it equipped.
 - **Vendors** stand behind the stalls: the **hotdog chef** (white coat, tall hat, moustache) and the **fishmonger** (yellow oilskins, sou'wester). They turn to whoever comes near, wave, and shout lines ("Ketchup for rage, mustard for speed!").
 - **Menus never stop you walking**: the d-pad / arrow keys (and mouse wheel) drive menus while the left stick / WASD still walks and you can still look around. A stall's menu closes if you walk away from it.
 
@@ -277,7 +291,7 @@ Open every phase, so you can heal mid-fight if you can get back to town. Its men
 
 ### ??? Sauce
 - **Good:** Giant, Invincible 8 s, Double Damage 15 s, full heal, 25–150 sand dollars.
-- **Bad:** Upside-down camera, reversed controls, Tiny, Fisheye, Slow, **wrong view** (swaps first person ↔ top-down), ink, tunnel vision.
+- **Bad:** Upside-down camera, reversed controls, Tiny, Fisheye, Slow, **wrong view** (swaps first ↔ third person), ink, tunnel vision.
 - **Neutral:** Rainbow coat, Dutch-tilted camera, bubbles.
 - **Jackpot:** a **0.01% chance** of **10,000 sand dollars**.
 
@@ -291,7 +305,7 @@ Defaults (every one except the sticks and mouse look can be rebound in **Setting
 |---|---|---|
 | Join | any button | any key |
 | Move | left stick / d-pad | WASD / arrows |
-| Look (first person) / aim (top-down) | right stick | mouse |
+| Look | right stick | mouse |
 | Shoot / throw | RT | left click |
 | Melee | RB | right click / F |
 | Interact (shop, sell, eat, revive, pick up) | A / Cross | E / Enter |

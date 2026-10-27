@@ -36,7 +36,7 @@ namespace TideWall
         {
             BleedLeft -= dt;
             reticle.enabled = false;
-            if (Kind == PlayerKind.Local) { TickLook(dt); StepMove(Controls != null ? Controls.Move.ReadValue<Vector2>() : Vector2.zero, false, Yaw, FirstPerson, dt); }
+            if (Kind == PlayerKind.Local) { TickLook(dt); StepMove(Controls != null ? Controls.Move.ReadValue<Vector2>() : Vector2.zero, false, Yaw, dt); }
             else { Yaw = Remote.Yaw; Pitch = Remote.Pitch; }   // online: crawling comes with their commands
             if (BleedLeft <= 0)
             {

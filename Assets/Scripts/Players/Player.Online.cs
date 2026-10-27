@@ -24,6 +24,7 @@ namespace TideWall
             if (s.swing > swingT) swingT = s.swing;
             if (Kind == PlayerKind.Proxy) AimPoint = s.aim;
             if (Gun == null || Gun.id != s.gun) GiveGun(s.gun);
+            ApplyNetAttachments(s.gun, s.attach);
             if (Melee == null || Melee.id != s.melee) GiveMelee(s.melee);
             Statuses.ClearAll();
             foreach (var (type, left) in s.statuses) Statuses.Add(type, left);

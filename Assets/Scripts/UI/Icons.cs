@@ -80,7 +80,8 @@ namespace TideWall
                 if (key != null) key.enabled = false;
                 if (cam != null) cam.targetTexture = null;
                 if (rt != null) RenderTexture.ReleaseTemporary(rt);
-                if (go != null) Object.Destroy(go);
+                // Hidden now, destroyed at the end of the frame: the next picture drawn this frame mustn't include it
+                if (go != null) { go.SetActive(false); Object.Destroy(go); }
             }
         }
     }

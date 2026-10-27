@@ -1,12 +1,12 @@
 # TideWall 3D — rules for Claude
 
-This repo is **TideWall 3D**, a Unity 6 (6000.5.10f1, URP) co-op wall-defense **roguelike**: 1–4 players, in split screen and/or online, defend the Nuclear Sand Powerplant behind a breachable sea wall through days of phases (Morning → Evening → Night) until it melts down. It's first person by default, with a top-down view one button away. It grew out of **Tidewall 2D**, which now lives in the website repo (`Website/tidewall/`, with its own rules). The 3D game keeps the 2D game's core idea, the **wet/dry beach**, and builds on it.
+This repo is **TideWall 3D**, a Unity 6 (6000.5.10f1, URP) co-op wall-defense **roguelike**: 1–4 players, in split screen and/or online, defend the Nuclear Sand Powerplant behind a breachable sea wall through days of phases (Morning → Evening → Night) until it melts down. It's first person by default, with an over-the-shoulder third-person view one button away. It grew out of **Tidewall 2D**, which now lives in the website repo (`Website/tidewall/`, with its own rules). The 3D game keeps the 2D game's core idea, the **wet/dry beach**, and builds on it.
 
 The design documents in `docs/` define the game. These rules are binding for any change you make here. If a request conflicts with a rule, say which rule and ask before breaking it; if the user confirms, update the docs in the same change.
 
 ## Pillars (in priority order)
 1. **Co-op first, couch or online.** Everything works for 1, 2, 3 or 4 players in split screen, online, or both mixed, with any controller or keyboard + mouse.
-2. **Where you hit matters.** Shots go to the 3D point under your crosshair (first person) or reticle (top-down); limbs come off where you hit them, and that changes the enemy and what its corpse is worth.
+2. **Where you hit matters.** Shots go to the 3D point under your crosshair (first and third person alike); limbs come off where you hit them, and that changes the enemy and what its corpse is worth.
 3. **The tide is the game.** Enemies come out of the sea wet and dry off on the sand. Wetness is always visible (drips) and always matters (shock, fire).
 4. **A day has a rhythm.** Mornings are calm and about economy (sell, buy, eat, spend points). Evenings and nights are fights, each opened by a tidal card vote. Phases are data.
 5. **Every run is different, every loss is final.** Tidal cards, weapon mods and stat builds make runs diverge; a meltdown ends the run (no reloading a loss).
@@ -32,7 +32,7 @@ The design documents in `docs/` define the game. These rules are binding for any
 - **R7 — Every action has a gamepad and a keyboard/mouse binding**, defined in `PlayerControls.Build` with a binding group (`Keyboard` or `Gamepad`). The first binding of each group is the rebindable one; rebinds live in `Settings.bindings` and every `PlayerControls` re-applies them. Prompts show the player's own key with `Player.Glyph(Btn)`, never a hard-coded key name. Gameplay reads buttons through `Player.Held/Pressed(Btn)`, which works for local and online players alike. Never read `Gamepad.current`, `Keyboard.current` or `Mouse.current` in gameplay code (the main menu's own UI input is the one exception).
 - **R8 — Per-player things stay in the player's viewport.** HUDs, menus, overlays (ink, tunnel vision), the view model and camera effects belong to that player's camera/canvas. Team-wide state (coins, wall, phase, upgrades) is shared and shown to everyone.
 - **R9 — Test with virtual devices.** Play-mode tests join players with `InputSystem.AddDevice<Gamepad>()`. A feature that needs input is tested by queuing device state, not by calling private methods.
-- **R9a — Both views work.** Anything aimed or shown must work in first person (crosshair, eye camera, view model) and top-down (reticle, high camera). Your own body is on layer `Player.BodyLayer + index` and is hidden from your own first-person camera; anything you carry goes on that layer too.
+- **R9a — Both views work.** Anything aimed or shown must work in first person (crosshair, eye camera, view model) and third person (crosshair, shoulder camera, your body and gun model in view). Your own body is on layer `Player.BodyLayer + index` and is hidden from your own first-person camera; anything you carry goes on that layer too.
 
 ### Online
 - **R16 — The host owns the game.** Online, only the host simulates: enemies, the wall, coins, upgrades, phases, shop menus, and every player's health and ammo. Clients mirror snapshots and move/look their own players locally. So:

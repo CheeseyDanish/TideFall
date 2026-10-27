@@ -59,7 +59,7 @@ namespace TideWall
             }
             foreach (var p in gm.Players.All) if (p != null) foreach (var c in p.GetComponentsInChildren<Collider>()) Draw(c, PlayerCol);
             foreach (var s in Structure.All) if (s != null) foreach (var c in s.GetComponentsInChildren<Collider>()) Draw(c, BuildCol);
-            foreach (var i in FindObjectsByType<Interactable>(FindObjectsSortMode.None)) foreach (var c in i.GetComponentsInChildren<Collider>()) Draw(c, OtherCol);
+            foreach (var i in FindObjectsByType<Interactable>()) foreach (var c in i.GetComponentsInChildren<Collider>()) Draw(c, OtherCol);
         }
 
         void Draw(Collider c, Color col)

@@ -164,9 +164,11 @@ namespace TideWall.Tests
             Assert.AreEqual(0, p.Cam.Camera.cullingMask & (1 << (Player.BodyLayer + p.Index)), "your own body is hidden in first person");
             yield return Tap(pad, GamepadButton.RightStick);   // R3 = View
             yield return Frames(30);
-            Assert.IsFalse(p.FirstPerson, "R3 switches to top-down");
-            Assert.Greater(p.Cam.transform.position.y, p.EyePos.y + 5, "top-down camera is high above");
-            Assert.AreNotEqual(0, p.Cam.Camera.cullingMask & (1 << (Player.BodyLayer + p.Index)), "top-down shows your sailor");
+            Assert.IsFalse(p.FirstPerson, "R3 switches to third person");
+            var back = p.Cam.transform.position - p.EyePos;
+            Assert.That(back.magnitude, Is.InRange(1.5f, 5f), "third person: the camera sits just behind the sailor");
+            Assert.Less(Vector3.Dot(back, p.Cam.transform.forward), 0, "behind, looking the same way");
+            Assert.AreNotEqual(0, p.Cam.Camera.cullingMask & (1 << (Player.BodyLayer + p.Index)), "third person shows your sailor");
             p.Statuses.Add(StatusType.SwapView, 5);           // ??? sauce: wrong view
             Assert.IsTrue(p.FirstPerson);
         }
@@ -251,6 +253,7 @@ namespace TideWall.Tests
             var upgrade = gm.DB.upgrades.Find(u => u.kind == UpgradeKind.GunDamage);
             gm.Team.Apply(upgrade);
             p.GiveGun("scattergun");
+            p.FitAttachment(gm.DB.Attachment("brake"));
             gm.Wall.Damage(100, Vector3.zero);
             p.GainXp(400);
             p.SpendPoint("vigor");
@@ -279,6 +282,7 @@ namespace TideWall.Tests
             Assert.AreEqual(1, gm.Team.Level(upgrade.id));
             Assert.IsTrue(again.OwnsGun("scattergun"), "player 1's weapons come back");
             Assert.AreEqual("scattergun", again.Gun.id);
+            Assert.IsTrue(again.HasAttachment("scattergun", "brake"), "and the attachments on them");
             Assert.AreEqual(level, again.Level, "levels come back");
             Assert.AreEqual(1, again.Points("vigor"), "and stat points");
         }

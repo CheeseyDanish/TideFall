@@ -252,7 +252,7 @@ namespace TideWall
             bool cardsOpen = p.ShownMenu != null && p.ShownMenu.Layout == MenuLayout.Cards;
             Ui.Set(previewText, cardsOpen ? "" : gm.Waves.Preview);
             if (cardsOpen) { voteText.text = ""; voteLine = default; SetAlpha(bannerTitle, 0); SetAlpha(bannerSub, 0); }   // the cards have the screen
-            bool cross = p.FirstPerson && !p.IsOut && p.ShownMenu == null && gm.State == GameState.Playing;
+            bool cross = !p.IsOut && p.ShownMenu == null && gm.State == GameState.Playing;
             crossH.enabled = crossV.enabled = cross;
             fpsText.enabled = Settings.Current.showFps;
             if (fpsText.enabled)

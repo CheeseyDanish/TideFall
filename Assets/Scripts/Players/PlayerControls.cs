@@ -60,11 +60,11 @@ namespace TideWall
             menuNav.AddCompositeBinding("2DVector").With("Up", "<Keyboard>/upArrow", KeyboardGroup).With("Down", "<Keyboard>/downArrow", KeyboardGroup)
                 .With("Left", "<Keyboard>/leftArrow", KeyboardGroup).With("Right", "<Keyboard>/rightArrow", KeyboardGroup);
 
-            aim = map.AddAction("Aim", InputActionType.Value, expectedControlLayout: "Vector2");      // right stick: look (first person) or aim (top-down)
+            aim = map.AddAction("Aim", InputActionType.Value, expectedControlLayout: "Vector2");      // right stick: look
             aim.AddBinding("<Gamepad>/rightStick", groups: GamepadGroup);
             look = map.AddAction("Look", InputActionType.Value, expectedControlLayout: "Vector2");    // mouse movement (first person)
             look.AddBinding("<Mouse>/delta", groups: KeyboardGroup);
-            point = map.AddAction("Point", InputActionType.Value, expectedControlLayout: "Vector2");  // cursor position (top-down)
+            point = map.AddAction("Point", InputActionType.Value, expectedControlLayout: "Vector2");  // cursor position (menus)
             point.AddBinding("<Mouse>/position", groups: KeyboardGroup);
 
             buttons = new InputAction[Enum.GetValues(typeof(Btn)).Length];

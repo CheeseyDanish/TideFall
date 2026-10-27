@@ -187,6 +187,9 @@ namespace TideWall.EditorTools
                     if (have == null) { db.enemies.Add(e); EditorUtility.SetDirty(db); }
                     else if (e.mark && !have.mark) { have.mark = true; EditorUtility.SetDirty(db); }
                 }
+                // ... and gun attachments, added after the asset was made
+                foreach (var a in fresh.attachments)
+                    if (db.attachments.Find(x => x.id == a.id) == null) { db.attachments.Add(a); EditorUtility.SetDirty(db); }
                 Object.DestroyImmediate(fresh);
             }
             var cycle = AssetDatabase.LoadAssetAtPath<PhaseCycle>(cyclePath);

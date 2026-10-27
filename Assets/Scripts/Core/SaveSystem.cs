@@ -47,6 +47,7 @@ namespace TideWall
         public int level = 1, xp, statPoints, pendingMods, respecs;
         public List<UpgradeLevel> stats = new();          // stat id → points
         public List<string> mods = new();                 // "weaponId/modId"
+        public List<string> attachments = new();          // "gunId/attachmentId"
     }
 
     public static class SaveSystem
@@ -116,6 +117,7 @@ namespace TideWall
                 };
                 foreach (var kv in p.Allocated) ps.stats.Add(new UpgradeLevel { id = kv.Key, level = kv.Value });
                 foreach (var kv in p.Mods) foreach (var m in kv.Value) ps.mods.Add(kv.Key + "/" + m);
+                foreach (var kv in p.Attachments) foreach (var a in kv.Value) ps.attachments.Add(kv.Key + "/" + a);
                 foreach (var g in gm.DB.guns) if (p.OwnsGun(g.id)) ps.guns.Add(g.id);
                 foreach (var m in gm.DB.melee) if (p.OwnsMelee(m.id)) ps.melees.Add(m.id);
                 d.players.Add(ps);

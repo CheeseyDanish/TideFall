@@ -1398,6 +1398,117 @@ MonoBehaviour:
     limbBonus: 0
     setElement: 0
     element: 0
+  attachments:
+  - id: brasssight
+    displayName: Brass Sight
+    description: 'A ring-and-post sight off a ship''s cannon. Shots go where you
+      point: 45% less spread.'
+    slot: 0
+    price: 120
+    model: AttSight
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    spread: 0.55
+    recoil: 1
+  - id: spyglass
+    displayName: Spyglass Scope
+    description: A captain's spyglass, strapped on. Far reach and tight shots (+60%
+      range, +10% damage, 60% less spread), a little slower to fire.
+    slot: 0
+    price: 260
+    model: AttScope
+    damage: 1.1
+    fireRate: 0.9
+    reload: 1
+    magazine: 1
+    range: 1.6
+    spread: 0.4
+    recoil: 1
+  - id: brake
+    displayName: Barnacle Brake
+    description: A muzzle brake crusted with barnacles. Half the kick, and a little
+      tighter.
+    slot: 1
+    price: 140
+    model: AttBrake
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    spread: 0.85
+    recoil: 0.5
+  - id: longbarrel
+    displayName: Long Barrel
+    description: A longer barrel from the harbour armoury. +20% damage and +30% range;
+      kicks a bit harder.
+    slot: 1
+    price: 220
+    model: AttBarrel
+    damage: 1.2
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1.3
+    spread: 1
+    recoil: 1.15
+  - id: drum
+    displayName: Drum Magazine
+    description: 'A fat drum of rounds: +60% magazine, but it''s slower to reload.'
+    slot: 2
+    price: 180
+    model: AttDrum
+    damage: 1
+    fireRate: 1
+    reload: 1.15
+    magazine: 1.6
+    range: 1
+    spread: 1
+    recoil: 1
+  - id: quickclip
+    displayName: Quick-Draw Clip
+    description: Rounds pre-loaded on a brass clip. Reloads 35% faster.
+    slot: 2
+    price: 160
+    model: AttClip
+    damage: 1
+    fireRate: 1
+    reload: 0.65
+    magazine: 1
+    range: 1
+    spread: 1
+    recoil: 1
+  - id: sharkgrip
+    displayName: Sharkskin Grip
+    description: Rough sharkskin that never slips, wet or dry. +15% fire rate, a
+      little less kick.
+    slot: 3
+    price: 150
+    model: AttGrip
+    damage: 1
+    fireRate: 1.15
+    reload: 1
+    magazine: 1
+    range: 1
+    spread: 1
+    recoil: 0.85
+  - id: driftstock
+    displayName: Driftwood Stock
+    description: A stock carved from driftwood, braced on the shoulder. 40% less
+      kick, 20% less spread.
+    slot: 3
+    price: 130
+    model: AttStock
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    spread: 0.8
+    recoil: 0.6
   cards:
   - id: redtide
     displayName: Red Tide

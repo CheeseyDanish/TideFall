@@ -1,5 +1,5 @@
 // TideWall 3D — automated runs for checking the game without a human at the controls.
-//   TideWall.exe -tidewall-capture <folder>                 screenshot tour: main menu, first person, top-down,
+//   TideWall.exe -tidewall-capture <folder>                 screenshot tour: main menu, first person, third person,
 //                                                           menus, fights, sauce effects, bestiary, four players
 //   TideWall.exe -tidewall-host-demo [seconds]              host an online game (port 7777) with one virtual
 //                                                           player and a few enemies, then quit
@@ -91,6 +91,19 @@ namespace TideWall
             p2.OpenMenu(Menus.Stats(p2));
             yield return new WaitForSecondsRealtime(.6f);
             yield return Shot("04-shop-and-stats");
+            // Gun attachments (a scope and a drum on player 1's revolver) and player 2 in third person on the beach
+            gm.AddSandDollars(1000);
+            p1.FitAttachment(gm.DB.Attachment("spyglass"));
+            p1.FitAttachment(gm.DB.Attachment("drum"));
+            p1.OpenMenu(Menus.Shop(p1, Menus.ShopTab.Attachments, p1.transform.position));
+            p2.CloseMenu();
+            p2.SwitchView();
+            var back2 = p2.transform.position;
+            Teleport(p2, new Vector3(6, 0, 8)); p2.SetLook(20, 8);
+            yield return new WaitForSecondsRealtime(1f);
+            yield return Shot("04a-attachments-and-third-person");
+            p2.SwitchView();
+            Teleport(p2, back2);
             p1.OpenMenu(Menus.Hotdogs(p1, p1.transform.position));
             p2.OpenMenu(Menus.Pause(p2));
             yield return new WaitForSecondsRealtime(.4f);
@@ -150,11 +163,11 @@ namespace TideWall
             Destroy(view.gameObject);
 
             gm.Phases.Advance();   // night (enemies still alive keep fighting)
-            p2.SwitchView();       // player 2 goes top-down
+            p2.SwitchView();       // player 2 goes third person
             foreach (var id in new[] { "croc", "octopus", "lobster", "turtle", "puffer", "eel", "drowner", "drowner" })
                 gm.Waves.SpawnExtra(gm.DB.Enemy(id), new Vector3(UnityEngine.Random.Range(-10f, 10f), 0, UnityEngine.Random.Range(9f, 18f)));
             yield return new WaitForSecondsRealtime(5f);
-            yield return Shot("06-night-first-person-and-top-down");
+            yield return Shot("06-night-first-person-and-third-person");
 
             p2.Statuses.Add(StatusType.UpsideDown, 10);
             p1.Statuses.Add(StatusType.Giant, 10);
@@ -366,7 +379,7 @@ namespace TideWall
             var me = gm.Players.All.Find(x => x.Kind == PlayerKind.LocalProxy);
             me.SwitchView();
             yield return new WaitForSecondsRealtime(2.5f);
-            yield return Shot("net-02-client-top-down");
+            yield return Shot("net-02-client-third-person");
             int enemies = 0;
             foreach (var e in FindObjectsByType<Enemy>()) if (e.Proxy) enemies++;
             Debug.Log($"TIDEWALL_CLIENT_OK players={gm.Players.Count} enemyProxies={enemies} sandDollars={gm.SandDollars} phase={gm.Phases.Current?.id}");

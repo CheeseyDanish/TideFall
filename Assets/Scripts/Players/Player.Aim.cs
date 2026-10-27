@@ -1,4 +1,4 @@
-// TideWall 3D — Player: looking (mouse, stick, first person or top-down) and what the aim ray points at.
+// TideWall 3D — Player: looking (mouse or stick, first or third person) and what the aim ray points at.
 // (One part of the Player class; Player.cs has the overview, the fields and the frame loop.)
 using System.Collections.Generic;
 using TMPro;
@@ -9,10 +9,9 @@ namespace TideWall
     public partial class Player
     {
         // ------------------------------------------------------------------ looking & aiming
-        /// <summary>First person: mouse or right stick turns the view.</summary>
+        /// <summary>Mouse or right stick turns the view (first and third person alike).</summary>
         void TickLook(float dt)
         {
-            if (!FirstPerson) { if (AimDir.sqrMagnitude > .01f) Yaw = Quaternion.LookRotation(AimDir).eulerAngles.y; return; }
             var s = Settings.Current;
             Vector2 d;
             if (Controls.UsesMouse) d = Controls.Look.ReadValue<Vector2>() * .09f * s.mouseSensitivity;
@@ -35,7 +34,8 @@ namespace TideWall
             return Physics.Raycast(ray, out var h, 60, ~0, QueryTriggerInteraction.Collide) && h.collider.GetComponentInParent<Enemy>() is { Dead: false };
         }
 
-        /// <summary>This machine's aim: the crosshair (first person), the cursor, or the stick's reticle (top-down).</summary>
+        /// <summary>This machine's aim: the centre crosshair. In third person the ray leaves the camera behind your shoulder
+        /// and starts level with you, so nothing between the camera and your sailor gets aimed at.</summary>
         AimSample LocalAim()
         {
             var cam = Cam.Camera;
@@ -46,26 +46,11 @@ namespace TideWall
                 a.ray = new Ray(EyePos, LookRotation * Vector3.forward);
                 return a;
             }
-            if (UsesMouse)
-            {
-                AimScreen = Controls.Point.ReadValue<Vector2>();
-                a.ray = cam.ScreenPointToRay(AimScreen);
-                return a;
-            }
-            var stick = Controls.Aim.ReadValue<Vector2>();
-            if (Statuses.Has(StatusType.ReverseControls)) stick = -stick;
-            float mag = Mathf.Clamp01(stick.magnitude);
-            var dir = AimDir;
-            if (mag > .2f) dir = new Vector3(stick.x, 0, stick.y).normalized;
-            else
-            {
-                var mv = MoveInput();
-                if (mv.magnitude > .3f) dir = new Vector3(mv.x, 0, mv.y).normalized;
-            }
-            float dist = 2.5f + 9 * (mag > .2f ? mag : .6f);
-            AimScreen = cam.WorldToScreenPoint(transform.position + dir * dist + Vector3.up * .8f);
-            a.ray = cam.ScreenPointToRay(AimScreen);
-            a.dirHint = dir;
+            AimScreen = cam.pixelRect.center;
+            var origin = Cam.transform.position;
+            var dir = LookRotation * Vector3.forward;
+            float skip = Vector3.Dot(EyePos - origin, dir);
+            a.ray = new Ray(skip > 0 ? origin + dir * skip : origin, dir);
             return a;
         }
 
@@ -90,38 +75,16 @@ namespace TideWall
                 if (e != null && !e.Dead) { AimPoint = h.point; found = true; break; }
                 if (h.collider.GetComponentInParent<GasCan>() is { Holder: null }) { AimPoint = h.point; found = true; break; }
                 if (h.collider.isTrigger || h.collider.GetComponentInParent<Corpse>()) continue;
-                AimPoint = h.point + (FirstPerson ? Vector3.zero : Vector3.up * .5f); found = true; break;
+                AimPoint = h.point; found = true; break;
             }
-            if (!found) AimPoint = a.ray.GetPoint(FirstPerson ? 60 : 30);
-            if (a.assist) { if (FirstPerson) AimAssistFirstPerson(a.ray); else AimAssistTopDown(); }
-            if (FirstPerson) AimDir = Quaternion.Euler(0, Yaw, 0) * Vector3.forward;
-            else if (a.dirHint.sqrMagnitude < .01f)
-            {
-                var d = AimPoint - transform.position; d.y = 0;
-                if (d.sqrMagnitude > .04f) AimDir = d.normalized;
-            }
+            if (!found) AimPoint = a.ray.GetPoint(60);
+            if (a.assist) AimAssist(a.ray);
+            AimDir = Quaternion.Euler(0, Yaw, 0) * Vector3.forward;
             UpdateReticle(true);
         }
 
-        /// <summary>Top-down gamepads have no cursor: if the stick points near an enemy, aim at its body.</summary>
-        void AimAssistTopDown()
-        {
-            foreach (var e in GameManager.Enemies)
-                if (e != null && !e.Dead && e.GetComponentInChildren<Collider>() is { } c && c.bounds.Contains(AimPoint)) return;
-            Enemy best = null; float bestAngle = 9;
-            foreach (var e in GameManager.Enemies)
-            {
-                if (e == null || e.Dead) continue;
-                var to = e.transform.position - transform.position; to.y = 0;
-                if (to.magnitude > 16) continue;
-                float ang = Vector3.Angle(AimDir, to);
-                if (ang < bestAngle) { bestAngle = ang; best = e; }
-            }
-            if (best != null) AimPoint = ModelFactory.Bounds(best.gameObject).center;
-        }
-
-        /// <summary>First-person gamepads: a gentle pull onto a body just next to the crosshair.</summary>
-        void AimAssistFirstPerson(Ray ray)
+        /// <summary>Gamepads: a gentle pull onto a body just next to the crosshair.</summary>
+        void AimAssist(Ray ray)
         {
             foreach (var e in GameManager.Enemies)
                 if (e != null && !e.Dead && Vector3.Distance(ModelFactory.Bounds(e.gameObject).ClosestPoint(AimPoint), AimPoint) < .05f) return;
@@ -139,7 +102,7 @@ namespace TideWall
 
         void UpdateReticle(bool show)
         {
-            reticle.enabled = show && !FirstPerson && !IsOut;
+            reticle.enabled = false;   // the old top-down ground ring: both views use the centre crosshair now
             if (!reticle.enabled) return;
             float r = .3f + Mathf.Sin(Time.time * 6) * .03f;
             for (int i = 0; i < 20; i++)

@@ -6,8 +6,8 @@ using UnityEngine;
 
 namespace TideWall
 {
-    /// <summary>Where a player is aiming: a ray from their camera (first person: the crosshair; top-down: the cursor
-    /// or the stick's reticle), plus the stick direction for top-down gamepads and whether aim assist is on.</summary>
+    /// <summary>Where a player is aiming: the crosshair's ray from their camera (eyes, or over the shoulder in third
+    /// person), and whether aim assist is on. (dirHint is unused since the top-down view became third person.)</summary>
     public struct AimSample
     {
         public Ray ray;

@@ -27,8 +27,8 @@ namespace TideWall
             // Online players are moved by their commands as they arrive (RunRemoteCommands); here they only turn
             if (Kind == PlayerKind.Remote) { FaceAim(dt); return; }
             var raw = Controls != null ? Controls.Move.ReadValue<Vector2>() : Vector2.zero;
-            var dir = StepMove(raw, Pressed(Btn.Dash), Yaw, FirstPerson, dt);
-            if (FirstPerson || UsesMouse || (Controls != null && Controls.Aim.ReadValue<Vector2>().magnitude > .2f) || dir.sqrMagnitude > .01f) FaceAim(dt);
+            var dir = StepMove(raw, Pressed(Btn.Dash), Yaw, dt);
+            FaceAim(dt);
         }
 
         /// <summary>
@@ -36,13 +36,13 @@ namespace TideWall
         /// players on the host (one call per command) and a client's prediction and replays, so they all agree.
         /// Returns the world direction moved in.
         /// </summary>
-        Vector3 StepMove(Vector2 move, bool dash, float yaw, bool firstPerson, float dt)
+        Vector3 StepMove(Vector2 move, bool dash, float yaw, float dt)
         {
             if (IsOut || dt <= 0) return Vector3.zero;
-            if (Noclip(move, dash, yaw, firstPerson, dt)) return Vector3.zero;
+            if (Noclip(move, dash, yaw, dt)) return Vector3.zero;
             if (Statuses.Has(StatusType.ReverseControls)) move = -move;
             var dir = new Vector3(move.x, 0, move.y);
-            if (firstPerson) dir = Quaternion.Euler(0, yaw, 0) * dir;
+            dir = Quaternion.Euler(0, yaw, 0) * dir;   // relative to the view, first or third person
             if (dir.magnitude > 1) dir.Normalize();
             if (grabbedBy != null || Statuses.Has(StatusType.Grabbed)) dir = Vector3.zero;
             if (IsDowned) { Gravity(dt, dir); return dir; }   // crawl slowly toward safety
@@ -68,7 +68,7 @@ namespace TideWall
             while (Remote.Next(out var c, out bool canMove))
             {
                 PrefersFirstPerson = c.firstPerson;
-                if (canMove && canPlay) StepMove(c.move, c.Has(Btn.Dash), c.yaw, FirstPerson, c.dt);
+                if (canMove && canPlay) StepMove(c.move, c.Has(Btn.Dash), c.yaw, c.dt);
             }
         }
 
@@ -90,7 +90,7 @@ namespace TideWall
                 }
             }
             c = c.Quantized();
-            if (canMove) StepMove(c.move, c.Has(Btn.Dash), c.yaw, FirstPerson, c.dt);
+            if (canMove) StepMove(c.move, c.Has(Btn.Dash), c.yaw, c.dt);
             unconfirmed.Add(c);
             if (unconfirmed.Count > 240) unconfirmed.RemoveAt(0);   // the host has stopped answering: don't grow forever
             if (Cam != null) lastAim = LocalAim();
@@ -138,14 +138,14 @@ namespace TideWall
             Place(m.pos);
             yVel = m.yVel; dashT = m.dashT; dashCd = m.dashCd; dashDir = m.dashDir;
             bool canMove = !IsOut && gm.State == GameState.Playing;
-            if (canMove) foreach (var c in unconfirmed) StepMove(c.move, c.Has(Btn.Dash), c.yaw, FirstPerson, c.dt);
+            if (canMove) foreach (var c in unconfirmed) StepMove(c.move, c.Has(Btn.Dash), c.yaw, c.dt);
             var error = predicted - transform.position;
             RenderOffset = error.magnitude < 3 ? RenderOffset + error : Vector3.zero;
         }
 
         void FaceAim(float dt)
         {
-            var target = FirstPerson ? Quaternion.Euler(0, Yaw, 0) : Quaternion.LookRotation(AimDir);
+            var target = Quaternion.Euler(0, Yaw, 0);   // the body faces where you look
             visual.rotation = Quaternion.RotateTowards(visual.rotation, target, 900 * dt);
         }
 
@@ -160,12 +160,12 @@ namespace TideWall
         }
 
         /// <summary>Debug noclip (this machine's players): fly where you look, through anything; Dash goes fast. True while flying.</summary>
-        bool Noclip(Vector2 move, bool dash, float yaw, bool firstPerson, float dt)
+        bool Noclip(Vector2 move, bool dash, float yaw, float dt)
         {
             bool on = DebugTools.Noclip && Kind == PlayerKind.Local;
             if (!on) { if (flying) { flying = false; cc.enabled = true; } return false; }
             if (!flying) { flying = true; cc.enabled = false; yVel = 0; }
-            var dir = Quaternion.Euler(firstPerson ? Pitch : 0, yaw, 0) * new Vector3(move.x, 0, move.y);
+            var dir = Quaternion.Euler(Pitch, yaw, 0) * new Vector3(move.x, 0, move.y);
             if (dash) flyBoost = .6f;
             flyBoost -= dt;
             transform.position += dir * db.playerSpeed * (flyBoost > 0 ? 6 : 2) * dt;

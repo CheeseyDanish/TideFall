@@ -942,4 +942,45 @@ build('CasinoCrate', [
     ('Body', 'cyl', (.12, .12, .1), (-.55, .3, .9), 'red', None, None, 10), ('Body', 'cyl', (.12, .12, .1), (-.38, .3, .9), 'blue', None, None, 10),
 ])
 
+# =====================================================================================  GUN ATTACHMENTS
+# Small parts the game fits to a gun (Player.DressGun): placed from the gun's muzzle, so their origin is where they
+# sit and they point -Y like the guns. Also the shop's pictures.
+COL.update({'lens': (.55, .85, 1), 'shark': (.36, .44, .5)})
+build('AttSight', [
+    ('Body', 'box', (.03, .1, .025), (0, 0, .012), 'gold'),
+    ('Body', 'cyl', (.06, .06, .012), (0, .03, .045), 'gold', None, (90, 0, 0), 10),
+    ('Body', 'box', (.008, .008, .03), (0, -.04, .04), 'gold'),
+])
+build('AttScope', [
+    ('Body', 'cyl', (.055, .055, .3), (0, 0, .05), 'gold', None, (90, 0, 0), 10),
+    ('Body', 'cyl', (.065, .065, .03), (0, -.15, .05), 'lens', None, (90, 0, 0), 10),
+    ('Body', 'cyl', (.06, .06, .02), (0, .05, .05), 'woodD', None, (90, 0, 0), 10),
+    ('Body', 'box', (.02, .03, .04), (0, -.06, .015), 'greyD'), ('Body', 'box', (.02, .03, .04), (0, .07, .015), 'greyD'),
+])
+build('AttBrake', [
+    ('Body', 'cyl', (.075, .075, .12), (0, -.05, 0), 'greyD', None, (90, 0, 0), 8),
+    ('Body', 'box', (.09, .02, .015), (0, -.05, .02), 'black'),
+    ('Body', 'ball', (.03, .03, .025), (.03, -.03, .03), 'white'), ('Body', 'ball', (.025, .025, .02), (-.035, -.08, .02), 'white'),
+])
+build('AttBarrel', [
+    ('Body', 'cyl', (.05, .05, .32), (0, -.16, 0), 'steel', None, (90, 0, 0), 8),
+    ('Body', 'cyl', (.06, .06, .03), (0, -.31, 0), 'greyD', None, (90, 0, 0), 8),
+])
+build('AttDrum', [
+    ('Body', 'cyl', (.2, .2, .08), (0, 0, -.1), 'greyD', None, (0, 90, 0), 12),
+    ('Body', 'cyl', (.08, .08, .09), (0, 0, -.1), 'steel', None, (0, 90, 0), 8),
+])
+build('AttClip', [
+    ('Body', 'box', (.04, .11, .05), (0, 0, -.03), 'gold'),
+    *[('Body', 'cyl', (.02, .02, .05), (0, -.04 + k * .027, 0), 'orange2', None, None, 6) for k in range(4)],
+])
+build('AttGrip', [
+    ('Body', 'box', (.075, .1, .14), (0, .03, -.08), 'shark', None, (-15, 0, 0)),
+    ('Body', 'box', (.08, .02, .14), (0, -.02, -.08), 'belly', None, (-15, 0, 0)),
+])
+build('AttStock', [
+    ('Body', 'box', (.06, .34, .1), (0, .2, -.03), 'wood'),
+    ('Body', 'box', (.07, .05, .16), (0, .37, -.05), 'woodD'),
+])
+
 print('TIDEWALL_MODELS_DONE', sorted(os.listdir(OUT)))

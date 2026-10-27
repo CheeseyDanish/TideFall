@@ -1,6 +1,6 @@
 # TideWall 3D
 
-A co-op wall-defense **roguelike** for **1–4 players, in split screen, online, or both**. Play it as a **first-person shooter**, or press one button for the original **top-down** view. Behind a breachable sea wall stands the town's **Nuclear Sand Powerplant**; when it melts down, the run is over.
+A co-op wall-defense **roguelike** for **1–4 players, in split screen, online, or both**. Play it as a **first-person shooter**, or press one button for an over-the-shoulder **third-person** view. Behind a breachable sea wall stands the town's **Nuclear Sand Powerplant**; when it melts down, the run is over.
 - **Morning:** sell corpses for **sand dollars**, upgrade, spend level-up points, eat hotdogs (??? sauce at your own risk). The run saves.
 - **Evening and Night:** vote on a **tidal card**, then sharks, saltwater crocs, sea urchins, octopuses and more **ride the breaking waves** onto a beach twice the size of the original.
 
@@ -23,7 +23,8 @@ Built with **Unity 6.5 (URP)**. Every model was generated in **Blender** from a 
 - **Melee first**: the first 3 waves are melee only; every weapon swings its own way (chop, slash, sweep, thrust, slam). Guns kick hard.
 - **The Nuclear Sand Powerplant** behind a wall of 20 breachable sections. Creatures go for breaches and the core.
 - **Waves you can see**: creatures surf in on breakers that swell the sea and break on the shore. Every creature moves its own way (crabs scuttle sideways, puffers puff up into spiky balls…).
-- **First person or top-down, per player.** Your gun and melee weapon in view, a crosshair, mouse or stick look. Switch views any time; split screen can mix them.
+- **First or third person, per player.** Your gun and melee weapon in view (or your sailor over the shoulder), a crosshair, mouse or stick look. Switch views any time; split screen can mix them.
+- **Gun attachments.** Sights, barrels, magazines and grips for each gun, bought in the shop's Attachments tab and fitted to the gun you can see: Brass Sight, Spyglass Scope, Barnacle Brake, Long Barrel, Drum Magazine, Quick-Draw Clip, Sharkskin Grip, Driftwood Stock.
 - **Split-screen drop-in co-op.** Press any button on a controller (Xbox, PlayStation, Switch Pro, generic gamepads, HID joysticks) or any key to join, up to 4 players.
 - **Online multiplayer.** Host from the main menu; friends on your network find you in a list, others join by address. Each machine can have several players too.
 - **Saves.** Three slots, autosave every morning, save from the pause menu, "try again" from your last morning.
@@ -53,7 +54,7 @@ Built with **Unity 6.5 (URP)**. Every model was generated in **Blender** from a 
 | Interact | A | E |
 | Dash | LB | Space |
 | Reload / swap gun | X / Y | R / Q |
-| Switch view (first person / top-down) | R3 | V |
+| Switch view (first / third person) | R3 | V |
 | Stats & mods / tidal card vote | Select | Tab / C |
 | Build defences | D-pad down | B |
 | Menus (choose) | D-pad | Arrow keys / wheel |

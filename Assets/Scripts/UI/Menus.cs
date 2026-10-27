@@ -99,8 +99,8 @@ namespace TideWall
         static MenuItem Header(string text) => new() { Label = text, Header = true };
 
         // ------------------------------------------------------------------ the shop (like the 2D game's: tabs of item cards)
-        public enum ShopTab { Guns, Melee, Upgrades, Defences }
-        static readonly string[] ShopTabs = { "Guns", "Melee", "Upgrades", "Defences" };
+        public enum ShopTab { Guns, Attachments, Melee, Upgrades, Defences }
+        static readonly string[] ShopTabs = { "Guns", "Attachments", "Melee", "Upgrades", "Defences" };
 
         /// <summary>The shop: a tab of item cards with pictures, prices and stats. Swap / Reload change tabs.</summary>
         public static Menu Shop(Player p, ShopTab tab, Vector3 stall)
@@ -122,6 +122,26 @@ namespace TideWall
                             Right = equipped ? "Equipped" : owned ? "Equip" : $"{gun.price} SD",
                             Blocked = () => equipped ? "Already equipped" : null,
                             OnPick = () => { if (owned || gm.TrySpend(gun.price)) { p.GiveGun(gun.id); Sfx.Play("reload"); } },
+                        });
+                    }
+                    break;
+                case ShopTab.Attachments:
+                    // For the gun in your hands: one per slot; a new one replaces what's in its slot
+                    m.Title = p.Gun.displayName.ToUpperInvariant();
+                    foreach (var at in gm.DB.attachments)
+                    {
+                        var a = at;
+                        bool fitted = p.HasAttachment(p.Gun.id, a.id);
+                        var current = p.AttachmentIn(p.Gun.id, a.slot);
+                        m.Items.Add(new MenuItem
+                        {
+                            Label = a.displayName, Icon = a.model,
+                            Detail = $"For your {p.Gun.displayName}: {a.description}" + (current != null && !fitted ? $" Replaces your {current.displayName}." : ""),
+                            Owned = fitted,
+                            Info = $"{a.slot}\n{AttachmentEffects(a)}",
+                            Right = fitted ? "Fitted" : $"{a.price} SD",
+                            Blocked = () => fitted ? "Already fitted to this gun" : gm.SandDollars < a.price ? "Not enough sand dollars" : null,
+                            OnPick = () => { if (gm.TrySpend(a.price)) p.FitAttachment(a); },
                         });
                     }
                     break;
@@ -161,6 +181,21 @@ namespace TideWall
             }
             if (m.Items.Count > 0) m.Selected = 0;
             return m;
+        }
+
+        /// <summary>An attachment's numbers, short: "+20% dmg · -40% kick".</summary>
+        public static string AttachmentEffects(AttachmentDef a)
+        {
+            var parts = new List<string>();
+            void Add(float mult, string what, bool lowerIsBetter = false)
+            {
+                if (Mathf.Approximately(mult, 1)) return;
+                int pct = Mathf.RoundToInt((mult - 1) * 100);
+                parts.Add($"{(pct > 0 ? "+" : "")}{pct}% {what}");
+            }
+            Add(a.damage, "dmg"); Add(a.range, "range"); Add(a.fireRate, "fire rate"); Add(a.magazine, "mag");
+            Add(a.reload, "reload time"); Add(a.spread, "spread"); Add(a.recoil, "kick");
+            return string.Join(" · ", parts);
         }
 
         static string UpgradeIcon(UpgradeKind k) => k switch
@@ -239,7 +274,7 @@ namespace TideWall
             var gm = GameManager.I;
             var m = new Menu { Title = "PAUSED", System = true, Rebuild = () => Pause(p) };
             m.Add("Resume", pick: p.CloseMenu);
-            m.Add(p.PrefersFirstPerson ? "Switch to top-down view" : "Switch to first person", Glyph(p, Btn.View), "You can also switch any time with the View button.",
+            m.Add(p.PrefersFirstPerson ? "Switch to third person" : "Switch to first person", Glyph(p, Btn.View), "You can also switch any time with the View button.",
                   pick: () => { p.CloseMenu(); p.SwitchView(); });
             m.Add("Stats & mods", p.StatPoints > 0 || p.PendingMods > 0 ? "!" : ">", "Spend stat points, choose weapon mods, respec.",
                   pick: () => { if (p.Kind == PlayerKind.LocalProxy) p.RequestStats(); else p.OpenMenu(Stats(p)); });

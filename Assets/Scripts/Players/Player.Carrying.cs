@@ -24,10 +24,9 @@ namespace TideWall
             else if (Carrying.Count > 0) Drop(Carrying[^1]);
         }
 
-        /// <summary>In first person, the thing under your crosshair (within reach) wins: much easier to grab the right corpse.</summary>
+        /// <summary>The thing you're looking at (within reach) wins: much easier to grab the right corpse.</summary>
         Interactable LookedAt()
         {
-            if (!FirstPerson) return null;
             var ray = new Ray(EyePos, LookRotation * Vector3.forward);
             var hits = Physics.RaycastAll(ray, 4.5f, ~0, QueryTriggerInteraction.Collide);
             System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));

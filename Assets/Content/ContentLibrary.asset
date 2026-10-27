@@ -26,6 +26,22 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: fe35e4f2fdbaa3a41a0842e23962cde5, type: 3}
   - name: Arch
     prefab: {fileID: 919132149155446097, guid: 2670a7faec7b2994eb95ab770ed15d1f, type: 3}
+  - name: AttBarrel
+    prefab: {fileID: 919132149155446097, guid: 8cafddc443a839f43941d8db541088b4, type: 3}
+  - name: AttBrake
+    prefab: {fileID: 919132149155446097, guid: cc8b2dbb01c3fcd42a9ebf7eda150a46, type: 3}
+  - name: AttClip
+    prefab: {fileID: 919132149155446097, guid: 439050443aa11374d9c87615b3833c35, type: 3}
+  - name: AttDrum
+    prefab: {fileID: 919132149155446097, guid: 942a1b59409159547bd4d951aaa6e8d8, type: 3}
+  - name: AttGrip
+    prefab: {fileID: 919132149155446097, guid: c4ff1cceb7e06fe42b12e0c28942b795, type: 3}
+  - name: AttScope
+    prefab: {fileID: 919132149155446097, guid: 0d14677a2dd042a4085bddad46d8efce, type: 3}
+  - name: AttSight
+    prefab: {fileID: 919132149155446097, guid: dcae75267647f30479a9d7bcf9ad0a8b, type: 3}
+  - name: AttStock
+    prefab: {fileID: 919132149155446097, guid: 186ce44d4259eeb45b40c345026490d9, type: 3}
   - name: BaitBucket
     prefab: {fileID: 919132149155446097, guid: 23101b92737e04f45b9cb23b7f35c19a, type: 3}
   - name: Barricade

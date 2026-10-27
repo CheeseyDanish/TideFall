@@ -41,6 +41,12 @@ namespace TideWall
                     g.pierce += m.pierce; g.pellets += m.pellets; g.lifesteal += m.lifesteal; g.limbBonus += m.limbBonus;
                     if (m.setElement) g.element = m.element;
                 }
+                foreach (var a in AttachmentsOn(Gun.id))
+                {
+                    g.damage *= a.damage; g.fireRate *= a.fireRate; g.reload *= a.reload; g.range *= a.range;
+                    g.magazine = Mathf.Max(1, Mathf.RoundToInt(g.magazine * a.magazine));
+                    g.spreadDegrees *= a.spread; g.recoil *= a.recoil;
+                }
                 EffGun = g;
             }
             if (Melee != null)

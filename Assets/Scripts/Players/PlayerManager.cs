@@ -188,14 +188,14 @@ namespace TideWall
             UpdateCursor();
         }
 
-        /// <summary>Lock the mouse while a keyboard player looks around in first person; free it in menus and top-down.</summary>
+        /// <summary>Lock the mouse while a keyboard player looks around (first or third person); free it in menus.</summary>
         void UpdateCursor()
         {
             var kb = All.Find(p => p.HasView && p.UsesMouse);
             if (gm.State == GameState.MainMenu) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; return; }
             if (kb == null) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; return; }
             bool menu = kb.ShownMenu != null || gm.State == GameState.GameOver;
-            bool look = kb.FirstPerson && !menu && !kb.IsOut;
+            bool look = !menu && !kb.IsOut;
             Cursor.lockState = look ? CursorLockMode.Locked : menu ? CursorLockMode.None : CursorLockMode.Confined;
             Cursor.visible = menu;
         }

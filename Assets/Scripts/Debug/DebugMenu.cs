@@ -44,7 +44,7 @@ namespace TideWall
             m.Header(gm.Assault ? $"{gm.Expedition.Stage.title} · {GameManager.Enemies.Count} creatures" : $"Day {gm.Phases.Day} · {gm.Phases.Current?.displayName} · {GameManager.Enemies.Count} creatures");
             Toggle(m, "God mode", () => DebugTools.God, v => DebugTools.God = v, "Nobody on the team takes damage.");
             Toggle(m, "Infinite ammo", () => DebugTools.InfiniteAmmo, v => DebugTools.InfiniteAmmo = v, "Guns never empty.");
-            Toggle(m, "Noclip (fly)", () => DebugTools.Noclip, v => DebugTools.Noclip = v, "This machine's players fly where they look, through walls. Dash flies fast. Top-down: flies flat.");
+            Toggle(m, "Noclip (fly)", () => DebugTools.Noclip, v => DebugTools.Noclip = v, "This machine's players fly where they look, through walls. Dash flies fast.");
             Toggle(m, "Freeze creatures", () => DebugTools.Freeze, v => DebugTools.Freeze = v, "Every creature stops where it is (they can still be shot).");
             Toggle(m, "Show colliders", () => DebugTools.Hitboxes, v => DebugTools.Hitboxes = v, "Outlines: creatures red, weak points yellow, players green, defences blue, stalls purple.");
             Toggle(m, "Stats overlay", () => DebugTools.Overlay, v => DebugTools.Overlay = v, "Frame rate, time scale, phase or stage, creatures, purse, casino result.");

@@ -1,4 +1,4 @@
-// TideWall 3D — a player: movement, looking/aiming (first person or top-down), guns, melee, interacting,
+// TideWall 3D — a player: movement, looking/aiming (first or third person), guns, melee, interacting,
 // carrying/throwing, health, being downed and revived, food and status effects, and the roguelike progression:
 // XP and levels, stat points (spent in the Stats menu, respec for sand dollars), and weapon mods every few levels.
 // Menus never stop you walking: they're driven by the d-pad / arrow keys. Guns stay holstered for the run's first
@@ -27,6 +27,7 @@ namespace TideWall
     {
         public const float MaxCarry = 3;
         public const int BodyLayer = 8, ViewLayer = 12;   // + player index: hides your own body in first person
+        public const int TagLayer = 16;                   // + player index: your own name tag, which your camera never draws
         public static readonly Color[] Colors = { new(.9f, .22f, .2f), new(.2f, .5f, .95f), new(.25f, .8f, .35f), new(.98f, .78f, .15f) };
         static readonly string[] Names = { "Red", "Blue", "Green", "Gold" };
 
@@ -94,6 +95,8 @@ namespace TideWall
         public readonly Dictionary<string, int> Allocated = new();
         /// <summary>Mods on each weapon (weapon id → mod ids).</summary>
         public readonly Dictionary<string, List<string>> Mods = new();
+        /// <summary>Attachments fitted to each gun (gun id → attachment ids, one per slot). Bought in the shop.</summary>
+        public readonly Dictionary<string, List<string>> Attachments = new();
         /// <summary>The mods on offer right now (null if none is waiting).</summary>
         public List<ModDef> ModOffer { get; private set; }
         public float FortuneMultiplier => 1 + StatBonus(StatKind.Fortune);
@@ -117,7 +120,7 @@ namespace TideWall
         public Interactable Focus { get; private set; }
         public int Kills, Severs;
 
-        /// <summary>Looking direction (degrees). First person looks along it; top-down keeps it for switching back.</summary>
+        /// <summary>Looking direction (degrees): the view, the crosshair and the way the body faces, in both views.</summary>
         public float Yaw { get; private set; }
         public float Pitch { get; private set; }
         /// <summary>The view this player chose (Settings default, switched with the View button).</summary>
@@ -215,7 +218,7 @@ namespace TideWall
             GiveMelee(db.startMelee);
             if (Simulated) RestoreLoadout();
             Hp = MaxHp;
-            // Each player's aim reticle (top-down): a ring in their colour on the ground or on the limb they're aiming at.
+            // An aim ring (from the old top-down view; kept off: both views use the centre crosshair).
             reticle = new GameObject("Reticle").AddComponent<LineRenderer>();
             reticle.loop = true; reticle.positionCount = 20; reticle.widthMultiplier = .06f; reticle.useWorldSpace = true;
             reticle.material = Mats.ParticleAdditive;
@@ -230,6 +233,7 @@ namespace TideWall
             nameTag = Ui.Label(visual, "NameTag", new Vector3(0, 2.35f, 0), .28f, Color.Lerp(Color, Color.white, .35f));
             Billboard.Add(nameTag.gameObject);
             SetLayer(visual, BodyLayer + Index);
+            nameTag.gameObject.layer = TagLayer + Index;
             if (HasView)
             {
                 Cam = PlayerCamera.Create(this);
@@ -254,6 +258,11 @@ namespace TideWall
             Kills = save.kills; Severs = save.severs;
             Level = Mathf.Max(1, save.level); Xp = save.xp; StatPoints = save.statPoints; PendingMods = save.pendingMods; Respecs = save.respecs;
             foreach (var st in save.stats) if (db.Stat(st.id) != null) Allocated[st.id] = st.level;
+            foreach (var ga in save.attachments)
+            {
+                var parts = ga.Split('/');
+                if (parts.Length == 2 && db.Attachment(parts[1]) is { } att) Fit(parts[0], att);
+            }
             foreach (var wm in save.mods)
             {
                 var parts = wm.Split('/');
@@ -276,6 +285,7 @@ namespace TideWall
             reload = null; perfectBonus = 0;
             if (gunModel != null) Destroy(gunModel.root);
             gunModel = ModelFactory.Spawn(g.model, Socket("Gun"), Vector3.zero);
+            DressGun(gunModel, g.id);
             SetLayer(gunModel.root.transform, BodyLayer + Index);
             if (Cam != null) Cam.View.Rebuild();
         }
@@ -388,7 +398,7 @@ namespace TideWall
         public void SwitchView()
         {
             PrefersFirstPerson = !PrefersFirstPerson;
-            Toast(PrefersFirstPerson ? "First person" : "Top-down view", new Color(.8f, .9f, 1f));
+            Toast(PrefersFirstPerson ? "First person" : "Third person", new Color(.8f, .9f, 1f));
             Sfx.Play("ui");
         }
 

@@ -54,6 +54,7 @@ namespace TideWall
             {
                 if (gun != null) Destroy(gun.root);
                 gun = ModelFactory.Spawn(p.Gun.model, gunRoot, Vector3.zero, .55f);
+                Player.DressGun(gun, p.AttachmentsOn(p.Gun.id));
                 Prepare(gun);
                 gunId = p.Gun.id;
                 lastAmmo = p.Ammo;
@@ -66,6 +67,14 @@ namespace TideWall
                 Prepare(melee);
                 meleeId = p.Melee.id;
             }
+        }
+
+        /// <summary>The attachments changed: refit them to the gun in view.</summary>
+        public void Redress()
+        {
+            if (gun == null || p == null || p.Gun == null) return;
+            Player.DressGun(gun, p.AttachmentsOn(p.Gun.id));
+            Prepare(gun);
         }
 
         void Prepare(Model mi)
