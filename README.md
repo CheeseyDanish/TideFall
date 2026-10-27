@@ -56,9 +56,10 @@ Built with **Unity 6.5 (URP)**. Every model was generated in **Blender** from a 
 Everything except the sticks and mouse look can be rebound in **Settings → Controls**.
 
 ### Playing online
-- **Host:** Main menu → Host online game. Your pause menu shows your address.
-- **Join:** Main menu → Join online game. Games on your network are listed; otherwise type the host's address.
-- Over the internet the host needs TCP port 7777 forwarded (changeable in the Host menu). Windows asks to let TideWall through the firewall the first time you host.
+- **Host:** Main menu → Host online game. Pick **Join code** (friends anywhere type a short code; encrypted, no router setup) or **LAN / address**, and optionally a **room password**. Your pause menu shows the code or your address.
+- **Join:** Main menu → Join online game. Games on your network are listed; otherwise type the join code or the host's address.
+- LAN / address games over the internet need UDP port 7777 forwarded (changeable in the Host menu). Windows asks to let TideWall through the firewall the first time you host.
+- Join codes use Unity Relay: the project has to be linked to a Unity Cloud project once (Edit > Project Settings > Services). It's free for small groups.
 
 ## For developers
 - **Design:** [docs/GDD.md](docs/GDD.md)
@@ -71,4 +72,4 @@ unity test . --mode PlayMode --output Logs/TestResults.xml
 ```
 
 ## Status
-Split screen, online play (LAN and by address), saves, settings and the roguelike systems are in. Online play is host-authoritative with no relay server or matchmaking: internet games need the host's port forwarded. Balance (card numbers, XP curve, mod strength, the doubled beach's pacing) hasn't been playtested yet.
+Split screen, online play (join codes through Unity Relay, LAN and by address), saves, settings and the roguelike systems are in. Online play is host-authoritative over Unity Transport, with client prediction. The game opens muted (Settings → Sound / Start muted). Balance (card numbers, XP curve, mod strength, the doubled beach's pacing) hasn't been playtested yet.

@@ -1,5 +1,5 @@
 // TideWall 3D — all content and balance numbers (CLAUDE.md R1).
-// Lives as Assets/Resources/Data/GameDatabase.asset (editable in the Inspector). If the asset is missing,
+// Lives as Assets/Content/Data/GameDatabase.asset (editable in the Inspector). If the asset is missing,
 // the game builds the same defaults in memory, so code and asset can never disagree about what exists.
 using System;
 using System.Collections.Generic;
@@ -326,7 +326,7 @@ namespace TideWall
 
         public static GameDatabase Load()
         {
-            var db = Resources.Load<GameDatabase>("Data/GameDatabase");
+            var db = Content.Database;
             if (db == null || db.enemies.Count == 0) { db = CreateInstance<GameDatabase>(); db.FillDefaults(); }
             return db;
         }

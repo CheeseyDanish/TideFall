@@ -60,33 +60,33 @@ namespace TideWall
         /// <summary>(delta, where or null, reason): sand dollar changes, for floating "+12" popups.</summary>
         public event Action<int, Vector3?, string> OnSandDollars;
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Boot()
-        {
-            if (FindAnyObjectByType<GameManager>() == null) new GameObject("TideWall").AddComponent<GameManager>();
-        }
+        /// <summary>Everything the game loads (data, materials, models, sounds). Set in the TideWall scene.</summary>
+        [SerializeField] ContentLibrary content;
 
         void Awake()
         {
             if (I != null && I != this) { Destroy(gameObject); return; }
             I = this;
             Enemies.Clear();
-            Interactable.All.Clear();
             NetId.Reset();
+            Content.Use(content);
             Time.timeScale = 1;
             DB = GameDatabase.Load();
             Cycle = PhaseCycle.Load();
             SandDollars = DB.startSandDollars;
-            // The scene's own camera/sun are replaced by ours (players get their own cameras).
-            foreach (var c in FindObjectsByType<Camera>(FindObjectsInactive.Include)) Destroy(c.gameObject);
-            foreach (var l in FindObjectsByType<Light>(FindObjectsInactive.Include))
-                if (l.type == LightType.Directional) Destroy(l.gameObject);
             gameObject.AddComponent<AudioListener>();
             Settings.Changed(save: false);
             Fx.Init(transform);
             Sfx.Init(gameObject);
             Cards = gameObject.AddComponent<TidalCards>();
-            World = WorldBuilder.Build(transform);
+            // The level is saved in the scene (TideWall → Rebuild World In Scene regenerates it)
+            World = FindAnyObjectByType<World>();
+            if (World == null)
+            {
+                Debug.LogError("TideWall: this scene has no World. Building one for now; open the TideWall scene or use TideWall → Rebuild World In Scene.");
+                World = WorldBuilder.Build(null);
+            }
+            World.Init(DB);
             Phases = gameObject.AddComponent<PhaseManager>();
             Waves = gameObject.AddComponent<WaveDirector>();
             Players = gameObject.AddComponent<PlayerManager>();

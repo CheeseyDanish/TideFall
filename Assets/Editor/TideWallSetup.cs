@@ -1,7 +1,10 @@
 // TideWall 3D — one-click project setup (menu: TideWall → Setup Project, or headless:
 //   Unity -batchmode -projectPath . -executeMethod TideWall.EditorTools.TideWallSetup.Run -quit).
-// Idempotent: creates whatever is missing — base materials, data assets, the game scene with post-processing,
-// and build/player settings. "Reset Data" rewrites the data assets from the code defaults.
+// Idempotent: creates whatever is missing — base materials, data assets, the sound files, the content library, the
+// game scene (post-processing, the GameManager, and the level the first time), and build/player settings.
+// It never overwrites edits: "Reset Data" rewrites the data from the code defaults, "Rebuild World In Scene"
+// regenerates the level, and "Bake Sounds" rewrites the WAVs, each only when asked.
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -13,17 +16,23 @@ namespace TideWall.EditorTools
 {
     public static class TideWallSetup
     {
-        const string ScenePath = "Assets/Scenes/TideWall.unity";
+        public const string ScenePath = "Assets/Scenes/TideWall.unity";
+        public const string LibraryPath = "Assets/Content/ContentLibrary.asset";
+        const string SoundsPath = "Assets/Content/Sounds";
 
         [UnityEditor.MenuItem("TideWall/Setup Project")]
         public static void Run()
         {
-            Directory.CreateDirectory("Assets/Resources/Materials");
-            Directory.CreateDirectory("Assets/Resources/Data");
+            Directory.CreateDirectory("Assets/Content/Materials");
+            Directory.CreateDirectory("Assets/Content/Data");
+            Directory.CreateDirectory(SoundsPath);
             Directory.CreateDirectory("Assets/Scenes");
             TextMeshProResources();
             Materials();
             Data(false);
+            Sounds(false);
+            AssetDatabase.Refresh();
+            Library();
             Scene();
             Settings();
             AssetDatabase.SaveAssets();
@@ -42,6 +51,54 @@ namespace TideWall.EditorTools
         [UnityEditor.MenuItem("TideWall/Reset Data To Defaults")]
         public static void ResetData() { Data(true); AssetDatabase.SaveAssets(); }
 
+        [UnityEditor.MenuItem("TideWall/Bake Sounds")]
+        public static void BakeSounds() { Sounds(true); AssetDatabase.Refresh(); Library(); AssetDatabase.SaveAssets(); }
+
+        /// <summary>SfxSynth's formulas → 16-bit mono WAVs in Assets/Content/Sounds (only missing ones, unless overwrite).</summary>
+        static void Sounds(bool overwrite)
+        {
+            foreach (var kv in SfxSynth.All())
+            {
+                string path = Path.Combine(SoundsPath, kv.Key + ".wav");
+                if (!overwrite && File.Exists(path)) continue;
+                using var w = new BinaryWriter(File.Create(path));
+                var samples = kv.Value;
+                int bytes = samples.Length * 2;
+                w.Write(System.Text.Encoding.ASCII.GetBytes("RIFF")); w.Write(36 + bytes);
+                w.Write(System.Text.Encoding.ASCII.GetBytes("WAVEfmt ")); w.Write(16);
+                w.Write((short)1); w.Write((short)1); w.Write(SfxSynth.Rate); w.Write(SfxSynth.Rate * 2); w.Write((short)2); w.Write((short)16);
+                w.Write(System.Text.Encoding.ASCII.GetBytes("data")); w.Write(bytes);
+                foreach (var f in samples) w.Write((short)Mathf.RoundToInt(Mathf.Clamp(f, -1, 1) * 32767));
+            }
+        }
+
+        /// <summary>The content library: the data, base materials, and every model and sound in Assets/Content.</summary>
+        static void Library()
+        {
+            var lib = AssetDatabase.LoadAssetAtPath<ContentLibrary>(LibraryPath);
+            if (lib == null) { lib = ScriptableObject.CreateInstance<ContentLibrary>(); AssetDatabase.CreateAsset(lib, LibraryPath); }
+            lib.database = AssetDatabase.LoadAssetAtPath<GameDatabase>("Assets/Content/Data/GameDatabase.asset");
+            lib.phases = AssetDatabase.LoadAssetAtPath<PhaseCycle>("Assets/Content/Data/PhaseCycle.asset");
+            Material M(string n) => AssetDatabase.LoadAssetAtPath<Material>($"Assets/Content/Materials/{n}.mat");
+            lib.lit = M("Lit"); lib.litTransparent = M("LitTransparent"); lib.unlit = M("Unlit");
+            lib.particle = M("Particle"); lib.particleAdditive = M("ParticleAdditive"); lib.sky = M("Sky");
+            lib.models = new List<ContentLibrary.NamedModel>();
+            foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { "Assets/Content/Models" }))
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                lib.models.Add(new ContentLibrary.NamedModel { name = Path.GetFileNameWithoutExtension(path), prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path) });
+            }
+            lib.sounds = new List<ContentLibrary.NamedSound>();
+            foreach (var guid in AssetDatabase.FindAssets("t:AudioClip", new[] { SoundsPath }))
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                lib.sounds.Add(new ContentLibrary.NamedSound { name = Path.GetFileNameWithoutExtension(path), clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path) });
+            }
+            EditorUtility.SetDirty(lib);
+            AssetDatabase.SaveAssets();
+            Content.Use(lib);
+        }
+
         static void Materials()
         {
             Mat("Lit", "Universal Render Pipeline/Lit", false, false);
@@ -54,7 +111,7 @@ namespace TideWall.EditorTools
 
         static void Mat(string name, string shader, bool transparent, bool additive)
         {
-            string path = $"Assets/Resources/Materials/{name}.mat";
+            string path = $"Assets/Content/Materials/{name}.mat";
             var m = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (m == null) { m = new Material(Shader.Find(shader)); AssetDatabase.CreateAsset(m, path); }
             if (transparent)
@@ -76,7 +133,7 @@ namespace TideWall.EditorTools
 
         static void Data(bool overwrite)
         {
-            const string dbPath = "Assets/Resources/Data/GameDatabase.asset", cyclePath = "Assets/Resources/Data/PhaseCycle.asset";
+            const string dbPath = "Assets/Content/Data/GameDatabase.asset", cyclePath = "Assets/Content/Data/PhaseCycle.asset";
             var db = AssetDatabase.LoadAssetAtPath<GameDatabase>(dbPath);
             if (db == null) { db = ScriptableObject.CreateInstance<GameDatabase>(); db.FillDefaults(); AssetDatabase.CreateAsset(db, dbPath); }
             else if (overwrite) { db.FillDefaults(); EditorUtility.SetDirty(db); }
@@ -85,11 +142,24 @@ namespace TideWall.EditorTools
             else if (overwrite) { cycle.FillDefaults(); EditorUtility.SetDirty(cycle); }
         }
 
+        /// <summary>The game's one scene: post-processing, the GameManager (with the content library) and the level.</summary>
         static void Scene()
         {
-            if (File.Exists(ScenePath)) return;
+            if (!File.Exists(ScenePath)) NewScene();
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            bool changed = false;
+            var gm = Object.FindAnyObjectByType<GameManager>();
+            if (gm == null) { gm = new GameObject("TideWall").AddComponent<GameManager>(); changed = true; }
+            var so = new SerializedObject(gm);
+            var content = so.FindProperty("content");
+            if (content.objectReferenceValue == null) { content.objectReferenceValue = AssetDatabase.LoadAssetAtPath<ContentLibrary>(LibraryPath); so.ApplyModifiedPropertiesWithoutUndo(); changed = true; }
+            if (changed) EditorSceneManager.SaveScene(scene);
+            if (Object.FindAnyObjectByType<World>() == null) WorldBaker.Rebuild();
+        }
+
+        static void NewScene()
+        {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            // Everything else is built at runtime by GameManager (it boots itself). The scene only holds post-processing.
             var post = new GameObject("Post Processing");
             var vol = post.AddComponent<Volume>();
             vol.isGlobal = true;
@@ -103,8 +173,24 @@ namespace TideWall.EditorTools
             EditorSceneManager.SaveScene(scene, ScenePath);
         }
 
+        /// <summary>A "HUD" sorting layer after Default: players' HUD canvases sort after everything in the world, so
+        /// world text (signs, name tags) can never draw over them.</summary>
+        static void SortingLayers()
+        {
+            var tags = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+            var layers = tags.FindProperty("m_SortingLayers");
+            for (int i = 0; i < layers.arraySize; i++)
+                if (layers.GetArrayElementAtIndex(i).FindPropertyRelative("name").stringValue == "HUD") return;
+            layers.InsertArrayElementAtIndex(layers.arraySize);
+            var layer = layers.GetArrayElementAtIndex(layers.arraySize - 1);
+            layer.FindPropertyRelative("name").stringValue = "HUD";
+            layer.FindPropertyRelative("uniqueID").intValue = 0x48554401;
+            tags.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         static void Settings()
         {
+            SortingLayers();
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             PlayerSettings.productName = "TideWall";
             PlayerSettings.companyName = "CheeseyDanish";
@@ -121,7 +207,7 @@ namespace TideWall.EditorTools
     {
         void OnPreprocessModel()
         {
-            if (!assetPath.StartsWith("Assets/Resources/Models")) return;
+            if (!assetPath.StartsWith("Assets/Content/Models")) return;
             var mi = (ModelImporter)assetImporter;
             mi.importAnimation = false;
             mi.importCameras = false;

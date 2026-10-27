@@ -48,7 +48,7 @@ The beach is **twice the size of the original**: 88 m of wall, 40 m of sand to t
 - **Morning thieves**: a few gulls fly in each morning (`corpseThieves`) to snatch the night's corpses before you sell them. Shoot one and it drops its prize.
 
 ## Phases (data-driven)
-Phases live in `Assets/Resources/Data/PhaseCycle.asset` as a list, run in order, looping. **Add, remove or reorder entries to change the day**; no code changes. Each phase sets:
+Phases live in `Assets/Content/Data/PhaseCycle.asset` as a list, run in order, looping. **Add, remove or reorder entries to change the day**; no code changes. Each phase sets:
 
 | Field | Meaning |
 |---|---|
@@ -322,15 +322,15 @@ Menu: **Continue run** · **New run** (pick a slot) · **Other runs** · **Host 
 - When the run ends, its save is **deleted** (roguelike).
 
 ## Online
-- **Host:** Main menu → Host online game → new or saved run. Friends join any time; the pause menu shows the host's addresses.
-- **Join:** Games on the same network are listed; otherwise type the host's address. Several people on one machine can join (couch + online, 4 players in total).
-- Internet play needs TCP port 7777 forwarded on the host's router.
-- The host runs everything (creatures, breakers, sand dollars, cards, levels); your own movement and looking are instant on your machine.
+- **Host:** Main menu → Host online game → new or saved run. Choose how friends join: a **join code** (anywhere on the internet; encrypted; no router setup) or **LAN / address**. Optionally set a **room password**. The pause menu shows the join code or your addresses.
+- **Join:** Games on the same network are listed; otherwise type the join code (or the host's address). Several people on one machine can join (couch + online, 4 players in total).
+- LAN / address games over the internet need UDP port 7777 forwarded on the host's router; join codes don't.
+- The host runs everything (creatures, breakers, sand dollars, cards, levels, and everyone's movement); your own movement and looking still respond instantly on your machine, and the host gently corrects it if they disagree.
 
 ## Adding content
 For a **new enemy**:
 1. Add its model to `Blender/generate_models.py` (`Limb_<Part>` with the pivot at the joint, front facing -Y). Re-run the script.
-2. Add an `EnemyDef` to `GameDatabase.FillDefaults()` (and the asset). Choose an `EnemyBehaviour`, or add one plus a method in `Enemy.cs`.
+2. Add an `EnemyDef` to `GameDatabase.FillDefaults()` (and the asset). Choose an `EnemyBehaviour`, or add one plus a method in `Enemy.Behaviour.cs`.
 3. Give every limb a `LimbDef`, and give it **its own animation** in `Enemy.PoseRoot` / `AnimateLimbs`: every creature moves in a way you can recognise.
 4. Answer the design questions: what does it **ask**, what **counters** it, how does it interact with **wetness**, what's its corpse worth, what does it do **behind a breach**?
 5. Add it to a phase's `enemyPool` if needed, and to the bestiary capture. Run the tests and the capture tour.

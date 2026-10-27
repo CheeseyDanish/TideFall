@@ -1,6 +1,6 @@
-// TideWall 3D — runtime materials. Base materials live in Assets/Resources/Materials (made by the editor
-// setup, TideWall → Setup Project) so their URP shaders are always included in builds; runtime colours
-// are clones of those. Falls back to Shader.Find in the editor if the assets are missing.
+// TideWall 3D — runtime materials. Base materials live in Assets/Content/Materials (made by the editor setup,
+// TideWall → Setup Project) and are referenced by the content library, so their URP shaders are always in builds;
+// runtime colours are clones of those. Falls back to Shader.Find in the editor if the assets are missing.
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -14,7 +14,7 @@ namespace TideWall
         static Material Base(string name, string shader)
         {
             if (bases.TryGetValue(name, out var m) && m != null) return m;
-            m = Resources.Load<Material>("Materials/" + name);
+            m = Content.Material(name);
             if (m == null)
             {
                 var s = Shader.Find(shader) ?? Shader.Find("Universal Render Pipeline/Unlit");

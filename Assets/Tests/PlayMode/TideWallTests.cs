@@ -30,7 +30,9 @@ namespace TideWall.Tests
             Directory.CreateDirectory(storage);
             Storage.Root = storage;
             Settings.Reload();
-            if (GameManager.I == null) new GameObject("TideWall").AddComponent<GameManager>();
+            // The real scene: its GameManager, content library and level
+            UnityEngine.SceneManagement.SceneManager.LoadScene("TideWall");
+            yield return null;
             yield return null;
             gm = GameManager.I;
         }
@@ -111,7 +113,7 @@ namespace TideWall.Tests
             Assert.AreEqual(gm.DB.plantMaxHp, gm.Plant.MaxHp);
             Assert.GreaterOrEqual(gm.Cycle.phases.Count, 3, "Morning, Evening and Night");
             Assert.IsTrue(gm.Cycle.phases.Exists(p => p.saveOnStart), "some phase autosaves");
-            Assert.NotNull(ModelFactory.Prefab("Crab"), "Blender models are imported");
+            Assert.NotNull(Content.Model("Crab"), "Blender models are imported");
             yield return null;
         }
 
@@ -430,7 +432,7 @@ namespace TideWall.Tests
             Assert.AreEqual("Wrong password.", wrong.bye);
             Assert.AreEqual(-1, wrong.clientId);
             wrong.link.Dispose();
-            yield return new WaitForSecondsRealtime(1.5f);   // let the host close that connection (same machine, same port)
+            yield return new WaitForSecondsRealtime(2.5f);   // the host closes that connection, and a wrong guess locks the address out for 2 s
 
             // Right password: welcomed (the proof is an HMAC of the host's nonce, never the password itself)
             var right = new FakeClient(port);

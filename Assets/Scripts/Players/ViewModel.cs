@@ -14,7 +14,7 @@ namespace TideWall
     {
         Player p;
         Transform gunRoot, meleeRoot, flash;
-        ModelInstance gun, melee;
+        Model gun, melee;
         int lastAmmo;
         float kick, bobT, flashT;
         Vector3 lastPos;
@@ -57,7 +57,7 @@ namespace TideWall
                 Prepare(gun);
                 gunId = p.Gun.id;
                 lastAmmo = p.Ammo;
-                if (flash != null) flash.localPosition = gun.sockets.TryGetValue("Muzzle", out var mz) ? gunRoot.InverseTransformPoint(mz.position) : new Vector3(0, .03f, .3f);
+                if (flash != null) flash.localPosition = gun.Sockets.TryGetValue("Muzzle", out var mz) ? gunRoot.InverseTransformPoint(mz.position) : new Vector3(0, .03f, .3f);
             }
             if (meleeId != p.Melee.id)
             {
@@ -68,10 +68,10 @@ namespace TideWall
             }
         }
 
-        void Prepare(ModelInstance mi)
+        void Prepare(Model mi)
         {
             foreach (var t in mi.root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Player.ViewLayer + p.Index;
-            foreach (var r in mi.renderers) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false; }
+            foreach (var r in mi.Renderers) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false; }
         }
 
         void LateUpdate()

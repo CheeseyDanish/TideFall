@@ -1,5 +1,7 @@
-// TideWall 3D — builds the level from code: ground, sea, the wall (breachable sections), the Nuclear Sand
-// Powerplant, town stalls, the keep, lights, clouds and beach decoration. Layout constants are in Arena.cs.
+// TideWall 3D — generates the level: ground, sea, the wall (breachable sections), the Nuclear Sand Powerplant, town
+// stalls, the keep, lights, clouds and beach decoration. Layout constants are in Arena.cs.
+// It runs in the editor (TideWall → Rebuild World In Scene), which saves the result into the TideWall scene; from then
+// on the scene is the level and can be edited in Unity like any other.
 using UnityEngine;
 
 namespace TideWall
@@ -11,10 +13,10 @@ namespace TideWall
         public static World Build(Transform parent)
         {
             var root = new GameObject("World");
-            root.transform.SetParent(parent, false);
+            if (parent != null) root.transform.SetParent(parent, false);
             var world = root.AddComponent<World>();
             var t = root.transform;
-            var db = GameManager.I.DB;
+            var db = GameDatabase.Load();
 
             // --- sun
             var sunGo = new GameObject("Sun");
@@ -85,7 +87,7 @@ namespace TideWall
             world.keep = ModelFactory.Spawn("Keep", t, new Vector3(0, 0, -27.5f));
             Solid(world.keep.root, new Vector3(0, 6.7f, -5f), new Vector3(22, 13.4f, 11.2f));
             foreach (var s in new[] { "TorchL", "TorchR", "Candle" })
-                if (world.keep.sockets.TryGetValue(s, out var sock))
+                if (world.keep.Sockets.TryGetValue(s, out var sock))
                 {
                     var l = new GameObject(s + "Light").AddComponent<Light>();
                     l.transform.SetParent(sock, false);
@@ -131,15 +133,15 @@ namespace TideWall
                 float size = m == "Kelp" ? Mathf.Clamp(Arena.Depth(new Vector3(x, 0, z)) / 3.6f, .3f, 1.4f) * (.7f + .3f * (float)rng.NextDouble()) : 1.2f;
                 var mi = ModelFactory.Spawn(m, deco, new Vector3(x, Arena.GroundY(z), z), size);
                 mi.root.transform.rotation = Quaternion.Euler(0, (float)rng.NextDouble() * 360, 0);
-                foreach (var r in mi.renderers) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                foreach (var r in mi.Renderers) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
             // Clouds drifting high over the sea
             for (int i = 0; i < 14; i++)
             {
                 var c = ModelFactory.Spawn("Cloud", t, new Vector3((float)(rng.NextDouble() * 440 - 220), 55 + (float)rng.NextDouble() * 25, 60 + (float)rng.NextDouble() * 150),
                                            1.5f + (float)rng.NextDouble() * 2);
-                foreach (var r in c.renderers) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false; }
-                world.clouds.Add((c.root.transform, 1.5f + (float)rng.NextDouble() * 2));
+                foreach (var r in c.Renderers) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false; }
+                world.clouds.Add(new World.Cloud { t = c.root.transform, speed = 1.5f + (float)rng.NextDouble() * 2 });
             }
 
             // --- invisible bounds for players

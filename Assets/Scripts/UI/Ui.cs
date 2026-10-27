@@ -66,6 +66,7 @@ namespace TideWall
             var c = go.GetComponent<Canvas>();
             if (cam != null) { c.renderMode = RenderMode.ScreenSpaceCamera; c.worldCamera = cam; c.planeDistance = .5f; }
             else c.renderMode = RenderMode.ScreenSpaceOverlay;
+            c.sortingLayerName = "HUD";   // after everything in the world (TideWall → Setup Project adds the layer)
             c.sortingOrder = order;
             var s = go.GetComponent<CanvasScaler>();
             s.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -109,6 +110,7 @@ namespace TideWall
             t.color = color; t.alignment = align;
             t.textWrappingMode = TextWrappingModes.NoWrap; t.overflowMode = TextOverflowModes.Overflow;
             t.rectTransform.sizeDelta = new Vector2(10, 2);
+            t.sortingOrder = -100;   // drawn before the players' HUD canvases, so a nearby sign never covers the HUD
             t.rectTransform.pivot = align == TextAlignmentOptions.Bottom ? new Vector2(.5f, 0) : new Vector2(.5f, .5f);
             return t;
         }

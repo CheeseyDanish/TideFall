@@ -14,7 +14,7 @@ namespace TideWall
         public StructureDef Def { get; private set; }
         public float Hp { get; private set; }
         public bool Dead { get; private set; }
-        ModelInstance model;
+        Model model;
         Transform headPart, muzzle;
         float cooldown, flashT;
         bool proxy;
@@ -47,7 +47,7 @@ namespace TideWall
             s.mpb = new MaterialPropertyBlock();
             s.model = ModelFactory.Spawn(def.model, go.transform, Vector3.zero);
             foreach (var t in s.model.root.GetComponentsInChildren<Transform>(true)) if (t.name == "Part_Head") s.headPart = t;
-            s.model.sockets.TryGetValue("Muzzle", out s.muzzle);
+            s.model.Sockets.TryGetValue("Muzzle", out s.muzzle);
             // Solid ones block players too; traps on the floor don't
             if (def.kind is StructureKind.Barricade or StructureKind.Turret or StructureKind.Cannon or StructureKind.Bait)
             {
@@ -202,39 +202,11 @@ namespace TideWall
         void Look()
         {
             if (model == null) return;
-            foreach (var r in model.renderers)
+            foreach (var r in model.Renderers)
             {
                 if (r == null) continue;
                 if (flashT > 0) { mpb.Clear(); mpb.SetColor("_BaseColor", Color.white); r.SetPropertyBlock(mpb); }
                 else r.SetPropertyBlock(null);
-            }
-        }
-    }
-
-    /// <summary>A pearl cannon's shot: an arc, then a bang.</summary>
-    public class Lob : MonoBehaviour
-    {
-        Vector3 from, to;
-        float t, time, damage, radius;
-
-        public void Launch(Vector3 a, Vector3 b, float dmg, float r)
-        {
-            from = a; to = b; damage = dmg; radius = r;
-            time = Mathf.Clamp(Vector3.Distance(a, b) / 18, .4f, 1.4f);
-            var m = ModelFactory.Spawn("Pearl", transform, Vector3.zero, 1.6f);
-            foreach (var rd in m.renderers) rd.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            transform.position = a;
-        }
-
-        void Update()
-        {
-            t += Time.deltaTime / time;
-            var p = Vector3.Lerp(from, to, t) + Vector3.up * Mathf.Sin(Mathf.PI * Mathf.Clamp01(t)) * 5;
-            transform.position = p;
-            if (t >= 1)
-            {
-                Combat.Explode(to, radius, damage, Element.None, null);
-                Destroy(gameObject);
             }
         }
     }

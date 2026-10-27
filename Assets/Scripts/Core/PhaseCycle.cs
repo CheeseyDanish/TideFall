@@ -1,5 +1,5 @@
 // TideWall 3D — the day is a loop of phases (Morning → Evening → Night → Morning…).
-// Phases are pure data: add, remove or reorder them in Assets/Resources/Data/PhaseCycle.asset and the
+// Phases are pure data: add, remove or reorder them in Assets/Content/Data/PhaseCycle.asset and the
 // PhaseManager runs whatever is listed. Nothing in code refers to a phase by name.
 using System;
 using System.Collections.Generic;
@@ -53,7 +53,7 @@ namespace TideWall
 
         public static PhaseCycle Load()
         {
-            var c = Resources.Load<PhaseCycle>("Data/PhaseCycle");
+            var c = Content.Phases;
             if (c == null || c.phases.Count == 0) { c = CreateInstance<PhaseCycle>(); c.FillDefaults(); }
             return c;
         }

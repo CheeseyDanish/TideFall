@@ -47,6 +47,8 @@ namespace TideWall
         NetLink link;
         readonly List<Client> clients = new();
         byte[] passwordKey, passwordSalt;
+        // Direct games: an address that got the password wrong waits before trying again (doubling each time)
+        readonly Dictionary<string, (float until, float wait)> lockout = new();
         float snapT, beaconT;
         BinaryWriter allNotices = NewEvents(), allEffects = NewEvents();
         int allNoticeCount, allEffectCount;
@@ -104,7 +106,7 @@ namespace TideWall
                 switch (e.Kind)
                 {
                     case NetLink.EventKind.Connected:
-                        if (clients.Count >= NetProtocol.MaxConnections) { link.Disconnect(e.Peer); break; }
+                        if (clients.Count >= NetProtocol.MaxConnections || LockedOut(e.Peer)) { link.Disconnect(e.Peer); break; }
                         clients.Add(new Client { peer = e.Peer, connectedAt = Time.unscaledTime });
                         break;
                     case NetLink.EventKind.Disconnected:
@@ -167,7 +169,7 @@ namespace TideWall
                     var expected = NetAuth.Proof(passwordKey, c.hostNonce, c.clientNonce);
                     c.hostNonce = null;   // one try per connection
                     if (NetAuth.Same(proof, expected)) Welcome(c);
-                    else Kick(c, "Wrong password.");
+                    else { LockOut(c.peer); Kick(c, "Wrong password."); }
                     break;
                 }
                 case Msg.Join:
@@ -217,6 +219,29 @@ namespace TideWall
                     break;
                 }
             }
+        }
+
+        /// <summary>The address without the port (relay games all come from the relay, so they're never locked out).</summary>
+        string Host(int peer)
+        {
+            if (JoinCode != null) return null;
+            var a = link.Address(peer);
+            int colon = a.LastIndexOf(':');
+            return colon > 0 ? a.Substring(0, colon) : a;
+        }
+
+        bool LockedOut(int peer)
+        {
+            var h = Host(peer);
+            return h != null && lockout.TryGetValue(h, out var l) && Time.unscaledTime < l.until;
+        }
+
+        void LockOut(int peer)
+        {
+            var h = Host(peer);
+            if (h == null) return;
+            float wait = lockout.TryGetValue(h, out var l) ? Mathf.Min(l.wait * 2, 60) : 2;
+            lockout[h] = (Time.unscaledTime + wait, wait);
         }
 
         void Welcome(Client c)

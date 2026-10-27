@@ -13,7 +13,7 @@ import bpy, bmesh, math, os, sys
 from mathutils import Matrix, Vector, Euler
 
 ROOT = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else os.getcwd()
-OUT = os.path.join(ROOT, 'Assets', 'Resources', 'Models')
+OUT = os.path.join(ROOT, 'Assets', 'Content', 'Models')
 SRC = os.path.join(ROOT, 'Blender', 'source')
 os.makedirs(OUT, exist_ok=True)
 

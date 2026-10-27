@@ -23,7 +23,7 @@ namespace TideWall
 
         readonly List<(Enemy e, float dx, float dz, float wipeZ)> riders = new();
         float sprayT;
-        ModelInstance model;
+        Model model;
         float releaseZ, speed, fade;
         bool proxy;
 
@@ -54,7 +54,7 @@ namespace TideWall
             b.BornAt = Time.time;
             b.model = ModelFactory.Spawn("Breaker", go.transform, Vector3.zero);
             b.model.root.transform.localScale = new Vector3(width, 1, 1);
-            foreach (var r in b.model.renderers)
+            foreach (var r in b.model.Renderers)
             {
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 // Water you can half see through (the foam stays near-solid white)

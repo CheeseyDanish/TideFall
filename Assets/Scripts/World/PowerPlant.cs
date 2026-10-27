@@ -10,9 +10,9 @@ namespace TideWall
         public float Hp { get; private set; }
         public float MaxHp { get; private set; }
         public float Fraction => MaxHp > 0 ? Hp / MaxHp : 0;
-        ModelInstance model;
-        Light core;
-        Transform steamL, steamR;
+        [SerializeField] Model model;
+        [SerializeField] Light core;
+        [SerializeField] Transform steamL, steamR;
         float steamT, flashT, alarmT;
         bool warned;
 
@@ -25,17 +25,29 @@ namespace TideWall
             var p = mi.root.AddComponent<PowerPlant>();
             p.model = mi;
             p.MaxHp = p.Hp = hp;
-            foreach (var r in mi.renderers)
-                foreach (var m in r.materials)
-                    if (m.name.ToLowerInvariant().StartsWith("core")) Mats.SetEmission(m, new Color(.3f, 1f, .4f) * 2.5f);
-            mi.sockets.TryGetValue("SteamL", out p.steamL);
-            mi.sockets.TryGetValue("SteamR", out p.steamR);
+            // The glowing core: a copy of its material with emission (sharedMaterials, so it's saved with the scene)
+            foreach (var r in mi.Renderers)
+            {
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++)
+                    if (mats[i] != null && mats[i].name.ToLowerInvariant().StartsWith("core"))
+                    {
+                        mats[i] = new Material(mats[i]) { name = "Core (glowing)" };
+                        Mats.SetEmission(mats[i], new Color(.3f, 1f, .4f) * 2.5f);
+                    }
+                r.sharedMaterials = mats;
+            }
+            mi.Sockets.TryGetValue("SteamL", out p.steamL);
+            mi.Sockets.TryGetValue("SteamR", out p.steamR);
             p.core = new GameObject("Core Light").AddComponent<Light>();
-            p.core.transform.SetParent(mi.sockets.TryGetValue("Core", out var c) ? c : mi.root.transform, false);
+            p.core.transform.SetParent(mi.Sockets.TryGetValue("Core", out var c) ? c : mi.root.transform, false);
             p.core.transform.localPosition = new Vector3(0, 0, 3.5f);   // in front of the dome, toward the sea
             p.core.type = LightType.Point; p.core.range = 14; p.core.shadows = LightShadows.None;
             return p;
         }
+
+        /// <summary>A fresh run: full health.</summary>
+        public void Init(float hp) { MaxHp = Hp = hp; warned = false; }
 
         /// <summary>The point on the plant's edge a creature at `from` should walk to.</summary>
         public Vector3 Approach(Vector3 from, float radius)
@@ -85,6 +97,7 @@ namespace TideWall
 
         void Update()
         {
+            if (GameManager.I == null) return;   // the scene is closing
             float t = Time.time;
             float danger = 1 - Fraction;
             // Steam from the cooling towers (made locally on every machine: it's only scenery)
