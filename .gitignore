@@ -39,3 +39,7 @@ Thumbs.db
 *.log
 .claude/settings.local.json
 TestResults*.xml
+
+# Unity Services writes a temporary config here during builds (the game itself uses no Resources folder)
+/Assets/Resources/
+/Assets/Resources.meta
