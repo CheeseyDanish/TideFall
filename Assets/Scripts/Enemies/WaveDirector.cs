@@ -33,6 +33,8 @@ namespace TideWall
         float previewT;
         /// <summary>True once every planned enemy has spawned and died.</summary>
         public bool Cleared => qi >= queue.Count && Alive <= 0;
+        /// <summary>Debug menu: nothing more comes this phase.</summary>
+        public void DebugSkipQueue() => qi = queue.Count;
 
         GameManager gm;
         void Awake() => gm = GetComponent<GameManager>();

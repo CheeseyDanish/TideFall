@@ -32,6 +32,8 @@ the epigraphs and endings may hint, never explain.
 | Main menu: New run, Continue, Host/Join, slots, confirmations, typing prompts, the help line | `Assets/Scripts/UI/MainMenu.cs` (`Root()`, `Slots()`, `HostMenu()`, `JoinMenu()`, `Draw()`) |
 | Pause menu, settings (every row label and description), controls lists, Stats & Mods, tidal card vote, shop tabs, hotdog stand, Build menu | `Assets/Scripts/UI/Menus.cs` |
 | Shop and card layouts' help lines ("D-pad choose · [A] buy…") | `Assets/Scripts/UI/MenuViews.cs` |
+| The casino: game names, rules pages, table text, results, the crab's shouts (`CrabLines`), the lobby | `Assets/Scripts/Casino/Casino.cs`, `Slots.cs`, `Blackjack.cs`, `Roulette.cs`, `VideoPoker.cs`, `Fathoms.cs` (`Rules`, `Table()`) |
+| The debug menu (every row and description) and the stats overlay | `Assets/Scripts/Debug/DebugMenu.cs`, `DebugTools.cs` |
 | Rebindable action names ("Shoot / throw", "Build defences"…) | `Assets/Scripts/Players/PlayerControls.cs` (`Rebindable`) |
 | Graphics option names (anti-aliasing, shadows, display modes) | `Assets/Scripts/Core/Graphics.cs` |
 

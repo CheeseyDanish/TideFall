@@ -18,6 +18,7 @@ namespace TideWall
         readonly List<Image> inkBlots = new();
         GridView grid;
         CardsView cardsView;
+        TableView table;
         Image killMarker;
         ReticleHud reticle;
         float statusT;
@@ -129,6 +130,7 @@ namespace TideWall
             menuHelp = Ui.Text(menuPanel.transform, "Help", new Vector2(.5f, 0), new Vector2(0, 14), new Vector2(520, 22), 12, TextAnchor.MiddleCenter, new Color(.6f, .65f, .8f));
             grid = new GridView(c);
             cardsView = new CardsView(c);
+            table = new TableView(c);
             reticle = new ReticleHud(c);
             killMarker = Ui.Image(c, "Kill", new Vector2(.5f, .5f), Vector2.zero, new Vector2(30, 30), new Color(1, .25f, .2f, 0));
             killMarker.rectTransform.localRotation = Quaternion.Euler(0, 0, 45);
@@ -320,6 +322,7 @@ namespace TideWall
             menuPanel.gameObject.SetActive(m != null && m.Layout == MenuLayout.List);
             if (m != null && m.Layout == MenuLayout.Grid) grid.Show(m, p, gm); else grid.Hide();
             if (m != null && m.Layout == MenuLayout.Cards) cardsView.Show(m, p, gm); else cardsView.Hide();
+            if (m != null && m.Layout == MenuLayout.Table) table.Show(m, p, gm); else table.Hide();
             if (m == null || m.Layout != MenuLayout.List) return;
             menuTitle.text = m.System ? m.Title : $"{m.Title}   <size=16><color=#fde68a>{gm.SandDollars} sand dollars</color></size>";
             menuBody.text = Render(m, 14);

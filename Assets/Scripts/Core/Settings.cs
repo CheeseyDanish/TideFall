@@ -65,6 +65,7 @@ namespace TideWall
         public bool startFirstPerson = true;
         public float fov = 75, mouseSensitivity = 1, stickSensitivity = 1, screenShake = 1;
         public bool invertY, aimAssist = true, showFps, damageNumbers = true;
+        public bool debugTools = true;  // the playtesting menu (F1)
         // Graphics
         public int displayMode;         // 0 fullscreen (borderless), 1 exclusive fullscreen, 2 windowed
         public int resolution = -1;     // index into GraphicsApply.Resolutions(); -1 = the display's native resolution

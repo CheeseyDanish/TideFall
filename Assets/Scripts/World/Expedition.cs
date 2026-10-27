@@ -36,6 +36,8 @@ namespace TideWall
         public int StageIndex => stageIndex;
         public bool Cleared => cleared;
         public float TideLeft => tideLeft;
+        /// <summary>Debug menu: the tide clock back to full.</summary>
+        public void DebugRefillTide() => tideLeft = Stage.tideSeconds;
         bool LastStage => stageIndex >= Part.stages.Count - 1;
 
         /// <summary>From GameManager.Awake, before anything's Start (Begin and the HUD need the stage straight away).</summary>

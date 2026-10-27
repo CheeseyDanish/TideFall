@@ -58,6 +58,7 @@ namespace TideWall
             float dt = Time.deltaTime;
             if (Dead || dt <= 0) return;
             if (Proxy) { ProxyUpdate(dt); return; }
+            if (DebugTools.Freeze) return;   // debug menu: everything holds still
             animT += dt;
             if ((boundsT -= dt) <= 0) { bounds = ModelFactory.Bounds(gameObject); boundsT = .4f; }
             UpdateWet(dt);

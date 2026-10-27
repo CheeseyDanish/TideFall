@@ -28,6 +28,8 @@ namespace TideWall
 
         /// <summary>Done: the look and sound of it (host and clients).</summary>
         protected virtual void Finish() { Done = true; }
+        /// <summary>Debug menu: finish it now, as if the players had.</summary>
+        public void DebugComplete() { if (!Done) Finish(); }
 
         protected static Player NearestPlayer(Vector3 at, float range)
         {

@@ -30,6 +30,8 @@ namespace TideWall
         }
 
         void Save() => Storage.Write(File, JsonUtility.ToJson(this, true));
+        /// <summary>Debug menu: write this record over legacy.json.</summary>
+        public void DebugWrite() => Save();
 
         /// <summary>A Part I run ended: fold it into the record.</summary>
         public static Legacy Record(int day, int level, int kills)

@@ -103,6 +103,7 @@ namespace TideWall
             yield return new WaitForSecondsRealtime(1.2f);
             yield return Shot("04c-vendor-and-building");
             p2.StopBuilding();
+            yield return Casino(gm, p1, p2);
             Structure.Build(gm.DB.Structure("barricade"), new Vector3(-6, 0, 8), 0);
             Structure.Build(gm.DB.Structure("turret"), new Vector3(4, 0, 6), 0);
             Structure.Build(gm.DB.Structure("spikes"), new Vector3(0, 0, 12), 0);
@@ -202,6 +203,55 @@ namespace TideWall
 
         /// <summary>Part II: each stage in turn (the team carried through the gates), its title card, the lane, and at
         /// the Heart the Tidemother, the choice, and the Spiral ending's card.</summary>
+        /// <summary>The Lucky Barnacle: the booth and its crab, every table mid-game, Fathoms' rules, and the debug menu.</summary>
+        IEnumerator Casino(GameManager gm, Player p1, Player p2)
+        {
+            DebugTools.CasinoAlwaysOpen = true;
+            gm.AddSandDollars(3000);
+            Teleport(p1, new Vector3(-30, 0, -4.5f)); p1.SetLook(180, 12);
+            Teleport(p2, new Vector3(-25, 0, -5)); p2.SetLook(225, 10);
+            yield return new WaitForSecondsRealtime(1.5f);
+            yield return Shot("04d-casino-booth");
+            var at = new Vector3(-30, 0, -10);
+            Menu Table(Player p, CasinoGame g) => TideWall.Casino.Table(p, g, p.transform.position);
+            var slots = gm.Casino.Seat<Slots>(p1, at);
+            slots.SpinTo(5, 5, 5);
+            var bj = gm.Casino.Seat<Blackjack>(p2, at);
+            bj.Deal();
+            p1.OpenMenu(Table(p1, slots)); p2.OpenMenu(Table(p2, bj));
+            yield return new WaitForSecondsRealtime(2.6f);
+            yield return Shot("04e-casino-slots-and-blackjack");
+            var rou = gm.Casino.Seat<Roulette>(p1, at);
+            rou.Place(Roulette.Kind.Red, 0); rou.Place(Roulette.Kind.Number, 17); rou.Place(Roulette.Kind.Dozen2, 0);
+            rou.SpinTo(17);
+            var vp = gm.Casino.Seat<VideoPoker>(p2, at);
+            vp.Deal(); vp.Held[0] = vp.Held[2] = true;
+            p1.OpenMenu(Table(p1, rou)); p2.OpenMenu(Table(p2, vp));
+            yield return new WaitForSecondsRealtime(1.2f);
+            yield return Shot("04f-casino-roulette-spinning-and-poker");
+            yield return new WaitForSecondsRealtime(3.5f);
+            yield return Shot("04g-casino-roulette-result");
+            var f1 = gm.Casino.Seat<Fathoms>(p1, at);
+            f1.Pick = Fathoms.Side.Captain;
+            f1.DealThese(new PlayingCard(2, 0), new PlayingCard(4, 1), new PlayingCard(3, 3), new PlayingCard(12, 2), new PlayingCard(6, 1), new PlayingCard(13, 0));
+            var f2 = gm.Casino.Seat<Fathoms>(p2, at);
+            f2.RulesPage = 0;
+            p1.OpenMenu(Table(p1, f1)); p2.OpenMenu(Table(p2, f2));
+            yield return new WaitForSecondsRealtime(2.5f);
+            yield return Shot("04h-casino-fathoms-and-its-rules");
+            yield return new WaitForSecondsRealtime(3f);
+            f2.RulesPage = 1;
+            yield return new WaitForSecondsRealtime(.3f);
+            yield return Shot("04i-casino-fathoms-result-and-chart");
+            p1.OpenMenu(TideWall.Casino.Lobby(p1, p1.transform.position));
+            DebugTools.Overlay = true;
+            p2.OpenMenu(DebugMenu.Main(p2));
+            yield return new WaitForSecondsRealtime(.6f);
+            yield return Shot("04j-casino-lobby-and-debug-menu");
+            DebugTools.ResetAll();
+            p1.CloseMenu(); p2.CloseMenu();
+        }
+
         IEnumerator Undertow(GameManager gm)
         {
             var part = gm.Campaign.parts.Find(x => x.kind == PartKind.Assault);

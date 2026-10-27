@@ -114,7 +114,7 @@ namespace TideWall
             fireBuffer = 0;
             float rate = EffGun.fireRate * (1 + StatBonus(StatKind.Handling) * .5f) * (Statuses.Has(StatusType.SugarRush) ? 1.25f : 1);
             fireCd = 1 / rate;
-            ammo[Gun.id] = Ammo - 1;
+            if (!DebugTools.InfiniteAmmo) ammo[Gun.id] = Ammo - 1;
             var origin = MuzzlePosition();
             Combat.FireGun(this, EffGun, origin, AimPoint, DamageMult(false) * (1 + perfectBonus));
             Fx.Flash(origin, new Color(1, .8f, .4f), 5, 3, .06f);
@@ -139,6 +139,8 @@ namespace TideWall
         }
 
         /// <summary>Tour and tests: empty the gun and start its reload.</summary>
+        /// <summary>Debug menu: a full magazine now.</summary>
+        public void DebugRefill() { ammo[Gun.id] = MagSize; reload = null; }
         public void EmptyAndReload() { ammo[Gun.id] = 0; reload = null; StartReload(); }
 
         void FinishReload()

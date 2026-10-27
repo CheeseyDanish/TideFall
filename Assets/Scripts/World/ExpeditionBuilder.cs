@@ -73,6 +73,11 @@ namespace TideWall
             start.localPosition = new Vector3(0, 0, 4);
             ex.playerStart = start;
             SupplyCache.Create(t, new Vector3(-7, 0, 9), 160);
+            // The casino came too: the crab's card crate, on the other side of the start
+            var crate = ModelFactory.Spawn("CasinoCrate", t, new Vector3(7, 0, 9)).root;
+            crate.transform.rotation = Quaternion.Euler(0, 200, 0);
+            var cc = crate.AddComponent<BoxCollider>(); cc.center = new Vector3(0, .5f, 0); cc.size = new Vector3(1.8f, 1, 1.2f);
+            Interactable.Add<CasinoBooth>(crate, "CASINO", 3f);
 
             // --- scattered kelp and rock
             var dress = new GameObject("Seabed dressing").transform;

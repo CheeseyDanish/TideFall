@@ -36,6 +36,8 @@ Built with **Unity 6.5 (URP)**. Every model was generated in **Blender** from a 
 - **Nautical melee:** beach spade, cutlass, oar, boat hook (shock) and anchor.
 - **The hotdog stand** (on tires): ketchup = rage, mustard = speed, ??? sauce = anything. That includes an upside-down screen, the wrong view, giant mode, and a 0.01% jackpot.
 - **Gas cans that *may* explode.**
+- **The Lucky Barnacle**, a casino run by a crab in a top hat: slots, blackjack, roulette, video poker and **Fathoms** (baccarat as sailors play it, with the dealer explaining every draw). Played with the team's sand dollars, between fights.
+- **A debug menu for playtesting** (F1): god mode, infinite ammo, noclip, frozen creatures, collider outlines, time scale, money and levels, spawning any creature, skipping to any day or stage, the endings, tidal cards and a legacy-file editor.
 
 ## Play
 1. Install **Unity 6000.5.10f1** (via Unity Hub).
@@ -76,4 +78,4 @@ unity test . --mode PlayMode --output Logs/TestResults.xml
 ```
 
 ## Status
-Split screen, online play (join codes through Unity Relay, LAN and by address), saves, settings, the roguelike systems and Part II (five stages, the Tidemother, Spiral Shards and both endings) are in. Online play is host-authoritative over Unity Transport, with client prediction. The game opens muted (Settings → Sound / Start muted). Balance (card numbers, XP curve, mod strength, the doubled beach's pacing, Part II's tide clocks and the Tidemother) hasn't been playtested yet.
+Split screen, online play (join codes through Unity Relay, LAN and by address), saves, settings, the roguelike systems, Part II (five stages, the Tidemother, Spiral Shards and both endings), the casino and the debug menu are in. Online play is host-authoritative over Unity Transport, with client prediction. The game opens muted (Settings → Sound / Start muted). Balance (card numbers, XP curve, mod strength, the doubled beach's pacing, Part II's tide clocks and the Tidemother) hasn't been playtested yet.

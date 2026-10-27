@@ -78,6 +78,9 @@ namespace TideWall
             // The people behind the stalls (stalls face the camera, toward -Z, so they stand on the far side)
             world.chef = Vendor.Create(town, "VendorChef", new Vector3(4, 0, -10.6f), 180, db.chefLines);
             world.fishmonger = Vendor.Create(town, "VendorFish", new Vector3(-20, 0, -13.6f), 180, db.fishmongerLines);
+            // The Lucky Barnacle: the casino booth on the west side of town, its counter toward the beach, and the crab behind it
+            Interactable.Add<CasinoBooth>(Prop(town, "CasinoBooth", new Vector3(-30, 0, -10), 0, solid: new Vector3(3, 2.2f, 1.4f)), "CASINO", 3.6f);
+            world.casinoCrab = Vendor.Create(town, "VendorCrab", new Vector3(-30, 0, -11.4f), 0, Casino.CrabLines);
             Interactable.Add<ReadyBell>(Prop(town, "Bell", new Vector3(0, 0, -4), 0, solid: new Vector3(.3f, 2, .3f)), "READY BELL", 2.8f);
 
             // --- lights: torches behind the wall and around town, the lighthouse beam

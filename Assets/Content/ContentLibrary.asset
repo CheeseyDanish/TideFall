@@ -46,6 +46,10 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: b81de2080c920e34dab3ae3540b6c77b, type: 3}
   - name: Burger
     prefab: {fileID: 919132149155446097, guid: 89bd0c927446381438c46b79ae609740, type: 3}
+  - name: CasinoBooth
+    prefab: {fileID: 919132149155446097, guid: bfd8862006d85f84fb93f0f954564e20, type: 3}
+  - name: CasinoCrate
+    prefab: {fileID: 919132149155446097, guid: ca8ea01480597c9469ddb8babdb91adb, type: 3}
   - name: Clam
     prefab: {fileID: 919132149155446097, guid: 298ecae3869c06a4888e0e9085ac801f, type: 3}
   - name: Cloud
@@ -176,6 +180,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: 1a34146cf38a6ab4aa2b34b0789f4566, type: 3}
   - name: VendorChef
     prefab: {fileID: 919132149155446097, guid: d707036b8cc86a24895d9f3326d4a61e, type: 3}
+  - name: VendorCrab
+    prefab: {fileID: 919132149155446097, guid: bdc0652c8ca4ebd4fbcba68911fbd813, type: 3}
   - name: VendorFish
     prefab: {fileID: 919132149155446097, guid: 3b54af00ae12be440a4221740b847db8, type: 3}
   - name: Volleyball

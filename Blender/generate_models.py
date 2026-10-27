@@ -864,4 +864,82 @@ build('MuralSlab', [
     ('Body', 'box', (3.6, .7, .3), (0, 0, .15), 'wetD'), ('Body', 'box', (3.4, .6, .25), (0, 0, 3.0), 'wetD'),
 ])
 
+# =====================================================================================  THE CASINO (the Lucky Barnacle)
+COL.update({'felt': (.08, .42, .26), 'feltD': (.05, .28, .17), 'cream': (.96, .92, .8)})
+
+# The booth: a counter with green baize, a striped awning on four poles, a sign board and a big wheel on top.
+# The counter's front (the customers' side) faces -Y; the crab stands behind it.
+booth = [
+    ('Body', 'box', (3.0, 1.2, 1.0), (0, 0, .5), 'woodD'),
+    ('Body', 'box', (3.1, 1.3, .1), (0, 0, 1.05), 'felt'),
+    ('Body', 'box', (3.12, .08, .12), (0, -.66, 1.05), 'gold'),
+    ('Body', 'box', (2.6, .05, .5), (0, -.62, .55), 'red'),
+]
+for x in (-1.45, 1.45):
+    for y in (-.55, .55):
+        booth.append(('Body', 'cyl', (.1, .1, 2.6), (x, y, 1.3), 'gold', None, None, 6))
+for i in range(8):   # the awning: alternating red and cream stripes, sloping down to the front
+    booth.append(('Body', 'box', (3.4 / 8, 1.6, .08), (-1.7 + 3.4 / 16 + i * 3.4 / 8, -.1, 2.68), 'red' if i % 2 == 0 else 'cream', None, (12, 0, 0)))
+    booth.append(('Body', 'box', (3.4 / 8, .06, .32), (-1.7 + 3.4 / 16 + i * 3.4 / 8, -.9, 2.42), 'red' if i % 2 == 0 else 'cream'))
+booth += [
+    ('Body', 'box', (2.2, .16, .7), (0, .3, 3.15), 'navy'),
+    ('Body', 'box', (2.3, .12, .08), (0, .22, 3.52), 'gold'), ('Body', 'box', (2.3, .12, .08), (0, .22, 2.78), 'gold'),
+    # The wheel above the sign: gold rim, red and black pockets, a hub
+    ('Body', 'cyl', (1.3, 1.3, .1), (0, .25, 4.25), 'gold', None, (90, 0, 0), 20),
+    ('Body', 'cyl', (1.1, 1.1, .12), (0, .22, 4.25), 'black', None, (90, 0, 0), 20),
+    ('Body', 'cyl', (.3, .3, .2), (0, .16, 4.25), 'gold', None, (90, 0, 0), 8),
+    ('Body', 'cyl', (.12, .12, .5), (0, .25, 3.7), 'gold', None, None, 6),
+]
+for k in range(9):
+    a = math.radians(k * 40)
+    booth.append(('Body', 'box', (.16, .05, .42), (math.sin(a) * .34, .15, 4.25 + math.cos(a) * .34), 'red', None, (0, -k * 40, 0)))
+# Stacks of chips and a fan of cards on the baize
+for x, col in ((-1.0, 'red'), (-.82, 'blue'), (-.64, 'white')):
+    booth.append(('Body', 'cyl', (.14, .14, .14), (x, -.25, 1.17), col, None, None, 10))
+for k in range(4):
+    booth.append(('Body', 'box', (.16, .24, .01), (.7 + k * .1, -.2, 1.11 + k * .005), 'white', None, (0, 0, -20 + k * 12)))
+build('CasinoBooth', booth)
+
+# The crab who runs it: a big shore crab in a top hat and bow tie. Its claws are the "arms" a vendor waves (Part_ArmL/R,
+# pivoting at the shoulder) and its eye stalks and hat are its "head" (Part_Head).
+crab = [
+    ('Body', 'ball', (1.1, .9, .7), (0, 0, 1.0), 'orange'),
+    ('Body', 'ball', (.9, .7, .45), (0, -.05, .78), 'orange2'),
+    ('Body', 'box', (.32, .06, .12), (0, -.44, 1.05), 'black'), ('Body', 'ball', (.1, .08, .1), (0, -.47, 1.05), 'red'),
+]
+for sx in (-1, 1):
+    for k in range(3):
+        crab.append(('Body', 'box', (.6, .08, .08), (sx * .62, -.15 + k * .2, .62), 'orange', None, (0, sx * 45, 0)))
+        crab.append(('Body', 'box', (.08, .08, .55), (sx * .9, -.15 + k * .2, .32), 'orange'))
+    side = 'L' if sx < 0 else 'R'
+    crab += [
+        ('Part_Arm' + side, 'box', (.14, .14, .5), (0, 0, -.25), 'orange', (sx * .55, -.2, 1.1)),
+        ('Part_Arm' + side, 'ball', (.34, .3, .44), (0, -.05, -.62), 'orange2', (sx * .55, -.2, 1.1)),
+        ('Part_Arm' + side, 'box', (.08, .08, .26), (sx * .06, -.12, -.88), 'orange', (sx * .55, -.2, 1.1)),
+    ]
+crab += [
+    ('Part_Head', 'cyl', (.06, .06, .35), (-.16, 0, .18), 'orange', (0, -.3, 1.25)),
+    ('Part_Head', 'cyl', (.06, .06, .35), (.16, 0, .18), 'orange', (0, -.3, 1.25)),
+    ('Part_Head', 'ball', (.16, .16, .16), (-.16, 0, .38), 'white', (0, -.3, 1.25)),
+    ('Part_Head', 'ball', (.16, .16, .16), (.16, 0, .38), 'white', (0, -.3, 1.25)),
+    ('Part_Head', 'ball', (.07, .07, .07), (-.16, -.07, .39), 'black', (0, -.3, 1.25)),
+    ('Part_Head', 'ball', (.07, .07, .07), (.16, -.07, .39), 'black', (0, -.3, 1.25)),
+    ('Part_Head', 'cyl', (.62, .62, .04), (0, .25, .22), 'black', (0, -.3, 1.25), None, 12),
+    ('Part_Head', 'cyl', (.38, .38, .42), (0, .25, .44), 'black', (0, -.3, 1.25), None, 12),
+    ('Part_Head', 'cyl', (.4, .4, .07), (0, .25, .3), 'red', (0, -.3, 1.25), None, 12),
+]
+build('VendorCrab', crab)
+
+# The crate the crab brought down to the seabed: a sea chest with a baize lid, a little wheel and a deck of cards.
+build('CasinoCrate', [
+    ('Body', 'box', (1.6, 1.0, .8), (0, 0, .4), 'wood'),
+    ('Body', 'box', (1.64, 1.04, .1), (0, 0, .2), 'woodD'), ('Body', 'box', (1.64, 1.04, .1), (0, 0, .62), 'woodD'),
+    ('Body', 'box', (1.6, 1.0, .06), (0, 0, .83), 'felt'),
+    ('Body', 'cyl', (.6, .6, .06), (.35, .1, .89), 'gold', None, None, 16),
+    ('Body', 'cyl', (.5, .5, .07), (.35, .1, .9), 'black', None, None, 16),
+    ('Body', 'cyl', (.14, .14, .1), (.35, .1, .93), 'red', None, None, 8),
+    ('Body', 'box', (.2, .3, .08), (-.4, -.1, .9), 'white'), ('Body', 'box', (.2, .3, .01), (-.15, -.15, .87), 'white', None, (0, 0, 25)),
+    ('Body', 'cyl', (.12, .12, .1), (-.55, .3, .9), 'red', None, None, 10), ('Body', 'cyl', (.12, .12, .1), (-.38, .3, .9), 'blue', None, None, 10),
+])
+
 print('TIDEWALL_MODELS_DONE', sorted(os.listdir(OUT)))

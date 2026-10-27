@@ -3,6 +3,8 @@
 //               name, stat line, price, owned/equipped), and the selected item's description.
 //   CardsView — the tidal card vote: a row of big cards (colour, name, waves, description, votes), a face-down
 //               random card, and sometimes a re-roll.
+//   TableView — the casino: a felt table (the menu's Board, redrawn every frame so reels can spin) above the list of
+//               actions (bet, deal, hit…), with the purse and the selected action's description.
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -149,6 +151,50 @@ namespace TideWall
                 c.votes.text = it.Equipped ? $"<color=#86efac>{it.Right}</color>" : it.Right;
             }
             help.text = $"{(p.UsesMouse ? "Arrow keys" : "D-pad")} choose · {p.Glyph(Btn.Interact)} vote · {p.Glyph(Btn.Back)} close (vote later with {p.Glyph(Btn.Stats)})";
+        }
+    }
+
+    public class TableView
+    {
+        readonly RectTransform root;
+        readonly TMP_Text title, purse, board, actions, detail, help;
+
+        public TableView(Transform canvas)
+        {
+            var panel = Ui.Image(canvas, "Table", new Vector2(.5f, .5f), new Vector2(0, -6), new Vector2(880, 520), new Color(.05f, .07f, .12f, .94f));
+            root = panel.rectTransform;
+            var header = Ui.Image(root, "Header", new Vector2(.5f, 1), Vector2.zero, new Vector2(880, 48), new Color(.3f, .08f, .1f, .96f));
+            title = Ui.Text(header.transform, "Title", new Vector2(0, .5f), new Vector2(18, 0), new Vector2(520, 40), 22, TextAnchor.MiddleLeft, new Color(1, .85f, .4f));
+            title.rectTransform.pivot = new Vector2(0, .5f);
+            purse = Ui.Text(header.transform, "Purse", new Vector2(1, .5f), new Vector2(-14, 0), new Vector2(300, 40), 16, TextAnchor.MiddleRight, new Color(1f, .93f, .75f));
+            purse.rectTransform.pivot = new Vector2(1, .5f);
+            // The felt: green baize with a brass rail
+            var rail = Ui.Image(root, "Rail", new Vector2(.5f, 1), new Vector2(0, -54), new Vector2(852, 282), new Color(.55f, .4f, .16f, 1));
+            var felt = Ui.Image(rail.transform, "Felt", new Vector2(.5f, 1), new Vector2(0, -6), new Vector2(840, 270), new Color(.05f, .3f, .2f, 1));
+            board = Ui.Text(felt.transform, "Board", new Vector2(.5f, 1), new Vector2(0, -6), new Vector2(816, 258), 19, TextAnchor.MiddleCenter, Color.white);
+            board.richText = true;
+            actions = Ui.Text(root, "Actions", new Vector2(.5f, 0), new Vector2(0, 58), new Vector2(820, 124), 15, TextAnchor.UpperLeft, Color.white);
+            detail = Ui.Text(root, "Detail", new Vector2(.5f, 0), new Vector2(0, 28), new Vector2(820, 30), 13, TextAnchor.MiddleCenter, new Color(.85f, .9f, 1));
+            help = Ui.Text(root, "Help", new Vector2(.5f, 0), new Vector2(0, 6), new Vector2(820, 20), 12, TextAnchor.MiddleCenter, new Color(.6f, .65f, .8f));
+            root.gameObject.SetActive(false);
+        }
+
+        public void Hide() => root.gameObject.SetActive(false);
+
+        public void Show(Menu m, Player p, GameManager gm)
+        {
+            root.gameObject.SetActive(true);
+            title.text = $"<b>{m.Title}</b>";
+            purse.text = $"Team purse <color=#fde68a><b>{gm.SandDollars} SD</b></color>";
+            board.text = m.Board?.Invoke() ?? "";
+            actions.text = PlayerHud.Render(m, 6, 40);
+            var cur = m.Current;
+            string why = cur?.Blocked?.Invoke();
+            detail.text = cur == null ? "" : (cur.Detail ?? "") + (!string.IsNullOrEmpty(why) ? $"  <color=#fca5a5>{why}</color>" : "");
+            string adj = cur?.OnAdjust != null ? " · left/right change" : m.OnSide != null || m.QuickLabel != null ? " · left/right bet" : "";
+            string ql = m.QuickLabel?.Invoke();
+            string quick = !string.IsNullOrEmpty(ql) ? $" · <color=#fde68a>{p.Glyph(Btn.Reload)} {ql}</color>" : "";
+            help.text = $"{(p.UsesMouse ? "Up/down" : "D-pad")} choose{adj} · {p.Glyph(Btn.Interact)} pick{quick} · {p.Glyph(Btn.Back)} {(m.Parent != null ? "back" : "leave")}";
         }
     }
 }

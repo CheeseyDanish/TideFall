@@ -41,7 +41,7 @@ namespace TideWall
 
     public static class NetProtocol
     {
-        public const int Version = 6;
+        public const int Version = 7;
         public const int DefaultPort = 7777;
         public const int DiscoveryPort = 47777;
         public const string DiscoveryTag = "TIDEWALL2";
@@ -314,6 +314,7 @@ namespace TideWall
             if (m == null) return;
             w.Write(m.Title ?? ""); w.Write((short)m.Selected); w.Write(m.System);
             w.Write((byte)m.Layout); w.Write((byte)m.Tab);
+            w.Write(m.Board?.Invoke() ?? ""); w.Write(m.QuickLabel?.Invoke() ?? "");
             w.Write((byte)(m.Tabs?.Length ?? 0));
             if (m.Tabs != null) foreach (var t in m.Tabs) w.Write(t);
             w.Write((short)m.Items.Count);
@@ -330,6 +331,10 @@ namespace TideWall
             if (!r.ReadBoolean()) return null;
             var m = new Menu { Title = r.ReadString(), Selected = r.ReadInt16(), System = r.ReadBoolean() };
             m.Layout = (MenuLayout)r.ReadByte(); m.Tab = r.ReadByte();
+            string board = r.ReadString();
+            if (board.Length > 0) m.Board = () => board;
+            string quick = r.ReadString();
+            if (quick.Length > 0) m.QuickLabel = () => quick;
             int tabs = r.ReadByte();
             if (tabs > 0) { m.Tabs = new string[tabs]; for (int i = 0; i < tabs; i++) m.Tabs[i] = r.ReadString(); }
             int n = r.ReadInt16();

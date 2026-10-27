@@ -25,7 +25,7 @@ namespace TideWall
         public bool Owned, Equipped;
     }
 
-    public enum MenuLayout { List, Grid, Cards }
+    public enum MenuLayout { List, Grid, Cards, Table }
 
     public class Menu
     {
@@ -46,6 +46,14 @@ namespace TideWall
         public string[] Tabs;
         public int Tab;
         public Func<int, Menu> OnTab;
+        /// <summary>Table layout (the casino): what's on the table, as rich text, drawn above the list of actions. Read every frame,
+        /// so it can animate (reels spinning, cards turning over).</summary>
+        public Func<string> Board;
+        /// <summary>Left/right on a row that has no OnAdjust of its own (the casino: change the bet from any row).</summary>
+        public Action<int> OnSide;
+        /// <summary>The Reload button does this from any row (the casino: the same wager again), and the help line says what.</summary>
+        public Action Quick;
+        public Func<string> QuickLabel;
         /// <summary>A stall's menu closes when you walk this far from it.</summary>
         public Vector3? Anchor;
         public float AnchorRange = 6.5f;
@@ -241,6 +249,7 @@ namespace TideWall
                       pick: () => { if (gm.SaveNow()) { p.Toast("Game saved", new Color(.7f, 1, .7f)); Sfx.Play("bell", .4f, .2f); } },
                       blocked: () => gm.CanSaveNow ? null : $"You can save during {SavePhaseName()} (it also autosaves then)");
             if (Net.IsHost) m.Add("Hosting", $"{Net.Host.ClientCount} online", Net.Host.Addresses);
+            if (DebugTools.Available(p)) m.Add("Debug tools", "F1", "Playtesting tools: money, levels, creatures, waves, stages, time.", pick: () => p.OpenMenu(DebugMenu.Main(p)));
             m.Add(Net.IsClient ? "Leave game" : "Quit to main menu", null,
                   Net.IsClient ? "Disconnect from the host." : gm.CanSaveNow ? "Saves first." :
                   gm.SaveSlot > 0 ? $"Progress since the start of {SavePhaseName()} is lost." : "This run isn't being saved.",
@@ -288,6 +297,7 @@ namespace TideWall
             Step(m, "Screen shake", () => Pct(s.screenShake), d => s.screenShake += d * .25f, "Explosions, hits, the boss.");
             Toggle(m, "Damage numbers", () => s.damageNumbers, v => s.damageNumbers = v, "Numbers pop off creatures you hit (yellow = weak point).");
             Toggle(m, "Show frame rate", () => s.showFps, v => s.showFps = v, "A small FPS counter in the corner.");
+            Toggle(m, "Debug tools", () => s.debugTools, v => s.debugTools = v, "The playtesting menu (F1, or Debug tools in the pause menu). Offline and when hosting.");
 
             m.Header("GRAPHICS");
             Step(m, "Display mode", () => $"< {GraphicsApply.DisplayModeNames[s.displayMode]} >", d => s.displayMode = ((s.displayMode + d) % 3 + 3) % 3,

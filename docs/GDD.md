@@ -250,6 +250,17 @@ Repair Wall (every section +40%, breaches rebuilt) · Reinforce Wall (+20% secti
 - **Vendors** stand behind the stalls: the **hotdog chef** (white coat, tall hat, moustache) and the **fishmonger** (yellow oilskins, sou'wester). They turn to whoever comes near, wave, and shout lines ("Ketchup for rage, mustard for speed!").
 - **Menus never stop you walking**: the d-pad / arrow keys (and mouse wheel) drive menus while the left stick / WASD still walks and you can still look around. A stall's menu closes if you walk away from it.
 
+## The Lucky Barnacle (casino)
+A booth in town (striped awning, a roulette wheel on top) run by a crab in a top hat. On Part II's seabed the crab's card crate sits opposite the supply cache. Every game is played with the **team's sand dollars** (no real money), the bet going from 5 to 1,000 SD. In Part I the tables only deal **between fights**; Part II never stops, so neither does the crab. Every game has a **How to play** page on the table. **Left/right changes the bet from any row**, and **Reload repeats the last wager in one press** (spin again, deal again, re-bet the same roulette chips and spin, draw in video poker, skip ahead in Fathoms). After each round the main action stays selected, so Interact does the same.
+
+| Game | How it works | Pays |
+|---|---|---|
+| **Slots** | Three reels stop left to right. Three of a kind on the line, or two cherries anywhere. About 93% back over time. | 7 7 7 ×80 · BAR ×30 · BELL ×18 · PLUM ×12 · CHERRY ×10 · LEMON ×8 · two cherries ×5 |
+| **Blackjack** | Six-deck shoe. Hit, stand, double on any two cards, split a pair once (aces get one card each). Dealer stands on all 17s and checks for blackjack. No insurance. | 1 to 1; blackjack 3 to 2 |
+| **Roulette** | European wheel (one zero). Chips on single numbers, red/black, odd/even, 1–18/19–36 and the dozens, as many as you like, then spin. | number 35 to 1 · dozen 2 to 1 · the rest 1 to 1 |
+| **Video Poker** | Jacks or Better, 9/6. Hold any of five cards, draw once. | royal flush 800 · straight flush 50 · four of a kind 25 · full house 9 · flush 6 · straight 4 · three of a kind 3 · two pair 2 · jacks or better 1 |
+| **Fathoms** | Baccarat as sailors play it. Bet on the **Sailor**'s hand, the **Captain**'s, or **Slack Water** (a tie). Cards count A = 1, 2–9, tens and faces 0, and only the last digit counts ("fathoms"); deeper (closer to 9) wins. **High Tide** (8 or 9 on two cards) stops the draw; otherwise the real baccarat drawing rules apply. The dealer shows each card a second apart and says which rule it followed. | Sailor 1 to 1 · Captain 1 to 1 less a 5% harbour fee · Slack Water 8 to 1 |
+
 ## Hotdog stand (on two tires)
 Open every phase, so you can heal mid-fight if you can get back to town. Its menu is a grid of food cards with pictures.
 
@@ -309,14 +320,24 @@ Menu: **Continue run** · **Part I · The Wall** (pick a slot) · **Part II · T
 Low on the wall beside the window, someone has been keeping count: one scratch for every run you've played, in fives. Nobody mentions it.
 
 ## Pause menu and settings
-**Start / Esc**: Resume · Switch view · **Stats & mods** · Settings · Save game · Quit to main menu · Quit to desktop. Offline, the game pauses while anyone has it open; online the beach keeps going.
+**Start / Esc**: Resume · Switch view · **Stats & mods** · Settings · Save game · **Debug tools** · Quit to main menu · Quit to desktop. Offline, the game pauses while anyone has it open; online the beach keeps going.
 
 | Settings | |
 |---|---|
 | **Audio** | Master, Effects, Interface, Ambience (surf) |
-| **Game** | Start in first person · Field of view · Mouse/stick sensitivity · Invert look · Aim assist · Screen shake · Damage numbers · Show frame rate |
+| **Game** | Start in first person · Field of view · Mouse/stick sensitivity · Invert look · Aim assist · Screen shake · Damage numbers · Show frame rate · Debug tools |
 | **Graphics** | Display mode (borderless / exclusive fullscreen / windowed) · Resolution (native by default) · VSync · Frame rate limit · Render scale (50–200%) · Anti-aliasing (Off, FXAA, SMAA, MSAA 2/4/8x; MSAA 4x default) · Shadows (off/low/medium/high) · Bloom · Post-processing · Draw distance · Particle density · Quality preset |
 | **Controls** | Keyboard & mouse and Controller lists: pick an action, press the new key or button. Reset all controls. |
+
+## Debug menu (playtesting)
+**F1** (or **Debug tools** in the pause menu), offline or when hosting; Settings → Debug tools turns it off. It doesn't pause the game.
+- **Switches:** god mode (the whole team), infinite ammo, noclip (fly where you look; Dash flies fast), freeze creatures, collider outlines (creatures red, weak points yellow, players green, defences blue, stalls purple), a stats overlay (fps, time scale, phase or stage, creatures, purse, casino result), and time scale (frozen, ¼, ½, 1, 2, 4×).
+- **Players & money:** +100 / 1,000 / 10,000 sand dollars, empty the purse, +5 pearls, level up (you, or everyone ×5), every weapon, refill ammo, heal, revive, clear status effects, teleport to your aim point, and a test player on a virtual controller (for split screen).
+- **Creatures:** spawn any creature (the Tidemother too) where you aim, 1/3/5/10 at a time; kill them all.
+- **Waves & days** (Part I): next phase, go to any day, clear this wave, a tidal card vote now. **Wall & powerplant:** repair or break them.
+- **Part II:** go to any stage (from Part I too), finish the stage's objectives, refill the tide clock, play either ending at the Heart, find every Spiral Shard.
+- **Tidal cards:** any card on or off. **Casino:** open it anywhere; keep it open during fights.
+- **Legacy file:** edit runs, records, shards and the peace; nothing is written to `legacy.json` until you pick Write.
 
 ## Saves
 - Three **slots**, one run each. A run **autosaves every Morning** (`saveOnStart`), and can be saved from the pause menu then. Quitting to the menu during it saves first.

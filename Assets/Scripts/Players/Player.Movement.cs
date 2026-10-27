@@ -39,6 +39,7 @@ namespace TideWall
         Vector3 StepMove(Vector2 move, bool dash, float yaw, bool firstPerson, float dt)
         {
             if (IsOut || dt <= 0) return Vector3.zero;
+            if (Noclip(move, dash, yaw, firstPerson, dt)) return Vector3.zero;
             if (Statuses.Has(StatusType.ReverseControls)) move = -move;
             var dir = new Vector3(move.x, 0, move.y);
             if (firstPerson) dir = Quaternion.Euler(0, yaw, 0) * dir;
@@ -157,6 +158,21 @@ namespace TideWall
             float g = Arena.GroundY(p.z);
             if (p.y < g - .05f) { p.y = g; transform.position = p; yVel = 0; }
         }
+
+        /// <summary>Debug noclip (this machine's players): fly where you look, through anything; Dash goes fast. True while flying.</summary>
+        bool Noclip(Vector2 move, bool dash, float yaw, bool firstPerson, float dt)
+        {
+            bool on = DebugTools.Noclip && Kind == PlayerKind.Local;
+            if (!on) { if (flying) { flying = false; cc.enabled = true; } return false; }
+            if (!flying) { flying = true; cc.enabled = false; yVel = 0; }
+            var dir = Quaternion.Euler(firstPerson ? Pitch : 0, yaw, 0) * new Vector3(move.x, 0, move.y);
+            if (dash) flyBoost = .6f;
+            flyBoost -= dt;
+            transform.position += dir * db.playerSpeed * (flyBoost > 0 ? 6 : 2) * dt;
+            return true;
+        }
+        bool flying;
+        float flyBoost;
 
         /// <summary>Shove the player (knockback, an octopus pulling). Applied on their next movement step; an online
         /// player's machine catches up through reconciliation.</summary>

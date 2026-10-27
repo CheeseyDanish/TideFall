@@ -11,7 +11,7 @@ namespace TideWall
         // ------------------------------------------------------------------ health
         public void TakeDamage(float amount, Enemy source, string what, Vector3? knock = null, bool quiet = false)
         {
-            if (!IsTargetable || amount <= 0) return;
+            if (!IsTargetable || amount <= 0 || DebugTools.God) return;
             if (Statuses.Has(StatusType.Invincible)) return;
             if (Statuses.Has(StatusType.Giant)) amount *= .8f;
             Hp -= amount;

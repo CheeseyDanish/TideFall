@@ -14,7 +14,7 @@ namespace TideWall
         public PowerPlant plant;
         public Transform lighthouseLamp;
         public Model keep;
-        public Vendor chef, fishmonger;
+        public Vendor chef, fishmonger, casinoCrab;
         public Light lighthouseBeam;
         [NonSerialized] public readonly List<GameObject> phaseLoot = new(); // food and gas cans placed this morning
 
@@ -25,6 +25,7 @@ namespace TideWall
             plant.Init(db.plantMaxHp);
             chef.Init(db.chefLines);
             fishmonger.Init(db.fishmongerLines);
+            if (casinoCrab != null) casinoCrab.Init(Casino.CrabLines);
         }
 
         public override void OnPhaseStart(PhaseDefinition p, int extraGasCans)

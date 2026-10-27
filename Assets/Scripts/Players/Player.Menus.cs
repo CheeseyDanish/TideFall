@@ -42,12 +42,19 @@ namespace TideWall
                 if (menu.Columns > 0) { menu.MoveGrid(side, 0); Sfx.Play("ui", .5f); menuRepeat = freshH ? .35f : .1f; }
                 else if (menu.Horizontal) { menu.Move(side); Sfx.Play("ui", .5f); menuRepeat = freshH ? .35f : .1f; }
                 else if (it?.OnAdjust != null) { it.OnAdjust(side); Sfx.Play("ui", .5f); menuRepeat = freshH ? .35f : .08f; }
+                else if (menu.OnSide != null) { menu.OnSide(side); Sfx.Play("ui", .5f); menuRepeat = freshH ? .35f : .12f; Refresh(menu); return; }
             }
             lastNav = nav;
             if (menu.OnTab != null && (Pressed(Btn.Swap) || Pressed(Btn.Reload)))
             {
                 var next = menu.OnTab(Pressed(Btn.Swap) ? 1 : -1);
                 if (next != null) { ReplaceMenu(next); Sfx.Play("ui"); }
+                return;
+            }
+            if (menu.Quick != null && Pressed(Btn.Reload))
+            {
+                menu.Quick();
+                Refresh(menu);
                 return;
             }
             if (Pressed(Btn.Back))
@@ -66,10 +73,16 @@ namespace TideWall
                 var next = item.Open?.Invoke();
                 if (ShownMenu != menu) return;              // the pick closed or replaced the menu itself
                 if (next != null) { ReplaceMenu(next); return; }
-                int sel = menu.Selected;
-                var rebuilt = menu.Rebuild?.Invoke();
-                if (rebuilt != null) { rebuilt.Selected = Mathf.Clamp(sel, 0, rebuilt.Items.Count - 1); ReplaceMenu(rebuilt); }
+                Refresh(menu);
             }
+        }
+
+        /// <summary>Rebuild the open menu after a change (prices, labels), keeping the selected row.</summary>
+        void Refresh(Menu menu)
+        {
+            if (ShownMenu != menu) return;
+            var rebuilt = menu.Rebuild?.Invoke();
+            if (rebuilt != null) { rebuilt.Selected = Mathf.Clamp(menu.Selected, 0, rebuilt.Items.Count - 1); ReplaceMenu(rebuilt); }
         }
 
         void ReplaceMenu(Menu m)

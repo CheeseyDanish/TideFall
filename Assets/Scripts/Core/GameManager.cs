@@ -48,6 +48,8 @@ namespace TideWall
         /// <summary>The scene with the main menu (Part I's town).</summary>
         public const string MenuScene = "TideWall";
         public TidalCards Cards { get; private set; }
+        /// <summary>The Lucky Barnacle: the casino's tables (run here on the host).</summary>
+        public Casino Casino { get; private set; }
         /// <summary>The record this run's game over produced (null until then).</summary>
         public Legacy RunRecord { get; private set; }
         public PhaseManager Phases { get; private set; }
@@ -88,6 +90,8 @@ namespace TideWall
             Fx.Init(transform);
             Sfx.Init(gameObject);
             Cards = gameObject.AddComponent<TidalCards>();
+            Casino = gameObject.AddComponent<Casino>();
+            gameObject.AddComponent<DebugTools>();
             // The level is saved in the scene (TideWall → Rebuild World In Scene / Rebuild Stages regenerate them)
             Level = FindAnyObjectByType<Level>();
             if (Level == null)
@@ -124,6 +128,8 @@ namespace TideWall
             // Pause: offline, any local player with the pause menu open stops time. Online the world keeps going.
             bool pause = State == GameState.Playing && !Net.Online && Players.AnyPauseMenuOpen;
             if (pause != Paused) { Paused = pause; Time.timeScale = pause ? 0 : 1; }
+            // The debug menu's time scale (1 unless someone changed it)
+            if (State == GameState.Playing && !Paused && Time.timeScale != DebugTools.TimeScale) Time.timeScale = DebugTools.TimeScale;
         }
 
         // ------------------------------------------------------------------ runs
