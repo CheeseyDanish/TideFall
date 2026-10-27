@@ -3,6 +3,7 @@
 // overview camera, the mouse cursor, and team-wide checks (ready, wipe).
 using System;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Utilities;
@@ -25,7 +26,7 @@ namespace TideWall
         GameManager gm;
         IDisposable joinListener;
         Camera overview;
-        Text info;
+        TMP_Text info;
         readonly List<InputDevice[]> pendingJoins = new();   // client: waiting for the host to assign a slot
 
         void Awake()

@@ -2,6 +2,7 @@
 // helpers (Fx.Drip, Fx.Gore…), so 80 dripping enemies cost one system, not 80. Tracers and light flashes are pooled.
 // On an online host every effect except drips is also sent to the clients (drips are made locally from wetness).
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 namespace TideWall
@@ -207,7 +208,7 @@ namespace TideWall
         }
 
         // ------------------------------------------------------------------ damage numbers (pooled world-space text)
-        static readonly List<(TextMesh t, float life, Vector3 vel)> numbers = new();
+        static readonly List<(TextMeshPro t, float life, Vector3 vel)> numbers = new();
 
         /// <summary>A number pops off the target: white for normal hits, big and yellow for weak points.</summary>
         public static void DamageNumber(Vector3 at, float amount, bool crit, Player source)
@@ -215,20 +216,19 @@ namespace TideWall
             if (amount < .5f) return;
             Relay(FxKind.Number, at, default, default, amount, n: crit ? 1 : 0);
             if (root == null || Settings.Current.damageNumbers == false) return;
-            TextMesh tm = null;
+            TextMeshPro tm = null;
             for (int i = 0; i < numbers.Count; i++) if (numbers[i].t != null && !numbers[i].t.gameObject.activeSelf) { tm = numbers[i].t; numbers.RemoveAt(i); break; }
             if (tm == null)
             {
                 if (numbers.Count > 40) return;
-                tm = new GameObject("Number").AddComponent<TextMesh>();
-                tm.transform.SetParent(root, false);
-                tm.font = Ui.Font; tm.anchor = TextAnchor.MiddleCenter; tm.fontSize = 120;
-                tm.GetComponent<MeshRenderer>().sharedMaterial = Ui.Font.material;
+                tm = Ui.Label(root, "Number", Vector3.zero, .3f, Color.white);
+                tm.fontStyle = FontStyles.Bold;
+                Billboard.Add(tm.gameObject);
             }
             tm.gameObject.SetActive(true);
             tm.text = Mathf.RoundToInt(amount).ToString() + (crit ? "!" : "");
             tm.color = crit ? new Color(1f, .85f, .2f) : Color.white;
-            tm.characterSize = crit ? .026f : .018f;
+            tm.fontSize = crit ? 4.5f : 3f;
             tm.transform.position = at + Random.insideUnitSphere * .2f;
             numbers.Add((tm, .8f, new Vector3(Random.Range(-.6f, .6f), 2.4f, Random.Range(-.6f, .6f))));
         }
@@ -253,7 +253,6 @@ namespace TideWall
 
         static void TickNumbers(float dt)
         {
-            var cam = Camera.main != null ? Camera.main : GameManager.I != null ? GameManager.I.Players.FirstViewCamera(null) : null;
             for (int i = 0; i < numbers.Count; i++)
             {
                 var (t, life, vel) = numbers[i];
@@ -262,7 +261,6 @@ namespace TideWall
                 if (life <= 0) { t.gameObject.SetActive(false); numbers[i] = (t, 0, vel); continue; }
                 vel += Vector3.down * 5 * dt;
                 t.transform.position += vel * dt;
-                if (cam != null) t.transform.rotation = Quaternion.LookRotation(t.transform.position - cam.transform.position);
                 var c = t.color; c.a = Mathf.Clamp01(life / .3f); t.color = c;
                 numbers[i] = (t, life, vel);
             }

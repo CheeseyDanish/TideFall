@@ -282,78 +282,164 @@ namespace TideWall.Tests
         }
 
         // ------------------------------------------------------------------ online
-        [UnityTest]
-        public IEnumerator HostAcceptsAnOnlinePlayerAndRunsTheirInput()
+        /// <summary>A bare client for the online tests: a NetLink to the host, and what it has received.</summary>
+        class FakeClient
         {
-            const int port = 47791;
-            Assert.NotNull(Net.StartHost(port, "Test Host"));
-            gm.StartRun(null, 0);
-            var local = JoinPad();
-            yield return Frames(2);
+            public NetLink link;
+            public int host = -1, clientId = -1, assigned = -1, snapshots, playersInSnapshot;
+            public uint lastSnapshot;
+            public string bye;
+            public byte[] challengeSalt, challengeNonce;
+            public readonly byte[] nonce = NetAuth.Nonce();
+            uint seq;
 
-            using var tcp = new TcpClient();
-            tcp.Connect("127.0.0.1", port);
-            var conn = new NetConnection(99, tcp);
-            var hello = NetIO.Begin(Msg.Hello); hello.Write(NetProtocol.Version); hello.Write("Tester");
-            conn.Send(hello.Bytes());
-            var join = NetIO.Begin(Msg.Join); join.Write(7); join.Write("Test pad");
-            conn.Send(join.Bytes());
+            public FakeClient(int port) { link = NetLink.Connect("127.0.0.1", (ushort)port, out _); }
 
-            int assigned = -1, clientId = -1, snapshots = 0, playersInSnapshot = 0;
-            for (float t = 0; t < 5 && (assigned < 0 || snapshots == 0); t += Time.unscaledDeltaTime)
+            public void Send(Channel ch, BinaryWriter w) => link.Send(host, ch, w.Bytes());
+
+            public void Pump()
             {
-                while (conn.Inbox.TryDequeue(out var data))
+                link.Update();
+                while (link.Inbox.Count > 0)
                 {
-                    var r = new BinaryReader(new MemoryStream(data));
+                    var e = link.Inbox.Dequeue();
+                    if (e.Kind == NetLink.EventKind.Connected)
+                    {
+                        host = e.Peer;
+                        var hello = NetIO.Begin(Msg.Hello); hello.Write(NetProtocol.Version); hello.Write("Tester"); hello.Write(nonce);
+                        Send(Channel.Reliable, hello);
+                    }
+                    if (e.Kind != NetLink.EventKind.Data) continue;
+                    var r = new BinaryReader(new MemoryStream(e.Data));
                     var type = (Msg)r.ReadByte();
                     if (type == Msg.Welcome) clientId = r.ReadInt32();
-                    if (type == Msg.Assigned) { Assert.AreEqual(7, r.ReadInt32()); assigned = r.ReadInt32(); }
-                    if (type == Msg.Snapshot && assigned >= 0)
+                    if (type == Msg.Bye) bye = r.ReadString();
+                    if (type == Msg.Challenge) { challengeSalt = r.ReadBytes(16); challengeNonce = r.ReadBytes(16); }
+                    if (type == Msg.Assigned) { r.ReadInt32(); assigned = r.ReadInt32(); }
+                    if (type == Msg.Snapshot)
                     {
+                        lastSnapshot = r.ReadUInt32();
                         r.ReadByte(); r.ReadInt32(); r.ReadInt32(); r.ReadSingle(); r.ReadInt32(); r.ReadInt32();   // state, phase, day, elapsed, sand dollars, pearls
                         int sections = r.ReadByte();
                         for (int i = 0; i < sections; i++) { r.ReadSingle(); r.ReadSingle(); }
                         r.ReadSingle(); r.ReadSingle();                                    // powerplant
                         int activeCards = r.ReadByte();
                         for (int i = 0; i < activeCards; i++) { r.ReadString(); r.ReadByte(); }
-                        Assert.AreEqual(0, r.ReadByte(), "no card vote in the morning");
+                        r.ReadByte();                                                      // no vote in the morning
                         r.ReadInt32(); r.ReadInt32(); r.ReadInt32(); r.ReadInt32(); r.ReadString();   // waves, enemies left, run wave, preview
                         playersInSnapshot = r.ReadByte();
                         snapshots++;
                     }
                 }
-                yield return null;
             }
-            Assert.Greater(clientId, 0, "welcomed");
-            Assert.GreaterOrEqual(assigned, 0, "got a player slot");
-            Assert.AreEqual(2, playersInSnapshot, "snapshots carry both players");
-            var remote = gm.Players.ByIndex(assigned);
+
+            /// <summary>Send commands for our player: `frames` frames of `dt` each, with these controls.</summary>
+            public void Commands(int frames, float dt, Vector2 move, ushort pressed, ushort held)
+            {
+                var w = NetIO.Begin(Msg.Input);
+                w.Write(lastSnapshot); w.Write((byte)1);
+                w.Write((byte)assigned);
+                w.Write(new AimSample { ray = new Ray(new Vector3(0, 1.6f, 0), Vector3.forward) });
+                w.Write((byte)frames);
+                for (int i = 0; i < frames; i++) new NetCommand { seq = ++seq, dt = dt, move = move, yaw = 0, pitch = 5, firstPerson = true, pressed = i == 0 ? pressed : (ushort)0, held = held }.Write(w);
+                Send(Channel.Unreliable, w);
+                link.Update();
+            }
+        }
+
+        IEnumerator Until(FakeClient c, System.Func<bool> done, float seconds)
+        {
+            for (float t = 0; t < seconds && !done(); t += Time.unscaledDeltaTime) { c.Pump(); yield return null; }
+            c.Pump();
+        }
+
+        [UnityTest]
+        public IEnumerator HostRunsAnOnlinePlayersCommandsAndOwnsTheirMovement()
+        {
+            const int port = 47791;
+            Assert.NotNull(Net.StartHost(port, "Test Host", "", out _));
+            gm.StartRun(null, 0);
+            var local = JoinPad();
+            yield return Frames(2);
+
+            var c = new FakeClient(port);
+            yield return Until(c, () => c.clientId > 0, 5);
+            Assert.Greater(c.clientId, 0, "welcomed");
+            var join = NetIO.Begin(Msg.Join); join.Write(7); join.Write("Test pad");
+            c.Send(Channel.Reliable, join);
+            yield return Until(c, () => c.assigned >= 0 && c.snapshots > 0, 5);
+            Assert.GreaterOrEqual(c.assigned, 0, "got a player slot");
+            Assert.AreEqual(2, c.playersInSnapshot, "snapshots carry both players");
+            var remote = gm.Players.ByIndex(c.assigned);
             Assert.NotNull(remote);
             Assert.AreEqual(PlayerKind.Remote, remote.Kind);
             Assert.AreEqual("Tester", remote.Nick);
             Assert.IsNull(remote.Cam, "remote players have no camera on the host");
 
-            // Their machine moves them and pulls the trigger (late enough in the run that guns are out)
+            // Their machine pulls the trigger and walks forward; the host moves them itself
             gm.Waves.RunWave = gm.DB.gunsUnlockWave;
             int ammo = remote.Ammo;
-            var at = remote.transform.position + new Vector3(1.5f, 0, 1);
-            var input = new NetInput
+            var start = remote.transform.position;
+            // One command per frame for half a second of real time, like a real client
+            bool first = true;
+            for (float t = 0; t < .5f; t += Time.unscaledDeltaTime)
             {
-                playerIndex = assigned, pos = at, yaw = 0, pitch = 5, firstPerson = true,
-                pressed = (ushort)(1 << (int)Btn.Fire), held = (ushort)(1 << (int)Btn.Fire),
-                aim = new AimSample { ray = new Ray(at + Vector3.up * 1.6f, Vector3.forward) },
-            };
-            var w = NetIO.Begin(Msg.Input); w.Write((byte)1); w.Write(input);
-            conn.Send(w.Bytes());
-            for (float t = 0; t < 2 && remote.Ammo == ammo; t += Time.unscaledDeltaTime) yield return null;
+                c.Commands(1, Time.unscaledDeltaTime, new Vector2(0, 1), first ? (ushort)(1 << (int)Btn.Fire) : (ushort)0, (ushort)(1 << (int)Btn.Fire));
+                first = false;
+                yield return null;
+                c.Pump();
+            }
+            yield return Until(c, () => remote.Ammo < ammo, 2);
             Assert.Less(remote.Ammo, ammo, "the host fired their gun");
-            Assert.Less(Vector3.Distance(remote.transform.position, at), .5f, "and moved them where their machine said");
+            float moved = Vector3.Distance(Flat(remote.transform.position), Flat(start));
+            Assert.Greater(moved, 1f, "and walked them forward by their commands");
+            Assert.Less(moved, gm.DB.playerSpeed * 1.5f * .5f + .5f, "no further than the commands allow");
+
+            // A sped-up client: ten seconds of walking sent at once only moves them as far as real time allows
+            start = remote.transform.position;
+            for (int k = 0; k < 10; k++) c.Commands(24, NetCommand.MaxDt, new Vector2(0, -1), 0, 0);
+            yield return Frames(3);
+            moved = Vector3.Distance(Flat(remote.transform.position), Flat(start));
+            Assert.Less(moved, gm.DB.playerSpeed * 1.2f, "commands can't outrun real time");
 
             // Leaving removes their player
-            conn.Close();
-            for (float t = 0; t < 3 && gm.Players.ByIndex(assigned) != null; t += Time.unscaledDeltaTime) yield return null;
-            Assert.IsNull(gm.Players.ByIndex(assigned), "disconnecting removes the player");
+            c.link.Dispose();
+            for (float t = 0; t < 15 && gm.Players.ByIndex(c.assigned) != null; t += Time.unscaledDeltaTime) yield return null;
+            Assert.IsNull(gm.Players.ByIndex(c.assigned), "disconnecting removes the player");
             Assert.NotNull(local);
+        }
+
+        static Vector3 Flat(Vector3 v) => new(v.x, 0, v.z);
+
+        [UnityTest]
+        public IEnumerator RoomPasswordsAreCheckedWithoutSendingThem()
+        {
+            const int port = 47792;
+            Assert.NotNull(Net.StartHost(port, "Test Host", "seashell", out _));
+            gm.StartRun(null, 0);
+            yield return Frames(2);
+
+            // Wrong password: turned away
+            var wrong = new FakeClient(port);
+            yield return Until(wrong, () => wrong.challengeNonce != null, 5);
+            Assert.NotNull(wrong.challengeNonce, "a password game challenges first");
+            Assert.AreEqual(-1, wrong.clientId, "and doesn't welcome anyone yet");
+            var bad = NetIO.Begin(Msg.Auth); bad.Write(NetAuth.Proof(NetAuth.Key("barnacle", wrong.challengeSalt), wrong.challengeNonce, wrong.nonce));
+            wrong.Send(Channel.Reliable, bad);
+            yield return Until(wrong, () => wrong.bye != null, 5);
+            Assert.AreEqual("Wrong password.", wrong.bye);
+            Assert.AreEqual(-1, wrong.clientId);
+            wrong.link.Dispose();
+            yield return new WaitForSecondsRealtime(1.5f);   // let the host close that connection (same machine, same port)
+
+            // Right password: welcomed (the proof is an HMAC of the host's nonce, never the password itself)
+            var right = new FakeClient(port);
+            yield return Until(right, () => right.challengeNonce != null, 5);
+            var good = NetIO.Begin(Msg.Auth); good.Write(NetAuth.Proof(NetAuth.Key("seashell", right.challengeSalt), right.challengeNonce, right.nonce));
+            right.Send(Channel.Reliable, good);
+            yield return Until(right, () => right.clientId > 0, 5);
+            Assert.Greater(right.clientId, 0, "the right password gets in");
+            right.link.Dispose();
         }
 
         // ------------------------------------------------------------------ roguelike
@@ -446,7 +532,7 @@ namespace TideWall.Tests
         public IEnumerator BreachedWallLetsCreaturesReachThePowerplant()
         {
             JoinPad();
-            gm.Players.All[0].NetTeleport(new Vector3(-40, 0, -20));   // out of the way
+            gm.Players.All[0].Place(new Vector3(-40, 0, -20));   // out of the way
             yield return null;
             var section = gm.Wall.Sections.Find(sec => Mathf.Abs(sec.x) < 3);
             gm.Wall.Damage(section.max + 1, new Vector3(section.x, 0, 1));
@@ -481,7 +567,7 @@ namespace TideWall.Tests
         {
             var p = JoinPad();
             yield return null;
-            p.NetTeleport(new Vector3(0, 0, 8));   // (moves the CharacterController properly)
+            p.Place(new Vector3(0, 0, 8));   // (moves the CharacterController properly)
             var crab = Enemy.Spawn(gm.DB.Enemy("crab"), new Vector3(1, 0, 9), 1, -1);
             yield return null;
             int before = gm.SandDollars;
@@ -508,7 +594,7 @@ namespace TideWall.Tests
             Assert.AreEqual(1, p.OpenedMenu?.Selected ?? -1, "the d-pad moves through the item cards");
             yield return Tap(pad, GamepadButton.Y);
             Assert.AreEqual(1, p.OpenedMenu?.Tab ?? -1, "Swap switches the shop tab");
-            p.NetTeleport(start + new Vector3(0, 0, 12));
+            p.Place(start + new Vector3(0, 0, 12));
             yield return Frames(3);
             Assert.IsNull(p.OpenedMenu, "walking away from the stall closes it");
         }
@@ -692,12 +778,17 @@ namespace TideWall.Tests
         public void OnlineInputIsValidated()
         {
             var r = new RemoteInput();
-            r.Receive(new Vector2(float.NaN, 0), Vector2.zero, 0, 0, 0, 0, true, default, Vector3.zero);
-            Assert.IsFalse(r.HasPosition, "a packet with NaN in it is ignored");
-            r.Receive(new Vector2(5, 0), Vector2.zero, 0, 0, 0, 200, true, default, new Vector3(1e6f, 0, 0));
-            Assert.AreEqual(1, r.Move.magnitude, .001f, "movement is clamped");
-            Assert.LessOrEqual(r.Position.x, 140, "positions stay inside the world");
-            Assert.LessOrEqual(r.Pitch, 89);
+            r.Receive(new NetCommand { seq = 1, dt = .016f, move = new Vector2(float.NaN, 0) });
+            Assert.AreEqual(0u, r.Received, "a command with NaN in it is ignored");
+            r.Receive(new NetCommand { seq = 2, dt = 5, move = new Vector2(5, 0), pitch = 200 });
+            Assert.IsTrue(r.Next(out var c, out _));
+            Assert.AreEqual(1, c.move.magnitude, .001f, "movement is clamped");
+            Assert.LessOrEqual(c.pitch, 89, "so is looking");
+            Assert.LessOrEqual(c.dt, NetCommand.MaxDt, "and a command's time step");
+            r.Receive(new NetCommand { seq = 2, dt = .016f });
+            Assert.IsFalse(r.Next(out _, out _), "repeats (commands are sent several times) run once");
+            r.ReceiveAim(new AimSample { ray = new Ray(new Vector3(1e9f, 0, 0), Vector3.forward) });
+            Assert.LessOrEqual(r.Aim.ray.origin.x, 150, "aim stays inside the world");
         }
 
         [UnityTest]
@@ -706,8 +797,8 @@ namespace TideWall.Tests
             var killer = JoinPad();
             var mate = JoinPad();
             yield return Frames(2);
-            killer.NetTeleport(new Vector3(-12, 0, 10));
-            mate.NetTeleport(new Vector3(-6, 0, 10));   // standing between the clam and the killer
+            killer.Place(new Vector3(-12, 0, 10));
+            mate.Place(new Vector3(-6, 0, 10));   // standing between the clam and the killer
             var clam = Enemy.Spawn(gm.DB.Enemy("clam"), new Vector3(0, 0, 10), 1, -1);
             yield return null;
             int sd = gm.SandDollars, pearls = gm.Pearls;
@@ -727,7 +818,7 @@ namespace TideWall.Tests
             var barricade = gm.DB.Structure("barricade");
             p.StartBuilding(barricade);
             p.SetLook(0, 30);
-            p.NetTeleport(new Vector3(0, 0, 8));
+            p.Place(new Vector3(0, 0, 8));
             yield return Frames(3);
             int sd = gm.SandDollars;
             var pad = (Gamepad)p.Controls.Devices[0];
@@ -741,7 +832,7 @@ namespace TideWall.Tests
             // A crab walking into it has to chew through
             var b = Structure.All[0];
             float hp = b.Hp;
-            p.NetTeleport(new Vector3(-40, 0, -20));
+            p.Place(new Vector3(-40, 0, -20));
             var crab = Enemy.Spawn(gm.DB.Enemy("crab"), b.transform.position + new Vector3(0, 0, 4), 1, -1);
             Time.timeScale = 4;
             for (float t = 0; t < 20 && b != null && b.Hp >= hp; t += Time.deltaTime) yield return null;
@@ -866,7 +957,7 @@ namespace TideWall.Tests
             JoinPad();
             yield return null;
             var players = gm.Players.All;
-            players[0].NetTeleport(new Vector3(-4, 0, 6));   // on the beach, as bait
+            players[0].Place(new Vector3(-4, 0, 6));   // on the beach, as bait
             int i = 0;
             foreach (var def in gm.DB.enemies)
             {

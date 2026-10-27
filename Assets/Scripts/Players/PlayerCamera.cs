@@ -92,7 +92,7 @@ namespace TideWall
             if (fp)
             {
                 // Eyes: steady horizontally, a little smoothing vertically (stairs, ducking when downed).
-                var eye = player.EyePos;
+                var eye = player.EyePos + player.RenderOffset;   // eases across corrections from an online host
                 if (!wasFirstPerson) smoothPos = eye;
                 smoothPos = new Vector3(eye.x, Mathf.Lerp(smoothPos.y, eye.y, 1 - Mathf.Exp(-dt * 14)), eye.z);
                 kickPitch = Mathf.Lerp(kickPitch, 0, 1 - Mathf.Exp(-dt * 12));

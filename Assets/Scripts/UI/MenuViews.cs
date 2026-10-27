@@ -4,6 +4,7 @@
 //   CardsView — the tidal card vote: a row of big cards (colour, name, waves, description, votes), a face-down
 //               random card, and sometimes a re-roll.
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -13,8 +14,8 @@ namespace TideWall
     {
         const int Cols = 3, Rows = 2;
         readonly RectTransform root;
-        readonly Text title, tabs, purse, detail, help;
-        readonly List<(Image bg, Image icon, Text name, Text info, Text price, Image border)> tiles = new();
+        readonly TMP_Text title, tabs, purse, detail, help;
+        readonly List<(Image bg, Image icon, TMP_Text name, TMP_Text info, TMP_Text price, Image border)> tiles = new();
         int scroll;
 
         public GridView(Transform canvas)
@@ -61,7 +62,7 @@ namespace TideWall
                 tabs.text = sb.ToString();
             }
             else tabs.text = "";
-            purse.text = $"<color=#fde68a>{gm.SandDollars} SD</color>   <color=#fcd34d>◉ {gm.Pearls} pearls</color>";
+            purse.text = $"<color=#fde68a>{gm.SandDollars} SD</color>   <color=#fcd34d>{gm.Pearls} pearls</color>";
             int row = Mathf.Max(0, m.Selected) / Cols;
             if (row < scroll) scroll = row;
             if (row >= scroll + Rows) scroll = row - Rows + 1;
@@ -96,8 +97,8 @@ namespace TideWall
     public class CardsView
     {
         readonly RectTransform root;
-        readonly Text title, help;
-        readonly List<(RectTransform rt, Image bg, Image band, Text name, Text info, Text desc, Text votes, Text big)> cards = new();
+        readonly TMP_Text title, help;
+        readonly List<(RectTransform rt, Image bg, Image band, TMP_Text name, TMP_Text info, TMP_Text desc, TMP_Text votes, TMP_Text big)> cards = new();
 
         public CardsView(Transform canvas)
         {

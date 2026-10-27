@@ -1,6 +1,7 @@
 // TideWall 3D — things players walk up to and press Interact on: the shop, the fishmonger, the hotdog stand,
 // the ready bell, food on the beach, and anything that can be picked up and thrown (corpses, gas cans).
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 namespace TideWall
@@ -38,13 +39,10 @@ namespace TideWall
         {
             var it = go.AddComponent<T>();
             it.radius = radius;
-            var label = new GameObject("Sign").AddComponent<TextMesh>();
-            label.transform.SetParent(go.transform, false);
-            label.transform.localPosition = new Vector3(0, 3.6f, 0);
+            var label = Ui.Label(go.transform, "Sign", new Vector3(0, 3.6f, 0), .8f, new Color(1, .95f, .8f));
+            label.text = sign;
+            label.fontStyle = FontStyles.Bold;
             Billboard.Add(label.gameObject, upright: true);
-            label.text = sign; label.font = Ui.Font; label.fontSize = 128; label.characterSize = .022f;
-            label.anchor = TextAnchor.MiddleCenter; label.color = new Color(1, .95f, .8f);
-            label.GetComponent<MeshRenderer>().sharedMaterial = Ui.WorldText;
             return it;
         }
     }

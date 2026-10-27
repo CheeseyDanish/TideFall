@@ -3,6 +3,7 @@
 // player's own key glyphs), crosshair (first person), menus.
 using System.Collections.Generic;
 using System.Text;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -13,12 +14,20 @@ namespace TideWall
         Player p;
         GameManager gm;
         Image hpFill, wallFill, hurt, tunnel, hitMarker, menuPanel, crossH, crossV, xpFill, coinIcon;
-        Text nameText, hpText, coinText, phaseText, wallText, gunText, promptText, bannerTitle, bannerSub, statusText, toastText, menuTitle, menuBody, menuDetail, menuHelp, centerText, fpsText, levelText, cardsText, voteText, previewText;
+        TMP_Text nameText, hpText, coinText, phaseText, wallText, gunText, promptText, bannerTitle, bannerSub, statusText, toastText, menuTitle, menuBody, menuDetail, menuHelp, centerText, fpsText, levelText, cardsText, voteText, previewText;
         readonly List<Image> inkBlots = new();
         GridView grid;
         CardsView cardsView;
         Image killMarker;
         ReticleHud reticle;
+        HudLine nameLine, hpLine, statusLine, coinLine, levelLine, cardsLine, voteLine, phaseLine, wallLine, gunLine;
+
+        /// <summary>Remembers what a line of text last showed (as a hash of its inputs), so it's rebuilt only on change.</summary>
+        struct HudLine
+        {
+            int key; bool set;
+            public bool Changed(int k) { if (set && k == key) return false; key = k; set = true; return true; }
+        }
         float killT;
         float bannerT, toastT, hitT, fpsT, fpsAcc; int fpsFrames;
         Sprite blob, hole;
@@ -140,53 +149,85 @@ namespace TideWall
             var phases = gm.Phases;
             var ph = phases.Current;
 
-            nameText.text = $"<b>{p.Name}</b>{(string.IsNullOrEmpty(p.Nick) ? "" : " · " + p.Nick)}  <size=12><color=#cbd5e1>{p.DeviceName}</color></size>";
+            // Each line is rebuilt only when what it shows changes (building strings every frame churns memory and
+            // makes TextMeshPro regenerate its mesh); bars and colours are cheap and update every frame.
+            if (nameLine.Changed(System.HashCode.Combine(p.Name, p.Nick, p.DeviceName)))
+                nameText.text = $"<b>{p.Name}</b>{(string.IsNullOrEmpty(p.Nick) ? "" : " · " + p.Nick)}  <size=12><color=#cbd5e1>{p.DeviceName}</color></size>";
             hpFill.fillAmount = Mathf.Clamp01(p.Hp / p.MaxHp);
             hpFill.color = p.Hp / p.MaxHp > .5f ? new Color(.35f, .85f, .4f) : p.Hp / p.MaxHp > .25f ? new Color(.95f, .8f, .2f) : new Color(.95f, .3f, .25f);
-            hpText.text = $"{Mathf.CeilToInt(p.Hp)}/{Mathf.RoundToInt(p.MaxHp)}";
-            var sb = new StringBuilder();
-            foreach (var kv in p.Statuses.Active)
+            int hp = Mathf.CeilToInt(p.Hp), maxHp = Mathf.RoundToInt(p.MaxHp);
+            if (hpLine.Changed(System.HashCode.Combine(hp, maxHp))) hpText.text = $"{hp}/{maxHp}";
+
+            int statusKey = p.Wet > .2f ? 1 : 0;
+            foreach (var kv in p.Statuses.Active) statusKey = System.HashCode.Combine(statusKey, kv.Key, Mathf.CeilToInt(kv.Value));
+            if (statusLine.Changed(statusKey))
             {
-                int mood = StatusEffects.Mood(kv.Key);
-                sb.Append($"<color={(mood > 0 ? "#86efac" : mood < 0 ? "#fca5a5" : "#d4d4d8")}>{StatusEffects.Label(kv.Key)} {kv.Value:0}s</color>  ");
+                var sb = new StringBuilder();
+                foreach (var kv in p.Statuses.Active)
+                {
+                    int mood = StatusEffects.Mood(kv.Key);
+                    sb.Append($"<color={(mood > 0 ? "#86efac" : mood < 0 ? "#fca5a5" : "#d4d4d8")}>{StatusEffects.Label(kv.Key)} {kv.Value:0}s</color>  ");
+                }
+                if (p.Wet > .2f) sb.Append("<color=#93c5fd>WET</color>");
+                statusText.text = sb.ToString();
             }
-            if (p.Wet > .2f) sb.Append("<color=#93c5fd>WET</color>");
-            statusText.text = sb.ToString();
-            coinText.text = $"{gm.SandDollars}";
-            // The icon sits just left of the number
-            coinIcon.rectTransform.anchoredPosition = new Vector2(-24 - coinText.preferredWidth, -14);
+            if (coinLine.Changed(gm.SandDollars))
+            {
+                coinText.text = gm.SandDollars.ToString();
+                coinText.ForceMeshUpdate();
+                coinIcon.rectTransform.anchoredPosition = new Vector2(-24 - coinText.preferredWidth, -14);   // just left of the number
+            }
             xpFill.fillAmount = Mathf.Clamp01(p.Xp / (float)Mathf.Max(1, p.XpNext));
-            levelText.text = $"Lv {p.Level}" + (p.StatPoints > 0 ? $"  <color=#fde68a>+{p.StatPoints} pt {p.Glyph(Btn.Stats)}</color>" : "") +
-                             (p.PendingMods > 0 ? "  <color=#86efac>MOD!</color>" : "");
-            var cards = new StringBuilder();
-            foreach (var a in gm.Cards.Actives)
-                cards.Append($"<color=#{ColorUtility.ToHtmlStringRGB(Color.Lerp(a.def.color, Color.white, .35f))}>{a.def.displayName}</color> <color=#cbd5e1>{a.wavesLeft} wave{(a.wavesLeft == 1 ? "" : "s")}</color>\n");
-            cardsText.text = cards.ToString();
+            if (levelLine.Changed(System.HashCode.Combine(p.Level, p.StatPoints, p.PendingMods, p.Glyph(Btn.Stats))))
+                levelText.text = $"Lv {p.Level}" + (p.StatPoints > 0 ? $"  <color=#fde68a>+{p.StatPoints} pt {p.Glyph(Btn.Stats)}</color>" : "") +
+                                 (p.PendingMods > 0 ? "  <color=#86efac>MOD!</color>" : "");
+
+            int cardsKey = 0;
+            foreach (var a in gm.Cards.Actives) cardsKey = System.HashCode.Combine(cardsKey, a.def.id, a.wavesLeft);
+            if (cardsLine.Changed(cardsKey))
+            {
+                var cards = new StringBuilder();
+                foreach (var a in gm.Cards.Actives)
+                    cards.Append($"<color=#{ColorUtility.ToHtmlStringRGB(Color.Lerp(a.def.color, Color.white, .35f))}>{a.def.displayName}</color> <color=#cbd5e1>{a.wavesLeft} wave{(a.wavesLeft == 1 ? "" : "s")}</color>\n");
+                cardsText.text = cards.ToString();
+            }
             bool voting = gm.Cards.Draft != null && gm.State == GameState.Playing;
-            voteText.text = !voting ? "" : gm.Cards.Votes.ContainsKey(p.Index)
-                ? $"Tidal card vote: {gm.Cards.Votes.Count}/{gm.Players.Count} voted · {Mathf.CeilToInt(gm.Cards.DraftLeft)}s"
-                : $"TIDAL CARD VOTE · {Mathf.CeilToInt(gm.Cards.DraftLeft)}s · {p.Glyph(Btn.Stats)} to vote";
+            bool voted = gm.Cards.Votes.ContainsKey(p.Index);
+            int draftLeft = Mathf.CeilToInt(gm.Cards.DraftLeft);
+            if (voteLine.Changed(System.HashCode.Combine(voting, voted, gm.Cards.Votes.Count, gm.Players.Count, draftLeft, p.Glyph(Btn.Stats))))
+                voteText.text = !voting ? "" : voted
+                    ? $"Tidal card vote: {gm.Cards.Votes.Count}/{gm.Players.Count} voted · {draftLeft}s"
+                    : $"TIDAL CARD VOTE · {draftLeft}s · {p.Glyph(Btn.Stats)} to vote";
 
             if (ph != null && gm.State != GameState.MainMenu)
             {
-                string timing = phases.TimeLeft >= 0 ? $" · {Mathf.CeilToInt(phases.TimeLeft)}s" : "";
-                string waves = gm.Waves.WaveCount > 0 ? $" · Wave {Mathf.Min(gm.Waves.Wave + 1, gm.Waves.WaveCount)}/{gm.Waves.WaveCount} · {gm.EnemiesLeft} left" : "";
-                phaseText.text = $"<b>Day {phases.Day} · {ph.displayName}</b>{timing}{waves}";
+                int timeLeft = phases.TimeLeft >= 0 ? Mathf.CeilToInt(phases.TimeLeft) : -1;
+                if (phaseLine.Changed(System.HashCode.Combine(phases.Day, ph.displayName, timeLeft, gm.Waves.Wave, gm.Waves.WaveCount, gm.EnemiesLeft)))
+                {
+                    string timing = timeLeft >= 0 ? $" · {timeLeft}s" : "";
+                    string waves = gm.Waves.WaveCount > 0 ? $" · Wave {Mathf.Min(gm.Waves.Wave + 1, gm.Waves.WaveCount)}/{gm.Waves.WaveCount} · {gm.EnemiesLeft} left" : "";
+                    phaseText.text = $"<b>Day {phases.Day} · {ph.displayName}</b>{timing}{waves}";
+                }
             }
             float plant = gm.Plant.Fraction;
             wallFill.fillAmount = plant;
             wallFill.color = plant > .5f ? new Color(.4f, .95f, .45f) : plant > .3f ? new Color(.95f, .8f, .2f) : new Color(1f, .3f, .25f);
-            int breached = gm.Wall.BreachCount, sections = gm.Wall.Sections.Count;
-            wallText.text = $"Powerplant {Mathf.CeilToInt(gm.Plant.Hp)}/{Mathf.RoundToInt(gm.Plant.MaxHp)} · Wall {sections - breached}/{sections}" +
-                            (breached > 0 ? $" <color=#fca5a5>({breached} breached)</color>" : "");
+            int breached = gm.Wall.BreachCount, sections = gm.Wall.Sections.Count, plantHp = Mathf.CeilToInt(gm.Plant.Hp), plantMax = Mathf.RoundToInt(gm.Plant.MaxHp);
+            if (wallLine.Changed(System.HashCode.Combine(breached, sections, plantHp, plantMax)))
+                wallText.text = $"Powerplant {plantHp}/{plantMax} · Wall {sections - breached}/{sections}" +
+                                (breached > 0 ? $" <color=#fca5a5>({breached} breached)</color>" : "");
 
-            gunText.text = (p.GunsLocked ? $"<color=#94a3b8><b>{p.Gun.displayName}</b>  holstered until wave {gm.DB.gunsUnlockWave}</color>\n"
-                                         : $"<b>{p.Gun.displayName}</b>  {(p.ReloadProgress >= 0 ? "reloading…" : $"{p.Ammo}/{p.MagSize}")}" +
-                                           (p.PerfectBonus > 0 ? $"  <color=#fcd34d>PERFECT +{p.PerfectBonus * 100:0}%</color>" : "") + "\n") +
-                           $"<color=#cbd5e1>{p.Melee.displayName}</color>" +
-                           (p.CarryCount > 0 ? $"\n<color=#fde68a>Carrying {p.CarryCount} (weight {p.CarryWeight:0}/{Player.MaxCarry:0}) · {p.Glyph(Btn.Fire)} throw</color>" : "");
+            bool reloading = p.ReloadProgress >= 0;
+            int perfect = Mathf.RoundToInt(p.PerfectBonus * 100), weight = Mathf.RoundToInt(p.CarryWeight);
+            int gunKey = System.HashCode.Combine(p.GunsLocked, p.Gun.id, reloading, p.Ammo, p.MagSize, perfect, p.Melee.id, System.HashCode.Combine(p.CarryCount, weight, p.Glyph(Btn.Fire)));
+            if (gunLine.Changed(gunKey))
+                gunText.text = (p.GunsLocked ? $"<color=#94a3b8><b>{p.Gun.displayName}</b>  holstered until wave {gm.DB.gunsUnlockWave}</color>\n"
+                                             : $"<b>{p.Gun.displayName}</b>  {(reloading ? "reloading…" : $"{p.Ammo}/{p.MagSize}")}" +
+                                               (perfect > 0 ? $"  <color=#fcd34d>PERFECT +{perfect}%</color>" : "") + "\n") +
+                               $"<color=#cbd5e1>{p.Melee.displayName}</color>" +
+                               (p.CarryCount > 0 ? $"\n<color=#fde68a>Carrying {p.CarryCount} (weight {weight}/{Player.MaxCarry:0}) · {p.Glyph(Btn.Fire)} throw</color>" : "");
 
-            promptText.text = Prompt();
+            Ui.Set(promptText, Prompt());
 
             bannerT -= dt; toastT -= dt; hitT -= dt;
             SetAlpha(bannerTitle, Mathf.Clamp01(bannerT)); SetAlpha(bannerSub, Mathf.Clamp01(bannerT));
@@ -199,8 +240,8 @@ namespace TideWall
             float spread = 14 + p.FireHeat * 16;
             crossH.rectTransform.sizeDelta = new Vector2(spread, 2); crossV.rectTransform.sizeDelta = new Vector2(2, spread);
             bool cardsOpen = p.ShownMenu != null && p.ShownMenu.Layout == MenuLayout.Cards;
-            previewText.text = cardsOpen ? "" : gm.Waves.Preview;
-            if (cardsOpen) { voteText.text = ""; SetAlpha(bannerTitle, 0); SetAlpha(bannerSub, 0); }   // the cards have the screen
+            Ui.Set(previewText, cardsOpen ? "" : gm.Waves.Preview);
+            if (cardsOpen) { voteText.text = ""; voteLine = default; SetAlpha(bannerTitle, 0); SetAlpha(bannerSub, 0); }   // the cards have the screen
             bool cross = p.FirstPerson && !p.IsOut && p.ShownMenu == null && gm.State == GameState.Playing;
             crossH.enabled = crossV.enabled = cross;
             fpsText.enabled = Settings.Current.showFps;
@@ -221,7 +262,7 @@ namespace TideWall
             tunnel.color = new Color(0, 0, 0, p.Statuses.Has(StatusType.Tunnel) ? .97f : 0);
             UpdateInk();
             UpdateMenu();
-            centerText.text = CenterMessage();
+            Ui.Set(centerText, CenterMessage());
         }
 
         string Prompt()
@@ -292,9 +333,10 @@ namespace TideWall
                 if (it.Header) { sb.Append($"<color=#93c5fd><b>{it.Label}</b></color>\n"); continue; }
                 bool sel = i == m.Selected;
                 bool blocked = it.Blocked?.Invoke() != null;
-                string label = it.Label.Length > labelWidth ? it.Label.Substring(0, labelWidth) : it.Label.PadRight(labelWidth);
+                string label = it.Label.Length > labelWidth ? it.Label.Substring(0, labelWidth) : it.Label;
                 string colour = blocked ? "#94a3b8" : sel ? "#fde68a" : "#ffffff";
-                sb.Append($"<color={colour}>{(sel ? "► " : "   ")}{label}  {it.Right}</color>\n");
+                // <pos> is a TextMeshPro tab stop: the values line up in a column whatever the labels' widths
+                sb.Append($"<color={colour}>{(sel ? "► " : "   ")}{label}<pos=58%>{it.Right}</color>\n");
             }
             return sb.ToString();
         }

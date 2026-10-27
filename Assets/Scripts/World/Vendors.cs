@@ -2,6 +2,7 @@
 // wave, and shout lines (GameDatabase.chefLines / fishmongerLines) in a speech bubble. Scenery only: every machine
 // animates its own vendors.
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 namespace TideWall
@@ -11,7 +12,7 @@ namespace TideWall
         List<string> lines;
         ModelInstance model;
         Transform armR, armL, head;
-        TextMesh bubble;
+        TextMeshPro bubble;
         float sayT, bubbleT, waveT, t, baseYaw;
 
         public static Vendor Create(Transform parent, string modelName, Vector3 pos, float yaw, List<string> lines)
@@ -29,12 +30,7 @@ namespace TideWall
                 if (tr.name == "Part_ArmL") v.armL = tr;
                 if (tr.name == "Part_Head") v.head = tr;
             }
-            v.bubble = new GameObject("Bubble").AddComponent<TextMesh>();
-            v.bubble.transform.SetParent(go.transform, false);
-            v.bubble.transform.localPosition = new Vector3(0, 2.8f, 0);
-            v.bubble.font = Ui.Font; v.bubble.fontSize = 110; v.bubble.characterSize = .018f; v.bubble.anchor = TextAnchor.LowerCenter;
-            v.bubble.color = new Color(1, .97f, .85f);
-            v.bubble.GetComponent<MeshRenderer>().sharedMaterial = Ui.WorldText;
+            v.bubble = Ui.Label(go.transform, "Bubble", new Vector3(0, 2.8f, 0), .26f, new Color(1, .97f, .85f), TextAlignmentOptions.Bottom);
             Billboard.Add(v.bubble.gameObject);
             v.sayT = Random.Range(3f, 8f);
             return v;

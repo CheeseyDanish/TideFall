@@ -1,37 +1,135 @@
-// TideWall 3D — the online protocol: message types, the state structs that travel in snapshots, and binary
-// read/write helpers. Every message is one TCP frame: [int32 length][byte type][payload].
+// TideWall 3D — the online protocol: message types, the state that travels in snapshots, and binary read/write
+// helpers. Every message is [byte type][payload], sent on one of NetLink's two channels:
 //
-//   client → host   Hello(version, nick) · Join(token, device) · Input(NetInput) · Leave(player)
-//   host → client   Welcome(clientId) · Assigned(token, player) · Refused(token, reason) · Snapshot · Events
-//                   · GameOver(reason) · Reload · Bye(reason)
+//   client → host   Hello(version, nick, nonce) R · Auth(proof) R · Join(token, device) R · Leave(player) R
+//                   · Input(ack, per player: aim + the last few commands) U
+//   host → client   Challenge(salt, nonce) R · Welcome(clientId, hostNick) R · Assigned(token, player) R
+//                   · Refused(token, reason) R · Notices(banners, toasts) R · GameOver(reason) R · Reload R · Bye(reason) R
+//                   · Snapshot(seq, …) U · Effects(sounds, particles, shakes, hit markers) U
+//   (R = reliable, U = unreliable)
 //
-// Snapshots (20 Hz) carry the shared state (phase, sand dollars, wall sections, powerplant, tidal cards and any
-// vote in progress), every player, the asking client's private
-// player data (prompt, open menu), and the replicated things that changed since the last snapshot sent to that
-// client (TCP is reliable and ordered, so deltas are safe). Events (every frame) carry effects, sounds, banners
-// and per-player feedback (toasts, shakes, hit markers, pushes, teleports).
+// Movement is the host's: each client sends numbered input commands (NetCommand), the host simulates them and
+// tells the client which one it got to; the client predicts its own movement and replays what the host hasn't
+// confirmed yet (Player.Reconcile). Commands are sent several times over (every unconfirmed one, up to
+// MaxCommandsPerPacket), so a lost packet costs nothing.
+//
+// Snapshots (20 Hz) carry the shared state, every player, the client's own players' private data (prompt, menu,
+// confirmed movement), and replicated things as a delta against the last snapshot that client confirmed
+// (Quake-style): what changed since then, plus the ids of everything that exists now.
+//
+// Security: version check; an optional room password checked by challenge-response (PBKDF2 + HMAC-SHA256, the
+// password never crosses the network); Relay games are encrypted (DTLS). The host checks everything it reads
+// (sizes, ownership, finite numbers, positions inside the world) and simulates movement itself.
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using UnityEngine;
 
 namespace TideWall
 {
     public enum Msg : byte
     {
-        Hello = 1, Join = 2, Input = 3, Leave = 4,
-        Welcome = 10, Assigned = 11, Refused = 12, Snapshot = 13, Events = 14, GameOver = 15, Reload = 16, Bye = 17,
+        Hello = 1, Join = 2, Input = 3, Leave = 4, Auth = 5,
+        Welcome = 10, Assigned = 11, Refused = 12, Snapshot = 13, Effects = 14, GameOver = 15, Reload = 16, Bye = 17,
+        Challenge = 18, Notices = 19,
     }
 
-    public enum NetEvent : byte { Banner = 1, Sound, Fx, Toast, Shake, Hit, Push, Teleport }
+    /// <summary>Things that happen once. Banners and toasts go reliably (Notices); the rest are cosmetic (Effects).</summary>
+    public enum NetEvent : byte { Banner = 1, Sound, Fx, Toast, Shake, Hit }
 
     public static class NetProtocol
     {
-        public const int Version = 4;
+        public const int Version = 5;
         public const int DefaultPort = 7777;
         public const int DiscoveryPort = 47777;
-        public const string DiscoveryTag = "TIDEWALL1";
-        public const float SnapshotInterval = .05f;   // 20 Hz
+        public const string DiscoveryTag = "TIDEWALL2";
+        public const float SnapshotInterval = .05f;     // 20 Hz
+        public const float InputInterval = 1 / 60f;     // clients send input at most 60 times a second
+        public const int MaxCommandsPerPacket = 24;
+        public const int MaxLocalPlayers = 4;
+        public const int MaxConnections = 12;           // including ones still saying hello
+        public const float HelloTimeout = 10;           // seconds to finish the handshake
+    }
+
+    /// <summary>One frame of a player's controls, numbered. Quantized exactly as it travels, so the client predicts
+    /// with the same numbers the host simulates.</summary>
+    public struct NetCommand
+    {
+        public uint seq;
+        public float dt;
+        public Vector2 move, nav;
+        public ushort held, pressed;
+        public float yaw, pitch;
+        public bool firstPerson;
+
+        public const float MaxDt = .1f;
+
+        public bool Has(Btn b) => (pressed & (1 << (int)b)) != 0;
+
+        public NetCommand Quantized()
+        {
+            var c = this;
+            c.dt = Mathf.Round(Mathf.Clamp(dt, 0, MaxDt) * 10000) / 10000;
+            c.move = Q(move); c.nav = Q(nav);
+            return c;
+        }
+
+        static Vector2 Q(Vector2 v) => new(Mathf.Round(Mathf.Clamp(v.x, -1, 1) * 127) / 127, Mathf.Round(Mathf.Clamp(v.y, -1, 1) * 127) / 127);
+
+        public void Write(BinaryWriter w)
+        {
+            w.Write(seq); w.Write((ushort)Mathf.RoundToInt(Mathf.Clamp(dt, 0, MaxDt) * 10000));
+            w.Write((sbyte)Mathf.RoundToInt(Mathf.Clamp(move.x, -1, 1) * 127)); w.Write((sbyte)Mathf.RoundToInt(Mathf.Clamp(move.y, -1, 1) * 127));
+            w.Write((sbyte)Mathf.RoundToInt(Mathf.Clamp(nav.x, -1, 1) * 127)); w.Write((sbyte)Mathf.RoundToInt(Mathf.Clamp(nav.y, -1, 1) * 127));
+            w.Write(held); w.Write(pressed); w.Write(yaw); w.Write(pitch); w.Write(firstPerson);
+        }
+
+        public static NetCommand Read(BinaryReader r) => new()
+        {
+            seq = r.ReadUInt32(), dt = r.ReadUInt16() / 10000f,
+            move = new Vector2(r.ReadSByte() / 127f, r.ReadSByte() / 127f), nav = new Vector2(r.ReadSByte() / 127f, r.ReadSByte() / 127f),
+            held = r.ReadUInt16(), pressed = r.ReadUInt16(), yaw = r.ReadSingle(), pitch = r.ReadSingle(), firstPerson = r.ReadBoolean(),
+        };
+    }
+
+    /// <summary>The room password, checked without ever sending it: the host sends a random salt and nonce, the client
+    /// answers with HMAC-SHA256(PBKDF2(password, salt), host nonce + client nonce).</summary>
+    public static class NetAuth
+    {
+        public const int Iterations = 20000;
+
+        public static byte[] Nonce()
+        {
+            var b = new byte[16];
+            using var rng = RandomNumberGenerator.Create();
+            rng.GetBytes(b);
+            return b;
+        }
+
+        public static byte[] Key(string password, byte[] salt)
+        {
+            using var kdf = new Rfc2898DeriveBytes(password ?? "", salt, Iterations, HashAlgorithmName.SHA256);
+            return kdf.GetBytes(32);
+        }
+
+        public static byte[] Proof(byte[] key, byte[] hostNonce, byte[] clientNonce)
+        {
+            var msg = new byte[hostNonce.Length + clientNonce.Length];
+            Buffer.BlockCopy(hostNonce, 0, msg, 0, hostNonce.Length);
+            Buffer.BlockCopy(clientNonce, 0, msg, hostNonce.Length, clientNonce.Length);
+            using var mac = new HMACSHA256(key);
+            return mac.ComputeHash(msg);
+        }
+
+        /// <summary>Compare without leaking how many bytes matched.</summary>
+        public static bool Same(byte[] a, byte[] b)
+        {
+            if (a == null || b == null || a.Length != b.Length) return false;
+            int diff = 0;
+            for (int i = 0; i < a.Length; i++) diff |= a[i] ^ b[i];
+            return diff == 0;
+        }
     }
 
     public struct FxEvent
@@ -41,18 +139,6 @@ namespace TideWall
         public Color color;
         public float f1, f2, f3;
         public int n;
-    }
-
-    /// <summary>One frame of an online player's input, sent by their machine.</summary>
-    public struct NetInput
-    {
-        public int playerIndex;
-        public Vector2 move, nav;
-        public ushort held, pressed;
-        public float yaw, pitch;
-        public bool firstPerson;
-        public Vector3 pos;
-        public AimSample aim;
     }
 
     /// <summary>A player as the host sees them (what a client needs to draw them and their HUD).</summary>
@@ -183,23 +269,30 @@ namespace TideWall
         public static Quaternion ReadQuaternion(this BinaryReader r) => new(r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
         public static Color ReadColor(this BinaryReader r) => new(r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
 
-        public static void Write(this BinaryWriter w, in NetInput i)
+        public static void Write(this BinaryWriter w, in AimSample a)
         {
-            w.Write((byte)i.playerIndex); w.Write(i.move); w.Write(i.nav); w.Write(i.held); w.Write(i.pressed);
-            w.Write(i.yaw); w.Write(i.pitch); w.Write(i.firstPerson); w.Write(i.pos);
-            w.Write(i.aim.ray.origin); w.Write(i.aim.ray.direction); w.Write(i.aim.dirHint); w.Write(i.aim.assist);
+            w.Write(a.ray.origin); w.Write(a.ray.direction); w.Write(a.dirHint); w.Write(a.assist);
         }
 
-        public static NetInput ReadInput(this BinaryReader r)
+        public static AimSample ReadAim(this BinaryReader r)
         {
-            var i = new NetInput
-            {
-                playerIndex = r.ReadByte(), move = r.ReadVector2(), nav = r.ReadVector2(), held = r.ReadUInt16(), pressed = r.ReadUInt16(),
-                yaw = r.ReadSingle(), pitch = r.ReadSingle(), firstPerson = r.ReadBoolean(), pos = r.ReadVector3(),
-            };
             var o = r.ReadVector3(); var d = r.ReadVector3();
-            i.aim = new AimSample { ray = new Ray(o, d.sqrMagnitude > .0001f ? d : Vector3.forward), dirHint = r.ReadVector3(), assist = r.ReadBoolean() };
-            return i;
+            return new AimSample { ray = new Ray(o, d.sqrMagnitude > .0001f ? d : Vector3.forward), dirHint = r.ReadVector3(), assist = r.ReadBoolean() };
+        }
+
+        /// <summary>A string from the network, refused if it claims to be longer than `max` characters.</summary>
+        public static string ReadText(this BinaryReader r, int max)
+        {
+            var s = r.ReadString();
+            if (s.Length > max) throw new InvalidDataException($"text longer than {max}");
+            return s;
+        }
+
+        public static byte[] ReadBlob(this BinaryReader r, int length)
+        {
+            var b = r.ReadBytes(length);
+            if (b.Length != length) throw new EndOfStreamException();
+            return b;
         }
 
         public static void Write(this BinaryWriter w, in FxEvent e)

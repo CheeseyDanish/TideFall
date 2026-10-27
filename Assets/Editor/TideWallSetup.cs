@@ -21,6 +21,7 @@ namespace TideWall.EditorTools
             Directory.CreateDirectory("Assets/Resources/Materials");
             Directory.CreateDirectory("Assets/Resources/Data");
             Directory.CreateDirectory("Assets/Scenes");
+            TextMeshProResources();
             Materials();
             Data(false);
             Scene();
@@ -28,6 +29,14 @@ namespace TideWall.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("TideWall setup complete.");
+        }
+
+        /// <summary>TextMeshPro's default font and settings live in Assets/TextMesh Pro (imported once from the UGUI
+        /// package and committed). If they're ever missing, say how to get them back.</summary>
+        static void TextMeshProResources()
+        {
+            if (!File.Exists("Assets/TextMesh Pro/Resources/TMP Settings.asset"))
+                Debug.LogError("TideWall setup: TextMeshPro resources are missing. Window > TextMeshPro > Import TMP Essential Resources.");
         }
 
         [UnityEditor.MenuItem("TideWall/Reset Data To Defaults")]

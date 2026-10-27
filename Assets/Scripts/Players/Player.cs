@@ -12,6 +12,7 @@
 //              (health, ammo, menus, statuses) mirrors the host.
 //   Proxy      on a client, everyone else: follows the host's snapshots.
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 namespace TideWall
@@ -131,7 +132,7 @@ namespace TideWall
         ModelInstance model, gunModel, meleeModel;
         Transform visual;
         LineRenderer reticle;
-        TextMesh nameTag;
+        TextMeshPro nameTag;
         Light lantern;
         readonly HashSet<string> ownedGuns = new(), ownedMelee = new();
         readonly Dictionary<string, int> ammo = new();
@@ -140,7 +141,7 @@ namespace TideWall
         GameObject ghost;
         string ghostId;
         Vector3 lastVisualPos;
-        float fireCd, meleeCd, swingT, dashT, dashCd, fireBuffer, yVel, menuRepeat, hurtFlash, dripAcc, ignoreRemotePosUntil;
+        float fireCd, meleeCd, swingT, dashT, dashCd, fireBuffer, yVel, menuRepeat, hurtFlash, dripAcc;
         Vector3 dashDir, push;
         Enemy grabbedBy;
         Vector2 lastNav;
@@ -153,6 +154,12 @@ namespace TideWall
         bool reloadHeld;
         int netAmmo, netMag = 1, netCarryCount, netXpNext = 60;
         bool statsWanted;   // client: the pause menu asked the host to open the Stats menu
+        // Online movement (client): numbered commands the host hasn't confirmed yet, replayed after each correction
+        readonly List<NetCommand> unconfirmed = new();
+        uint commandSeq;
+        AimSample lastAim;
+        /// <summary>Client: how far the camera still trails a correction from the host (eases back to zero).</summary>
+        public Vector3 RenderOffset { get; private set; }
         Vector3 netPos; float netYaw; bool netFirstPerson;
         public string NetPrompt { get; private set; }
 
@@ -216,12 +223,7 @@ namespace TideWall
             lantern.type = LightType.Point; lantern.range = 9; lantern.color = Color.Lerp(Color, new Color(1, .85f, .6f), .6f); lantern.shadows = LightShadows.None;
             gm.World.lanterns.Add(lantern);
             // A name tag, so teammates know who's who in first person
-            nameTag = new GameObject("NameTag").AddComponent<TextMesh>();
-            nameTag.transform.SetParent(visual, false);
-            nameTag.transform.localPosition = new Vector3(0, 2.35f, 0);
-            nameTag.font = Ui.Font; nameTag.fontSize = 100; nameTag.characterSize = .02f; nameTag.anchor = TextAnchor.MiddleCenter;
-            nameTag.color = Color.Lerp(Color, Color.white, .35f);
-            nameTag.GetComponent<MeshRenderer>().sharedMaterial = Ui.WorldText;
+            nameTag = Ui.Label(visual, "NameTag", new Vector3(0, 2.35f, 0), .28f, Color.Lerp(Color, Color.white, .35f));
             Billboard.Add(nameTag.gameObject);
             SetLayer(visual, BodyLayer + Index);
             if (HasView)
@@ -700,37 +702,124 @@ namespace TideWall
             return m * SpeedBonus;
         }
 
-        /// <summary>Stick/WASD as a world direction: relative to where you look in first person, to the screen top-down.</summary>
-        Vector3 MoveDir()
-        {
-            var mv = MoveInput();
-            var dir = new Vector3(mv.x, 0, mv.y);
-            if (FirstPerson) dir = Quaternion.Euler(0, Yaw, 0) * dir;
-            return dir.magnitude > 1 ? dir.normalized : dir;
-        }
-
         void UpdateMovement(float dt)
         {
-            if (Kind == PlayerKind.Remote)
-            {
-                // Online players move on their own machine; the host takes their position (it's a co-op game).
-                if (Remote.HasPosition && Time.time >= ignoreRemotePosUntil) Teleport(Remote.Position, false);
-                if (Pressed(Btn.Dash)) Fx.Smoke(transform.position, 4, .3f, new Color(.9f, .85f, .7f, .5f));
-                FaceAim(dt);
-                return;
-            }
-            var dir = grabbedBy != null || Statuses.Has(StatusType.Grabbed) ? Vector3.zero : MoveDir();
+            // Online players are moved by their commands as they arrive (RunRemoteCommands); here they only turn
+            if (Kind == PlayerKind.Remote) { FaceAim(dt); return; }
+            var raw = Controls != null ? Controls.Move.ReadValue<Vector2>() : Vector2.zero;
+            var dir = StepMove(raw, Pressed(Btn.Dash), Yaw, FirstPerson, dt);
+            if (FirstPerson || UsesMouse || (Controls != null && Controls.Aim.ReadValue<Vector2>().magnitude > .2f) || dir.sqrMagnitude > .01f) FaceAim(dt);
+        }
+
+        /// <summary>
+        /// One step of movement from one frame of controls (raw stick/WASD). The same code moves local players, online
+        /// players on the host (one call per command) and a client's prediction and replays, so they all agree.
+        /// Returns the world direction moved in.
+        /// </summary>
+        Vector3 StepMove(Vector2 move, bool dash, float yaw, bool firstPerson, float dt)
+        {
+            if (IsOut || dt <= 0) return Vector3.zero;
+            if (Statuses.Has(StatusType.ReverseControls)) move = -move;
+            var dir = new Vector3(move.x, 0, move.y);
+            if (firstPerson) dir = Quaternion.Euler(0, yaw, 0) * dir;
+            if (dir.magnitude > 1) dir.Normalize();
+            if (grabbedBy != null || Statuses.Has(StatusType.Grabbed)) dir = Vector3.zero;
+            if (IsDowned) { Gravity(dt, dir); return dir; }   // crawl slowly toward safety
             dashCd -= dt;
-            if (Pressed(Btn.Dash) && dashCd <= 0 && dir.sqrMagnitude > .01f && !Statuses.Has(StatusType.Grabbed))
+            if (dash && dashCd <= 0 && dir.sqrMagnitude > .01f)
             {
                 dashT = db.dashSeconds; dashCd = db.dashCooldown / (1 + (SpeedBonus - 1) * 2); dashDir = dir.normalized;
                 if (Simulated) Fx.Smoke(transform.position, 4, .3f, new Color(.9f, .85f, .7f, .5f));
             }
             Vector3 vel = dir * db.playerSpeed * SpeedMultiplier();
             if (dashT > 0) { dashT -= dt; vel = dashDir * db.dashSpeed; }
-            vel += push / Mathf.Max(dt, .0001f); push = Vector3.zero;
+            vel += push / dt; push = Vector3.zero;
             Gravity(dt, vel);
-            if (FirstPerson || UsesMouse || (Controls != null && Controls.Aim.ReadValue<Vector2>().magnitude > .2f) || dir.sqrMagnitude > .01f) FaceAim(dt);
+            return dir;
+        }
+
+        /// <summary>Host: an online player's new commands, in order. Buttons and look always count; movement only
+        /// within the real time that has passed (RemoteInput's budget), so a sped-up client can't outrun the game.</summary>
+        public void RunRemoteCommands(float frameDt)
+        {
+            Remote.AddBudget(frameDt);
+            bool canPlay = gm.State == GameState.Playing && Time.timeScale > 0;
+            while (Remote.Next(out var c, out bool canMove))
+            {
+                PrefersFirstPerson = c.firstPerson;
+                if (canMove && canPlay) StepMove(c.move, c.Has(Btn.Dash), c.yaw, FirstPerson, c.dt);
+            }
+        }
+
+        /// <summary>Client: this frame's controls as a numbered command. We move by it straight away (prediction)
+        /// and keep it until the host confirms it.</summary>
+        void PredictMove(float dt, bool canMove)
+        {
+            var c = new NetCommand { seq = ++commandSeq, dt = dt, yaw = Yaw, pitch = Pitch, firstPerson = PrefersFirstPerson };
+            if (statsWanted) { c.pressed |= 1 << (int)Btn.Stats; statsWanted = false; }
+            if (Controls != null && LocalMenu == null && !Rebinder.Busy)
+            {
+                c.nav = Controls.Nav();
+                if (canMove) c.move = Controls.Move.ReadValue<Vector2>();
+                foreach (Btn b in System.Enum.GetValues(typeof(Btn)))
+                {
+                    if (b is Btn.Pause or Btn.View) continue;  // handled here (Stats goes to the host, which owns that menu)
+                    if (Controls.Held(b)) c.held |= (ushort)(1 << (int)b);
+                    if (Controls.Pressed(b)) c.pressed |= (ushort)(1 << (int)b);
+                }
+            }
+            c = c.Quantized();
+            if (canMove) StepMove(c.move, c.Has(Btn.Dash), c.yaw, FirstPerson, c.dt);
+            unconfirmed.Add(c);
+            if (unconfirmed.Count > 240) unconfirmed.RemoveAt(0);   // the host has stopped answering: don't grow forever
+            if (Cam != null) lastAim = LocalAim();
+        }
+
+        /// <summary>Client: the commands to send, newest last (every unconfirmed one, up to max), with the current aim.</summary>
+        public void WriteCommands(System.IO.BinaryWriter w, int max)
+        {
+            w.Write((byte)Index);
+            w.Write(lastAim);
+            int from = Mathf.Max(0, unconfirmed.Count - max);
+            w.Write((byte)(unconfirmed.Count - from));
+            for (int i = from; i < unconfirmed.Count; i++) unconfirmed[i].Write(w);
+        }
+
+        /// <summary>What the host's simulation says about a player's movement (sent to the player's own machine).</summary>
+        public struct MoveState
+        {
+            public uint confirmed;
+            public Vector3 pos, dashDir;
+            public float yVel, dashT, dashCd;
+        }
+
+        public void WriteMoveState(System.IO.BinaryWriter w)
+        {
+            w.Write(Remote?.Processed ?? 0); w.Write(transform.position); w.Write(dashDir);
+            w.Write(yVel); w.Write(dashT); w.Write(dashCd);
+        }
+
+        public static MoveState ReadMoveState(System.IO.BinaryReader r) => new()
+        {
+            confirmed = r.ReadUInt32(), pos = r.ReadVector3(), dashDir = r.ReadVector3(),
+            yVel = r.ReadSingle(), dashT = r.ReadSingle(), dashCd = r.ReadSingle(),
+        };
+
+        /// <summary>
+        /// Client: the host says where we were after command `confirmed`. Start from there and replay every command
+        /// it hasn't seen yet. Usually that lands exactly where we already are; when it doesn't (a push, a grab, a
+        /// collision we didn't predict) we take the host's answer and let the camera ease across the difference.
+        /// </summary>
+        public void Reconcile(MoveState m)
+        {
+            unconfirmed.RemoveAll(c => c.seq <= m.confirmed);
+            var predicted = transform.position;
+            Place(m.pos);
+            yVel = m.yVel; dashT = m.dashT; dashCd = m.dashCd; dashDir = m.dashDir;
+            bool canMove = !IsOut && gm.State == GameState.Playing;
+            if (canMove) foreach (var c in unconfirmed) StepMove(c.move, c.Has(Btn.Dash), c.yaw, FirstPerson, c.dt);
+            var error = predicted - transform.position;
+            RenderOffset = error.magnitude < 3 ? RenderOffset + error : Vector3.zero;
         }
 
         void FaceAim(float dt)
@@ -749,16 +838,14 @@ namespace TideWall
             if (p.y < g - .05f) { p.y = g; transform.position = p; yVel = 0; }
         }
 
-        public void Push(Vector3 delta)
-        {
-            if (Kind == PlayerKind.Remote) { if (Net.IsHost) Net.Host.Push(this, delta); return; }
-            push += delta;
-        }
+        /// <summary>Shove the player (knockback, an octopus pulling). Applied on their next movement step; an online
+        /// player's machine catches up through reconciliation.</summary>
+        public void Push(Vector3 delta) => push += delta;
 
-        void Teleport(Vector3 at, bool tellOwner)
+        /// <summary>Put the player somewhere directly (respawns, tests). The CharacterController has to be off for it.</summary>
+        public void Place(Vector3 at)
         {
             cc.enabled = false; transform.position = at; cc.enabled = true;
-            if (tellOwner && Kind == PlayerKind.Remote && Net.IsHost) { Net.Host.Teleport(this, at); ignoreRemotePosUntil = Time.time + .75f; }
         }
 
         // ------------------------------------------------------------------ combat
@@ -1073,8 +1160,8 @@ namespace TideWall
         {
             BleedLeft -= dt;
             reticle.enabled = false;
-            if (Kind == PlayerKind.Local) { TickLook(dt); Gravity(dt, MoveDir() * 1f); }   // crawl slowly toward safety
-            else if (Remote.HasPosition && Time.time >= ignoreRemotePosUntil) { Teleport(Remote.Position, false); Yaw = Remote.Yaw; Pitch = Remote.Pitch; }
+            if (Kind == PlayerKind.Local) { TickLook(dt); StepMove(Controls != null ? Controls.Move.ReadValue<Vector2>() : Vector2.zero, false, Yaw, FirstPerson, dt); }
+            else { Yaw = Remote.Yaw; Pitch = Remote.Pitch; }   // online: crawling comes with their commands
             if (BleedLeft <= 0)
             {
                 IsDowned = false; IsOut = true;
@@ -1101,7 +1188,7 @@ namespace TideWall
         public void Respawn(Vector3 at)
         {
             if (!IsOut && !IsDowned) return;
-            Teleport(at, true);
+            Place(at);
             Revive(1);
         }
 
@@ -1392,20 +1479,18 @@ namespace TideWall
             Hp = s.hp; netMaxHp = s.maxHp;
             IsDowned = s.downed; IsOut = s.isOut; Ready = s.ready;
             BleedLeft = s.bleedLeft; ReviveProgress = s.revive; Wet = s.wet;
+            if (s.ammo < netAmmo && Kind == PlayerKind.Proxy) FireHeat = 1;   // they fired (before netAmmo updates)
             netAmmo = s.ammo; netMag = Mathf.Max(1, s.mag); netReload = s.reload;
             netReloadGame = s.reloadGame; netPerfect = s.perfect; netCombo = s.combo; netComboT = s.comboLeft;
             netCarryCount = s.carryCount; netCarryWeight = s.carryWeight;
             if (s.swing > swingT) swingT = s.swing;
             if (Kind == PlayerKind.Proxy) AimPoint = s.aim;
-            if (s.ammo < netAmmo && Kind == PlayerKind.Proxy) FireHeat = 1;
             if (Gun == null || Gun.id != s.gun) GiveGun(s.gun);
             if (Melee == null || Melee.id != s.melee) GiveMelee(s.melee);
             Statuses.ClearAll();
             foreach (var (type, left) in s.statuses) Statuses.Add(type, left);
             Kills = s.kills;
             Level = s.level; Xp = s.xp; netXpNext = s.xpNext; StatPoints = s.statPoints; PendingMods = s.pendingMods; netSpeedBonus = s.speedBonus;
-            // Our own player: we move it, but a big disagreement (respawn, teleport) snaps to the host.
-            if (Kind == PlayerKind.LocalProxy && Vector3.Distance(s.pos, transform.position) > 4) Teleport(s.pos, false);
         }
 
         /// <summary>Client: the host's menu for this player (rows only; picking happens on the host).</summary>
@@ -1417,8 +1502,6 @@ namespace TideWall
             BuildYaw = buildYaw;
         }
 
-        public void NetTeleport(Vector3 at) => Teleport(at, false);
-        public void NetPush(Vector3 delta) => push += delta;
         public void NetHurt() { hurtFlash = .25f; }
 
         /// <summary>Client: other players glide to where the host says they are.</summary>
@@ -1451,35 +1534,19 @@ namespace TideWall
                 if (gm.State == GameState.GameOver && Pressed(Btn.Back) && LocalMenu == null) gm.QuitToMenu();
                 if (LocalMenu == null && OpenedMenu == null && Pressed(Btn.View)) SwitchView();
             }
-            if (LocalMenu != null) { UpdateMenu(udt); if (!IsOut && !IsDowned && gm.State == GameState.Playing) UpdateMovement(dt); UpdateVisual(dt); UpdateReticle(false); return; }
+            RenderOffset = Vector3.Lerp(RenderOffset, Vector3.zero, 1 - Mathf.Exp(-dt * 10));
+            bool playing = !IsOut && gm.State == GameState.Playing;
+            if (LocalMenu != null) { UpdateMenu(udt); PredictMove(dt, playing); UpdateVisual(dt); UpdateReticle(false); return; }
             visual.gameObject.SetActive(!IsOut);
-            if (IsOut || gm.State != GameState.Playing) { UpdateReticle(false); return; }
+            if (!playing) { PredictMove(dt, false); UpdateReticle(false); return; }
             TickLook(dt);
             ResolveAim(LocalAim());
-            if (IsDowned) { Gravity(dt, MoveDir() * 1f); UpdateReticle(false); }
-            else UpdateMovement(dt);
+            PredictMove(dt, true);
+            if (IsDowned) UpdateReticle(false);
+            else FaceAim(dt);
             UpdateGhost();
             Drip(dt);
             UpdateVisual(dt);
-        }
-
-        /// <summary>Client: this frame's input for the host (NetClient sends it).</summary>
-        public NetInput CollectInput()
-        {
-            var i = new NetInput { playerIndex = Index, yaw = Yaw, pitch = Pitch, firstPerson = PrefersFirstPerson, pos = transform.position };
-            if (statsWanted) { i.pressed |= 1 << (int)Btn.Stats; statsWanted = false; }
-            if (Controls != null && LocalMenu == null) i.nav = Controls.Nav();
-            if (LocalMenu != null || Rebinder.Busy || Controls == null) return i;   // our pause menu is open: stand still
-            i.move = Controls.Move.ReadValue<Vector2>();
-            foreach (Btn b in System.Enum.GetValues(typeof(Btn)))
-            {
-                if (b is Btn.Pause or Btn.View) continue;  // handled here (Stats goes to the host, which owns that menu)
-                if (Controls.Held(b)) i.held |= (ushort)(1 << (int)b);
-                if (Controls.Pressed(b)) i.pressed |= (ushort)(1 << (int)b);
-            }
-            var a = Cam != null ? LocalAim() : default;
-            i.aim = a;
-            return i;
         }
 
         void OnDestroy()

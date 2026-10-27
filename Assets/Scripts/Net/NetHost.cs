@@ -1,13 +1,15 @@
-// TideWall 3D — the host side of online play. Accepts TCP clients, gives each joining player a slot (a Remote
-// Player simulated here), applies their input every frame, and streams snapshots (20 Hz, deltas) and events
-// (every frame) back. Also broadcasts a LAN beacon so the Join screen can list the game.
+// TideWall 3D — the host side of online play. Accepts clients (directly or through Unity Relay), checks the
+// version and optional room password, gives each joining player a slot (a Remote Player simulated here), runs their
+// input commands, and streams snapshots (20 Hz, deltas against what each client confirmed) and events back. The
+// host also broadcasts a LAN beacon so the Join screen can list the game.
+//
+// Nothing a client sends is trusted: messages are size-checked by NetLink, malformed ones drop that client, players
+// can only be steered by the connection that owns them, positions come from the host's own simulation, and
+// unfinished handshakes time out.
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading;
+using Unity.Networking.Transport.Relay;
 using UnityEngine;
 
 namespace TideWall
@@ -17,123 +19,197 @@ namespace TideWall
     {
         class Client
         {
-            public NetConnection conn;
+            public int peer;
             public string nick = "Sailor";
-            public bool hello;
+            public bool hello, welcomed;
+            public float connectedAt;
+            public byte[] clientNonce, hostNonce;
+            public float closeAt = -1;                                  // goodbye sent: disconnect once it's had time to leave
             public readonly Dictionary<int, string> tokens = new();     // join token → device name (kept across "try again")
             public readonly Dictionary<int, int> players = new();       // join token → player index
-            public readonly Dictionary<int, byte[]> sent = new();       // entity id → last bytes sent
-            public BinaryWriter events = NewEvents();
-            public int eventCount;
+            // Snapshot deltas: what each recent snapshot contained, and the newest one this client confirmed
+            public uint snapSeq, acked;
+            public readonly Dictionary<int, byte[]>[] history = new Dictionary<int, byte[]>[64];
+            public BinaryWriter notices = NewEvents(), effects = NewEvents();
+            public int noticeCount, effectCount;
         }
 
         public int Port { get; private set; }
         public string Nick { get; private set; }
-        public int ClientCount { get { int n = 0; foreach (var c in clients) if (c.hello) n++; return n; } }
-        public string Addresses => $"Friends can join at {NetDiscovery.LocalAddresses()} (port {Port}), or find you under Join on the same network.";
+        /// <summary>Relay games: the code friends type to join.</summary>
+        public string JoinCode { get; private set; }
+        public bool HasPassword => passwordKey != null;
+        public int ClientCount { get { int n = 0; foreach (var c in clients) if (c.welcomed) n++; return n; } }
+        public string Addresses => JoinCode != null
+            ? $"Join code: {JoinCode}"
+            : $"Friends on your network can find you under Join, or connect to {NetDiscovery.LocalAddresses()} (port {Port}).";
 
-        TcpListener listener;
-        readonly ConcurrentQueue<TcpClient> accepted = new();
+        NetLink link;
         readonly List<Client> clients = new();
-        int nextId = 1;
+        byte[] passwordKey, passwordSalt;
         float snapT, beaconT;
-        BinaryWriter allEvents = NewEvents();
-        int allCount;
-        volatile bool stopping;
+        BinaryWriter allNotices = NewEvents(), allEffects = NewEvents();
+        int allNoticeCount, allEffectCount;
 
         static BinaryWriter NewEvents() => new(new MemoryStream(512));
 
-        public bool Listen(int port, string nick)
+        /// <summary>Host directly on a UDP port. An empty password lets anyone who can reach the port join.</summary>
+        public bool Listen(int port, string nick, string password, out string error)
         {
             Port = port; Nick = string.IsNullOrWhiteSpace(nick) ? "Host" : nick;
-            try
-            {
-                listener = new TcpListener(IPAddress.Any, port);
-                listener.Start();
-            }
-            catch (Exception e) { Debug.LogWarning($"TideWall: can't host on port {port}: {e.Message}"); return false; }
-            var l = listener;
-            new Thread(() =>
-            {
-                try { while (!stopping) accepted.Enqueue(l.AcceptTcpClient()); }
-                catch (Exception) { }
-            }) { IsBackground = true, Name = "TideWall accept" }.Start();
-            return true;
+            SetPassword(password);
+            link = NetLink.Listen((ushort)port, out error);
+            return link != null;
+        }
+
+        /// <summary>Host through Unity Relay (encrypted, no port forwarding): friends join with the code.</summary>
+        public bool ListenRelay(RelayServerData relay, string code, string nick, string password, out string error)
+        {
+            Nick = string.IsNullOrWhiteSpace(nick) ? "Host" : nick;
+            JoinCode = code;
+            SetPassword(password);
+            link = NetLink.ListenRelay(relay, out error);
+            return link != null;
+        }
+
+        void SetPassword(string password)
+        {
+            if (string.IsNullOrEmpty(password)) return;
+            passwordSalt = NetAuth.Nonce();
+            passwordKey = NetAuth.Key(password, passwordSalt);
         }
 
         public void Stop(string reason)
         {
-            stopping = true;
+            if (link == null) return;
             var bye = NetIO.Begin(Msg.Bye); bye.Write(reason ?? "");
-            foreach (var c in clients) c.conn.SendAndClose(bye.Bytes());
+            foreach (var c in clients) link.Send(c.peer, Channel.Reliable, bye.Bytes());
+            link.Update();   // let the goodbyes leave
+            link.Dispose();
+            link = null;
             clients.Clear();
-            try { listener?.Stop(); } catch (Exception) { }
         }
 
-        void OnDestroy() { if (!stopping) Stop("The host closed the game."); }
+        void OnDestroy() => Stop("The host closed the game.");
 
         // ------------------------------------------------------------------ receiving
         void Update()
         {
+            if (link == null) return;
             var gm = GameManager.I;
-            while (accepted.TryDequeue(out var tcp))
-                clients.Add(new Client { conn = new NetConnection(nextId++, tcp, NetConnection.MaxClientMessage) });
-            for (int i = clients.Count - 1; i >= 0; i--)
+            link.Update();
+            while (link.Inbox.Count > 0)
             {
-                var c = clients[i];
-                while (c.conn.Inbox.TryDequeue(out var data))
+                var e = link.Inbox.Dequeue();
+                switch (e.Kind)
                 {
-                    // A malformed message from one client drops that client, not the host's frame
-                    try { Handle(c, data, gm); }
-                    catch (System.Exception e) { Debug.LogWarning($"TideWall: dropping client {c.conn.Id} after a bad message ({e.GetType().Name})"); c.conn.Close(); break; }
+                    case NetLink.EventKind.Connected:
+                        if (clients.Count >= NetProtocol.MaxConnections) { link.Disconnect(e.Peer); break; }
+                        clients.Add(new Client { peer = e.Peer, connectedAt = Time.unscaledTime });
+                        break;
+                    case NetLink.EventKind.Disconnected:
+                    {
+                        var c = clients.Find(x => x.peer == e.Peer);
+                        if (c != null) Drop(c, gm);
+                        break;
+                    }
+                    case NetLink.EventKind.Data:
+                    {
+                        var c = clients.Find(x => x.peer == e.Peer);
+                        if (c == null || c.closeAt >= 0) break;
+                        // A malformed message from one client drops that client, not the host's frame
+                        try { Handle(c, e.Data, e.Channel, gm); }
+                        catch (Exception ex) { Debug.LogWarning($"TideWall: dropping client {c.peer} after a bad message ({ex.GetType().Name})"); link.Disconnect(c.peer); }
+                        break;
+                    }
                 }
-                if (c.conn.Closed) Drop(c, gm);
             }
+
+            float now = Time.unscaledTime;
+            foreach (var c in clients.ToArray())
+            {
+                if (c.closeAt >= 0) { if (now >= c.closeAt) link.Disconnect(c.peer); }
+                else if (!c.welcomed && now - c.connectedAt > NetProtocol.HelloTimeout) Kick(c, "Took too long to say hello.");
+            }
+
+            // Online players' movement: simulate their new commands now, before the players update
+            if (gm != null)
+                foreach (var p in gm.Players.All.ToArray())
+                    if (p.Kind == PlayerKind.Remote) p.RunRemoteCommands(Time.deltaTime);
         }
 
-        void Handle(Client c, byte[] data, GameManager gm)
+        void Handle(Client c, byte[] data, Channel channel, GameManager gm)
         {
             using var r = new BinaryReader(new MemoryStream(data));
             var type = (Msg)r.ReadByte();
+            // Input is the only message that travels unreliably; anything else on that channel is ignored
+            if ((channel == Channel.Unreliable) != (type == Msg.Input)) return;
             switch (type)
             {
                 case Msg.Hello:
                 {
+                    if (c.hello) return;
                     int version = r.ReadInt32();
-                    c.nick = Trim(r.ReadString());
-                    if (version != NetProtocol.Version) { Kick(c, "Your TideWall is a different version from the host's."); return; }
+                    c.nick = Trim(r.ReadText(64));
+                    c.clientNonce = r.ReadBlob(16);
                     c.hello = true;
-                    var w = NetIO.Begin(Msg.Welcome); w.Write(c.conn.Id); w.Write(Nick);
-                    c.conn.Send(w.Bytes());
+                    if (version != NetProtocol.Version) { Kick(c, "Your TideWall is a different version from the host's."); return; }
+                    if (passwordKey == null) { Welcome(c); return; }
+                    c.hostNonce = NetAuth.Nonce();
+                    var w = NetIO.Begin(Msg.Challenge); w.Write(passwordSalt); w.Write(c.hostNonce);
+                    link.Send(c.peer, Channel.Reliable, w.Bytes());
+                    break;
+                }
+                case Msg.Auth:
+                {
+                    if (!c.hello || c.welcomed || c.hostNonce == null) return;
+                    var proof = r.ReadBlob(32);
+                    var expected = NetAuth.Proof(passwordKey, c.hostNonce, c.clientNonce);
+                    c.hostNonce = null;   // one try per connection
+                    if (NetAuth.Same(proof, expected)) Welcome(c);
+                    else Kick(c, "Wrong password.");
                     break;
                 }
                 case Msg.Join:
                 {
-                    if (!c.hello || gm == null) return;
+                    if (!c.welcomed || gm == null) return;
                     int token = r.ReadInt32();
-                    string device = r.ReadString();
+                    string device = r.ReadText(64);
+                    if (!c.tokens.ContainsKey(token) && c.tokens.Count >= NetProtocol.MaxLocalPlayers) return;
                     c.tokens[token] = device;
                     JoinPlayer(c, token, gm);
                     break;
                 }
                 case Msg.Input:
                 {
-                    if (gm == null) return;
+                    if (!c.welcomed || gm == null) return;
+                    uint ack = r.ReadUInt32();
+                    if (ack <= c.snapSeq && ack > c.acked) c.acked = ack;
                     int n = r.ReadByte();
+                    if (n > NetProtocol.MaxLocalPlayers) throw new InvalidDataException("too many players");
                     for (int i = 0; i < n; i++)
                     {
-                        var input = r.ReadInput();
-                        var p = gm.Players.ByIndex(input.playerIndex);
-                        if (p == null || p.Kind != PlayerKind.Remote || p.Owner != c.conn.Id) continue;
-                        p.Remote.Receive(input.move, input.nav, input.held, input.pressed, input.yaw, input.pitch, input.firstPerson, input.aim, input.pos);
+                        int index = r.ReadByte();
+                        var aim = r.ReadAim();
+                        int count = r.ReadByte();
+                        if (count > NetProtocol.MaxCommandsPerPacket) throw new InvalidDataException("too many commands");
+                        var p = gm.Players.ByIndex(index);
+                        bool ours = p != null && p.Kind == PlayerKind.Remote && p.Owner == c.peer;
+                        if (ours) p.Remote.ReceiveAim(aim);
+                        for (int k = 0; k < count; k++)
+                        {
+                            var cmd = NetCommand.Read(r);
+                            if (ours) p.Remote.Receive(cmd);
+                        }
                     }
                     break;
                 }
                 case Msg.Leave:
                 {
+                    if (!c.welcomed) return;
                     int index = r.ReadByte();
                     var p = gm?.Players.ByIndex(index);
-                    if (p != null && p.Kind == PlayerKind.Remote && p.Owner == c.conn.Id)
+                    if (p != null && p.Kind == PlayerKind.Remote && p.Owner == c.peer)
                     {
                         foreach (var kv in new List<KeyValuePair<int, int>>(c.players)) if (kv.Value == index) { c.players.Remove(kv.Key); c.tokens.Remove(kv.Key); }
                         gm.Players.Remove(p);
@@ -143,32 +219,44 @@ namespace TideWall
             }
         }
 
+        void Welcome(Client c)
+        {
+            c.welcomed = true;
+            var w = NetIO.Begin(Msg.Welcome); w.Write(c.peer); w.Write(Nick);
+            link.Send(c.peer, Channel.Reliable, w.Bytes());
+        }
+
         /// <summary>A client's chosen name: no rich-text tags (it's shown in everyone's HUD and banners), 16 characters at most.</summary>
         static string Trim(string s)
         {
-            s = (s ?? "").Replace("<", "").Replace(">", "").Trim();
+            var sb = new System.Text.StringBuilder();
+            foreach (char ch in s ?? "") if (ch != '<' && ch != '>' && !char.IsControl(ch)) sb.Append(ch);
+            s = sb.ToString().Trim();
             return s.Length == 0 ? "Sailor" : s.Length > 16 ? s.Substring(0, 16) : s;
         }
 
         void JoinPlayer(Client c, int token, GameManager gm)
         {
-            Player p = gm.State == GameState.Playing ? gm.Players.JoinRemote(c.conn.Id, c.nick) : null;
+            if (c.players.ContainsKey(token)) return;
+            Player p = gm.State == GameState.Playing ? gm.Players.JoinRemote(c.peer, c.nick) : null;
             if (p == null)
             {
                 var w = NetIO.Begin(Msg.Refused); w.Write(token); w.Write(gm.State != GameState.Playing ? "The game isn't running." : "The game is full (4 players).");
-                c.conn.Send(w.Bytes());
+                link.Send(c.peer, Channel.Reliable, w.Bytes());
                 c.tokens.Remove(token);
                 return;
             }
             c.players[token] = p.Index;
             var a = NetIO.Begin(Msg.Assigned); a.Write(token); a.Write(p.Index);
-            c.conn.Send(a.Bytes());
+            link.Send(c.peer, Channel.Reliable, a.Bytes());
         }
 
+        /// <summary>Tell a client why, then disconnect it a moment later (so the reason arrives).</summary>
         void Kick(Client c, string reason)
         {
             var w = NetIO.Begin(Msg.Bye); w.Write(reason);
-            c.conn.SendAndClose(w.Bytes());
+            link.Send(c.peer, Channel.Reliable, w.Bytes());
+            c.closeAt = Time.unscaledTime + .5f;
         }
 
         void Drop(Client c, GameManager gm)
@@ -178,9 +266,9 @@ namespace TideWall
             foreach (var index in c.players.Values)
             {
                 var p = gm.Players.ByIndex(index);
-                if (p != null && p.Kind == PlayerKind.Remote && p.Owner == c.conn.Id) gm.Players.Remove(p);
+                if (p != null && p.Kind == PlayerKind.Remote && p.Owner == c.peer) gm.Players.Remove(p);
             }
-            if (c.hello) gm.Banner($"{c.nick.ToUpperInvariant()} LEFT", "They can rejoin from the Join menu.");
+            if (c.welcomed) gm.Banner($"{c.nick.ToUpperInvariant()} LEFT", "They can rejoin from the Join menu.");
         }
 
         /// <summary>After "try again" reloaded the scene: give every connected player a slot again.</summary>
@@ -188,40 +276,43 @@ namespace TideWall
         {
             foreach (var c in clients)
             {
-                c.sent.Clear();
+                Array.Clear(c.history, 0, c.history.Length);
+                c.acked = 0;
                 c.players.Clear();
                 foreach (var token in new List<int>(c.tokens.Keys)) JoinPlayer(c, token, gm);
             }
         }
 
         // ------------------------------------------------------------------ events
-        void AddGlobal(NetEvent e, Action<BinaryWriter> body)
+        static void Add(BinaryWriter w, NetEvent e, Action<BinaryWriter> body) { w.Write((byte)e); body(w); }
+
+        void Global(bool notice, NetEvent e, Action<BinaryWriter> body)
         {
             if (clients.Count == 0) return;
-            allEvents.Write((byte)e); body(allEvents); allCount++;
+            if (notice) { Add(allNotices, e, body); allNoticeCount++; }
+            else { Add(allEffects, e, body); allEffectCount++; }
         }
 
-        void AddFor(Player p, NetEvent e, Action<BinaryWriter> body)
+        void For(Player p, bool notice, NetEvent e, Action<BinaryWriter> body)
         {
-            var c = clients.Find(x => x.conn.Id == p.Owner);
+            var c = clients.Find(x => x.peer == p.Owner);
             if (c == null) return;
-            c.events.Write((byte)e); body(c.events); c.eventCount++;
+            if (notice) { Add(c.notices, e, body); c.noticeCount++; }
+            else { Add(c.effects, e, body); c.effectCount++; }
         }
 
-        public void Banner(string title, string sub) => AddGlobal(NetEvent.Banner, w => { w.Write(title ?? ""); w.Write(sub ?? ""); });
-        public void Sound(string name, float volume) => AddGlobal(NetEvent.Sound, w => { w.Write(name); w.Write(volume); });
-        public void Fx(FxEvent e) => AddGlobal(NetEvent.Fx, w => w.Write(e));
-        public void Toast(Player p, string msg, Color color) => AddFor(p, NetEvent.Toast, w => { w.Write((byte)p.Index); w.Write(msg ?? ""); w.Write(color); });
-        public void Shake(Player p, float amount) => AddFor(p, NetEvent.Shake, w => { w.Write((byte)p.Index); w.Write(amount); });
-        public void HitMarker(Player p, bool crit) => AddFor(p, NetEvent.Hit, w => { w.Write((byte)p.Index); w.Write(crit); });
-        public void Push(Player p, Vector3 delta) => AddFor(p, NetEvent.Push, w => { w.Write((byte)p.Index); w.Write(delta); });
-        public void Teleport(Player p, Vector3 at) => AddFor(p, NetEvent.Teleport, w => { w.Write((byte)p.Index); w.Write(at); });
+        public void Banner(string title, string sub) => Global(true, NetEvent.Banner, w => { w.Write(title ?? ""); w.Write(sub ?? ""); });
+        public void Sound(string name, float volume) => Global(false, NetEvent.Sound, w => { w.Write(name); w.Write(volume); });
+        public void Fx(FxEvent e) => Global(false, NetEvent.Fx, w => w.Write(e));
+        public void Toast(Player p, string msg, Color color) => For(p, true, NetEvent.Toast, w => { w.Write((byte)p.Index); w.Write(msg ?? ""); w.Write(color); });
+        public void Shake(Player p, float amount) => For(p, false, NetEvent.Shake, w => { w.Write((byte)p.Index); w.Write(amount); });
+        public void HitMarker(Player p, bool crit) => For(p, false, NetEvent.Hit, w => { w.Write((byte)p.Index); w.Write(crit); });
 
         public void SendGameOver(string reason)
         {
             FlushEvents();
             var w = NetIO.Begin(Msg.GameOver); w.Write(reason ?? "");
-            foreach (var c in clients) if (c.hello) c.conn.Send(w.Bytes());
+            foreach (var c in clients) if (c.welcomed) link.Send(c.peer, Channel.Reliable, w.Bytes());
         }
 
         /// <summary>The host is restarting the run: clients reload too and wait for their slots.</summary>
@@ -229,43 +320,55 @@ namespace TideWall
         {
             FlushEvents();
             var w = NetIO.Begin(Msg.Reload);
-            foreach (var c in clients) if (c.hello) c.conn.Send(w.Bytes());
+            foreach (var c in clients) if (c.welcomed) link.Send(c.peer, Channel.Reliable, w.Bytes());
         }
 
         void FlushEvents()
         {
-            var global = ((MemoryStream)allEvents.BaseStream).ToArray();
+            if (link == null) return;
+            var notices = ((MemoryStream)allNotices.BaseStream).ToArray();
+            var effects = ((MemoryStream)allEffects.BaseStream).ToArray();
             foreach (var c in clients)
             {
-                if (!c.hello || allCount + c.eventCount == 0) { ResetClientEvents(c); continue; }
-                var w = NetIO.Begin(Msg.Events);
-                w.Write((ushort)(allCount + c.eventCount));
-                w.Write(global);
-                w.Write(((MemoryStream)c.events.BaseStream).ToArray());
-                c.conn.Send(w.Bytes());
-                ResetClientEvents(c);
+                if (c.welcomed)
+                {
+                    SendBatch(c, Msg.Notices, Channel.Reliable, allNoticeCount + c.noticeCount, notices, c.notices);
+                    SendBatch(c, Msg.Effects, Channel.Unreliable, allEffectCount + c.effectCount, effects, c.effects);
+                }
+                c.notices = NewEvents(); c.effects = NewEvents(); c.noticeCount = c.effectCount = 0;
             }
-            allEvents = NewEvents(); allCount = 0;
+            allNotices = NewEvents(); allEffects = NewEvents(); allNoticeCount = allEffectCount = 0;
         }
 
-        static void ResetClientEvents(Client c) { c.events = NewEvents(); c.eventCount = 0; }
+        void SendBatch(Client c, Msg type, Channel channel, int count, byte[] shared, BinaryWriter own)
+        {
+            if (count == 0) return;
+            var w = NetIO.Begin(type);
+            w.Write((ushort)count);
+            w.Write(shared);
+            w.Write(((MemoryStream)own.BaseStream).ToArray());
+            link.Send(c.peer, channel, w.Bytes());
+        }
 
         // ------------------------------------------------------------------ snapshots
         void LateUpdate()
         {
             var gm = GameManager.I;
-            if (gm == null) return;
+            if (gm == null || link == null) return;
             FlushEvents();
             beaconT -= Time.unscaledDeltaTime;
             if (beaconT <= 0)
             {
                 beaconT = 1;
-                NetDiscovery.Beacon(Nick, Port, $"Day {gm.Phases.Day} · {gm.Players.Count}/{PlayerManager.MaxPlayers} players");
+                NetDiscovery.Beacon(Nick, Port, JoinCode ?? "", $"Day {gm.Phases.Day} · {gm.Players.Count}/{PlayerManager.MaxPlayers} players{(HasPassword ? " · password" : "")}");
             }
             snapT -= Time.unscaledDeltaTime;
-            if (snapT > 0 || clients.Count == 0) return;
-            snapT = NetProtocol.SnapshotInterval;
-            SendSnapshots(gm);
+            if (snapT <= 0 && clients.Count > 0)
+            {
+                snapT = NetProtocol.SnapshotInterval;
+                SendSnapshots(gm);
+            }
+            link.Update();   // send what this frame produced right away
         }
 
         void SendSnapshots(GameManager gm)
@@ -284,7 +387,7 @@ namespace TideWall
             shared.Write((byte)(draft?.Count ?? 0));
             if (draft != null)
             {
-                foreach (var c in draft) shared.Write(c.id);
+                foreach (var card in draft) shared.Write(card.id);
                 shared.Write(gm.Cards.DraftLeft);
                 shared.Write(gm.Cards.RerollOffered);
                 shared.Write((byte)gm.Cards.Votes.Count);
@@ -308,25 +411,35 @@ namespace TideWall
 
             foreach (var c in clients)
             {
-                if (!c.hello) continue;
+                if (!c.welcomed) continue;
+                uint seq = ++c.snapSeq;
+                // Delta against the newest snapshot this client confirmed; a full one if that's too old (and every 2 s anyway)
+                Dictionary<int, byte[]> baseline = null;
+                if (c.acked > 0 && seq - c.acked < c.history.Length && seq % 40 != 0) baseline = c.history[c.acked % c.history.Length];
+                c.history[seq % c.history.Length] = current;
+
                 var w = NetIO.Begin(Msg.Snapshot);
+                w.Write(seq);
                 w.Write(sharedBytes);
-                // This client's own players: what Interact does and any open menu
-                var mine = gm.Players.All.FindAll(p => p.Kind == PlayerKind.Remote && p.Owner == c.conn.Id);
+                // This client's own players: what Interact does, any open menu, and their movement as simulated here
+                var mine = gm.Players.All.FindAll(p => p.Kind == PlayerKind.Remote && p.Owner == c.peer);
                 w.Write((byte)mine.Count);
-                foreach (var p in mine) { w.Write((byte)p.Index); w.Write(p.PromptText()); w.WriteMenu(p.OpenedMenu); w.Write(p.Building?.id ?? ""); w.Write(p.BuildYaw); }
-                // Things that changed or appeared, then things that are gone
-                var changed = new List<byte[]>();
+                foreach (var p in mine)
+                {
+                    w.Write((byte)p.Index); w.Write(p.PromptText()); w.WriteMenu(p.OpenedMenu); w.Write(p.Building?.id ?? ""); w.Write(p.BuildYaw);
+                    p.WriteMoveState(w);
+                }
+                // Things that changed since the baseline…
+                int changed = 0;
+                var body = new BinaryWriter(new MemoryStream(1024));
                 foreach (var kv in current)
-                    if (!c.sent.TryGetValue(kv.Key, out var old) || !NetIO.Same(old, kv.Value)) { changed.Add(kv.Value); c.sent[kv.Key] = kv.Value; }
-                var removed = new List<int>();
-                foreach (var id in c.sent.Keys) if (!current.ContainsKey(id)) removed.Add(id);
-                foreach (var id in removed) c.sent.Remove(id);
-                w.Write(changed.Count);
-                foreach (var b in changed) w.Write(b);
-                w.Write(removed.Count);
-                foreach (var id in removed) w.Write(id);
-                c.conn.Send(w.Bytes());
+                    if (baseline == null || !baseline.TryGetValue(kv.Key, out var old) || !NetIO.Same(old, kv.Value)) { body.Write(kv.Value); changed++; }
+                w.Write(changed);
+                w.Write(((MemoryStream)body.BaseStream).ToArray());
+                // …and everything that exists (the client removes whatever isn't listed)
+                w.Write(current.Count);
+                foreach (var id in current.Keys) w.Write(id);
+                link.Send(c.peer, Channel.Unreliable, w.Bytes());
             }
         }
     }

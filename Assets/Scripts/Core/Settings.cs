@@ -57,6 +57,10 @@ namespace TideWall
     {
         // Audio (0..1)
         public float master = .8f, effects = 1f, interfaceVolume = .8f, ambience = .5f;
+        public bool startMuted = true;  // the game opens silent; unmute in Settings (this session) or turn this off
+        /// <summary>All sound off for this session. Starts as startMuted; not saved.</summary>
+        public static bool Muted { get => muted ??= Current.startMuted; set => muted = value; }
+        static bool? muted;
         // Game
         public bool startFirstPerson = true;
         public float fov = 75, mouseSensitivity = 1, stickSensitivity = 1, screenShake = 1;
@@ -113,7 +117,7 @@ namespace TideWall
             s.fov = Mathf.Clamp(s.fov, 55, 110);
             s.mouseSensitivity = Mathf.Clamp(s.mouseSensitivity, .1f, 4); s.stickSensitivity = Mathf.Clamp(s.stickSensitivity, .1f, 4);
             s.screenShake = Mathf.Clamp(s.screenShake, 0, 2);
-            AudioListener.volume = s.master;
+            AudioListener.volume = Muted ? 0 : s.master;
             s.renderScale = Mathf.Clamp(s.renderScale, .5f, 2); s.particleDensity = Mathf.Clamp(s.particleDensity, .25f, 1);
             s.drawDistance = Mathf.Clamp(s.drawDistance, 80, 500);
             s.antiAliasing = Mathf.Clamp(s.antiAliasing, 0, GraphicsApply.AntiAliasingNames.Length - 1); s.shadows = Mathf.Clamp(s.shadows, 0, 3);

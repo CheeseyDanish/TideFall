@@ -186,7 +186,8 @@ namespace TideWall
         {
             yield return new WaitForSecondsRealtime(1f);
             var gm = GameManager.I;
-            if (Net.StartHost(NetProtocol.DefaultPort, "Host Bot") == null) { Debug.LogError("TIDEWALL_HOST_FAILED"); Application.Quit(1); yield break; }
+            // With a room password, so the check also covers the challenge-response handshake
+            if (Net.StartHost(NetProtocol.DefaultPort, "Host Bot", DemoPassword, out var error) == null) { Debug.LogError($"TIDEWALL_HOST_FAILED {error}"); Application.Quit(1); yield break; }
             gm.StartRun(null, 0);
             pad1 = InputSystem.AddDevice<Gamepad>();
             var p = gm.Players.Join(new InputDevice[] { pad1 });
@@ -212,12 +213,13 @@ namespace TideWall
             yield return new WaitForSecondsRealtime(1.5f);
             var gm = GameManager.I;
             pad1 = InputSystem.AddDevice<Gamepad>();
-            Net.StartClient(join, NetProtocol.DefaultPort, "Client Bot", new InputDevice[] { pad1 });
-            float give = Time.time + 20;
-            while (Time.time < give && (gm == null || gm.Players.Count < 2 || !gm.Players.All.Exists(x => x.Kind == PlayerKind.LocalProxy)))
+            Net.StartClient(join, NetProtocol.DefaultPort, "Client Bot", DemoPassword, new InputDevice[] { pad1 });
+            float give = Time.realtimeSinceStartup + 20, logT = 0;
+            while (Time.realtimeSinceStartup < give && (gm == null || gm.Players.Count < 2 || !gm.Players.All.Exists(x => x.Kind == PlayerKind.LocalProxy)))
             {
                 yield return new WaitForSecondsRealtime(.25f);
                 gm = GameManager.I;
+                if ((logT += .25f) >= 2) { logT = 0; Debug.Log($"TIDEWALL_CLIENT_WAIT status={(Net.IsClient ? Net.Client.Status.ToString() : "none")} players={gm?.Players.Count} state={gm?.State} timeScale={Time.timeScale}"); }
             }
             if (gm == null || !Net.IsClient || gm.Players.Count < 2) { Debug.LogError($"TIDEWALL_CLIENT_FAILED {(Net.IsClient ? Net.Client.Error : "not connected")}"); Application.Quit(1); yield break; }
             yield return new WaitForSecondsRealtime(5f);
@@ -233,11 +235,9 @@ namespace TideWall
             Application.Quit();
         }
 
-        static void Teleport(Player p, Vector3 at)
-        {
-            var cc = p.GetComponent<CharacterController>();
-            cc.enabled = false; p.transform.position = at; cc.enabled = true;
-        }
+        const string DemoPassword = "tide";
+
+        static void Teleport(Player p, Vector3 at) => p.Place(at);
 
         IEnumerator Shot(string name)
         {

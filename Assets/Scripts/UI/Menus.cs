@@ -271,6 +271,8 @@ namespace TideWall
             m.Rebuild = () => Settings(back, p);
 
             m.Header("AUDIO");
+            Toggle(m, "Sound", () => !TideWall.Settings.Muted, v => TideWall.Settings.Muted = !v, "All sound on or off for this session.");
+            Toggle(m, "Start muted", () => s.startMuted, v => s.startMuted = v, "Open the game with the sound off.");
             Slider(m, "Master volume", () => s.master, v => s.master = v, "Everything.");
             Slider(m, "Effects", () => s.effects, v => s.effects = v, "Guns, hits, creatures, explosions.");
             Slider(m, "Interface", () => s.interfaceVolume, v => s.interfaceVolume = v, "Menu clicks, bells and sand dollars.");

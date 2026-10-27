@@ -1,4 +1,5 @@
-// TideWall 3D — tiny helpers for building UGUI from code (no prefabs or UI assets needed).
+// TideWall 3D — small helpers for building the HUD and menus (UGUI + TextMeshPro) and labels in the world.
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,9 +7,43 @@ namespace TideWall
 {
     public static class Ui
     {
-        static Font font;
         static Sprite white;
-        public static Font Font => font ??= Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        static Material shadowed;
+
+        /// <summary>TextMeshPro's default font (LiberationSans SDF): sharp at any size and resolution.</summary>
+        public static TMP_FontAsset Font => TMP_Settings.defaultFontAsset;
+
+        /// <summary>The font with a soft drop shadow underneath, so HUD text reads over sand, sea and sky alike.</summary>
+        static Material Shadowed
+        {
+            get
+            {
+                if (shadowed != null) return shadowed;
+                shadowed = new Material(Font.material) { name = "Font Shadowed" };
+                shadowed.EnableKeyword("UNDERLAY_ON");
+                shadowed.SetColor("_UnderlayColor", new Color(0, 0, 0, .75f));
+                shadowed.SetFloat("_UnderlayOffsetX", .6f);
+                shadowed.SetFloat("_UnderlayOffsetY", -.6f);
+                shadowed.SetFloat("_UnderlaySoftness", .25f);
+                return shadowed;
+            }
+        }
+
+        public static TextAlignmentOptions Align(TextAnchor a) => a switch
+        {
+            TextAnchor.UpperLeft => TextAlignmentOptions.TopLeft,
+            TextAnchor.UpperCenter => TextAlignmentOptions.Top,
+            TextAnchor.UpperRight => TextAlignmentOptions.TopRight,
+            TextAnchor.MiddleLeft => TextAlignmentOptions.Left,
+            TextAnchor.MiddleRight => TextAlignmentOptions.Right,
+            TextAnchor.LowerLeft => TextAlignmentOptions.BottomLeft,
+            TextAnchor.LowerCenter => TextAlignmentOptions.Bottom,
+            TextAnchor.LowerRight => TextAlignmentOptions.BottomRight,
+            _ => TextAlignmentOptions.Center,
+        };
+
+        /// <summary>Set text only when it changed (TextMeshPro rebuilds its mesh on every assignment).</summary>
+        public static void Set(TMP_Text t, string value) { if (t.text != value) t.text = value; }
 
         /// <summary>A plain white sprite, so Images can be tinted to any colour.</summary>
         public static Sprite White
@@ -49,14 +84,32 @@ namespace TideWall
             return rt;
         }
 
-        public static Text Text(Transform parent, string name, Vector2 anchor, Vector2 pos, Vector2 size, int fontSize, TextAnchor align, Color color, bool shadow = true)
+        public static TextMeshProUGUI Text(Transform parent, string name, Vector2 anchor, Vector2 pos, Vector2 size, int fontSize, TextAnchor align, Color color, bool shadow = true)
         {
             var rt = Rect(parent, name, anchor, anchor, anchor, pos, size);
-            var t = rt.gameObject.AddComponent<Text>();
-            t.font = Font; t.fontSize = fontSize; t.alignment = align; t.color = color;
-            t.horizontalOverflow = HorizontalWrapMode.Wrap; t.verticalOverflow = VerticalWrapMode.Overflow;
-            t.supportRichText = true; t.raycastTarget = false;
-            if (shadow) { var sh = rt.gameObject.AddComponent<Shadow>(); sh.effectColor = new Color(0, 0, 0, .8f); sh.effectDistance = new Vector2(1.5f, -1.5f); }
+            var t = rt.gameObject.AddComponent<TextMeshProUGUI>();
+            t.font = Font;
+            if (shadow) t.fontSharedMaterial = Shadowed;
+            t.fontSize = fontSize; t.alignment = Align(align); t.color = color;
+            t.textWrappingMode = TextWrappingModes.Normal; t.overflowMode = TextOverflowModes.Overflow;
+            t.richText = true; t.raycastTarget = false;
+            return t;
+        }
+
+        /// <summary>Text standing in the world (signs, name tags, speech, damage numbers). TextMeshPro is depth-tested,
+        /// so walls hide it; pair it with a Billboard so it faces each camera. `height` is the letters' size in metres.</summary>
+        public static TextMeshPro Label(Transform parent, string name, Vector3 localPos, float height, Color color, TextAlignmentOptions align = TextAlignmentOptions.Center)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            var t = go.AddComponent<TextMeshPro>();
+            t.font = Font;
+            t.fontSize = height * 10;   // a 3D TextMeshPro at size 10 stands about a metre tall
+            t.color = color; t.alignment = align;
+            t.textWrappingMode = TextWrappingModes.NoWrap; t.overflowMode = TextOverflowModes.Overflow;
+            t.rectTransform.sizeDelta = new Vector2(10, 2);
+            t.rectTransform.pivot = align == TextAlignmentOptions.Bottom ? new Vector2(.5f, 0) : new Vector2(.5f, .5f);
             return t;
         }
 
@@ -121,24 +174,6 @@ namespace TideWall
                     }
                 tex.SetPixels(px); tex.Apply();
                 return sandDollar = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(.5f, .5f));
-            }
-        }
-
-        /// <summary>A soft radial texture (used for tunnel vision and ink splats).</summary>
-        static Material worldText;
-
-        /// <summary>The font material for text in the world: hidden behind walls (the built-in one draws over everything).</summary>
-        public static Material WorldText
-        {
-            get
-            {
-                if (worldText != null) return worldText;
-                var shader = Resources.Load<Shader>("Shaders/WorldText");
-                if (shader == null) return Font.material;
-                worldText = new Material(shader) { name = "WorldText", mainTexture = Font.material.mainTexture };
-                // The font's glyph atlas is rebuilt as new characters appear: keep pointing at the current one
-                UnityEngine.Font.textureRebuilt += f => { if (f == Font && worldText != null) worldText.mainTexture = f.material.mainTexture; };
-                return worldText;
             }
         }
 

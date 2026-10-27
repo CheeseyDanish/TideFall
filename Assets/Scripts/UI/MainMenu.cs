@@ -4,6 +4,7 @@
 // Works with mouse (hover + click, wheel), keyboard and any controller. Whoever picks a game becomes player 1.
 using System;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering.Universal;
@@ -21,8 +22,8 @@ namespace TideWall
         Camera cam;
         Canvas canvas;
         GameObject scenery;
-        Text title, detail, help, notice;
-        readonly List<(Text text, Image bg)> rows = new();
+        TMP_Text title, detail, help, notice;
+        readonly List<(TMP_Text text, Image bg)> rows = new();
         RectTransform listRect;
         Menu menu;
         int scroll;
@@ -33,6 +34,10 @@ namespace TideWall
         Vector2 lastMouse;
         // Typing (address, name)
         Action<string> typingDone;
+        bool typingSecret;      // show dots instead of what's typed (passwords)
+        // Online: kept in memory only, never saved to disk
+        string roomPassword = "", joinCode = "";
+        bool hostWithCode = true;
         string typing;
         bool shown;
         float noticeT;
@@ -115,7 +120,7 @@ namespace TideWall
                 var img = row.gameObject.AddComponent<Image>(); img.sprite = Ui.White; img.color = Color.clear; img.raycastTarget = false;
                 var t = Ui.Text(row, "Text", new Vector2(0, .5f), new Vector2(12, 0), new Vector2(400, 26), 17, TextAnchor.MiddleLeft, Color.white);
                 t.rectTransform.pivot = new Vector2(0, .5f);
-                t.horizontalOverflow = HorizontalWrapMode.Overflow;
+                t.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
                 rows.Add((t, img));
             }
             detail = Ui.Text(panel, "Detail", new Vector2(.5f, 0), new Vector2(0, 74), new Vector2(420, 70), 14, TextAnchor.UpperLeft, new Color(.85f, .88f, .95f));
@@ -220,13 +225,20 @@ namespace TideWall
         {
             var s = Settings.Current;
             var m = new Menu { Title = "HOST ONLINE GAME", Parent = Root, Rebuild = HostMenu };
-            m.Add("Host a new run", ">", "Saves to a slot like a normal run.", open: () => Slots("HOST A NEW RUN", true, (save, slot) => StartHost(null, slot)));
+            Action<SaveData, int> go = (save, slot) => { if (hostWithCode) StartRelayHost(save, slot); else StartHost(save, slot); };
+            m.Add("Host a new run", ">", "Saves to a slot like a normal run.", open: () => Slots("HOST A NEW RUN", true, go));
             if (SaveSystem.Latest() != null)
-                m.Add("Host a saved run", ">", "Continue a run with friends.", open: () => Slots("HOST A SAVED RUN", false, (save, slot) => StartHost(save, slot)));
-            m.Add("Your name", s.playerName, "Shown above your sailor. Pick to type.", pick: () => Type(s.playerName, v => { s.playerName = Clean(v, 16, "Sailor"); Settings.Changed(); Open(HostMenu()); }));
-            var port = m.Add("Port", $"< {s.port} >", "The TCP port friends connect to (default 7777). Internet play needs it forwarded on your router.");
+                m.Add("Host a saved run", ">", "Continue a run with friends.", open: () => Slots("HOST A SAVED RUN", false, go));
+            var mode = m.Add("Friends join by", hostWithCode ? "< Join code >" : "< LAN / address >",
+                hostWithCode ? "Join code: friends anywhere type a short code. Encrypted through Unity Relay, no router setup."
+                             : "LAN / address: friends on your network find you under Join. Over the internet this needs the UDP port forwarded and isn't encrypted.");
+            mode.OnAdjust = d => { hostWithCode = !hostWithCode; Open(HostMenu()); };
+            var port = m.Add("Port", $"< {s.port} >", "The UDP port for LAN / address games (default 7777).");
             port.OnAdjust = d => { s.port = Mathf.Clamp(s.port + d, 1024, 65535); Settings.Changed(); port.Right = $"< {s.port} >"; };
             m.Header("");
+            m.Add("Room password", roomPassword.Length > 0 ? "set" : "none", "Optional. Friends type it when they join. It's never sent over the network. Pick to type (empty = no password).",
+                  pick: () => Type("", v => { roomPassword = (v ?? "").Trim(); Open(HostMenu()); }, secret: true));
+            m.Add("Your name", s.playerName, "Shown above your sailor. Pick to type.", pick: () => Type(s.playerName, v => { s.playerName = Clean(v, 16, "Sailor"); Settings.Changed(); Open(HostMenu()); }));
             m.Header($"<size=13>Your addresses: {NetDiscovery.LocalAddresses()}</size>");
             m.Add("Back", null, null, open: Root);
             m.FirstSelectable();
@@ -243,12 +255,18 @@ namespace TideWall
             foreach (var g in NetDiscovery.Games)
             {
                 var game = g;
-                m.Add($"{game.nick}'s game", game.address, $"{game.info}. {game.address}:{game.port}", pick: () => StartClient(game.address, game.port));
+                if (!string.IsNullOrEmpty(game.code)) m.Add($"{game.nick}'s game", game.code, $"{game.info}. Join code {game.code}.", pick: () => StartRelayClient(game.code));
+                else m.Add($"{game.nick}'s game", game.address, $"{game.info}. {game.address}:{game.port}", pick: () => StartClient(game.address, game.port));
             }
+            m.Header("BY JOIN CODE");
+            m.Add("Join code", joinCode.Length > 0 ? joinCode : "type it", "The code on your friend's screen (their pause menu shows it). Pick to type.",
+                  pick: () => Type(joinCode, v => { joinCode = NetRelay.Clean(v); Open(JoinMenu()); }));
+            m.Add("Join with code", null, "Connect through Unity Relay (encrypted).", pick: () => { if (joinCode.Length == 0) Say("Type the join code first."); else StartRelayClient(joinCode); });
             m.Header("BY ADDRESS");
             m.Add("Address", s.lastAddress, "Your friend's IP address (their pause menu shows it). Pick to type.",
                   pick: () => Type(s.lastAddress, v => { s.lastAddress = Clean(v, 64, "127.0.0.1"); Settings.Changed(); Open(JoinMenu()); }));
             m.Add("Connect", $"port {s.port}", $"Connect to {s.lastAddress}:{s.port}.", pick: () => StartClient(s.lastAddress, s.port));
+            m.Add("Room password", roomPassword.Length > 0 ? "set" : "none", "If the host set one. Pick to type.", pick: () => Type("", v => { roomPassword = (v ?? "").Trim(); Open(JoinMenu()); }, secret: true));
             m.Add("Your name", s.playerName, "Shown above your sailor. Pick to type.", pick: () => Type(s.playerName, v => { s.playerName = Clean(v, 16, "Sailor"); Settings.Changed(); Open(JoinMenu()); }));
             m.Add("Back", null, null, open: m.Parent);
             m.FirstSelectable();
@@ -281,20 +299,38 @@ namespace TideWall
         void StartHost(SaveData save, int slot)
         {
             var s = Settings.Current;
-            if (Net.StartHost(s.port, s.playerName) == null)
-            {
-                Say($"Couldn't host on port {s.port}: is another game using it?");
-                return;
-            }
+            if (Net.StartHost(s.port, s.playerName, roomPassword, out var error) == null) { Say(error); return; }
             StartOffline(save, slot);
+        }
+
+        void StartRelayHost(SaveData save, int slot)
+        {
+            var s = Settings.Current;
+            Waiting("SETTING UP", "Getting a join code from Unity Relay…", HostMenu);
+            Net.StartRelayHost(s.playerName, roomPassword, (host, error) =>
+            {
+                if (!shown || gm.State != GameState.MainMenu) { if (host != null) Net.Shutdown(null); return; }
+                if (host == null) { Say(error); Open(HostMenu()); return; }
+                StartOffline(save, slot);
+            });
         }
 
         void StartClient(string address, int port)
         {
-            var s = Settings.Current;
-            var client = Net.StartClient(address, port, s.playerName, PlayerDevices());
-            var m = new Menu { Title = "CONNECTING", Parent = () => { Net.Shutdown(null); return JoinMenu(); } };
-            m.Add($"Connecting to {address}:{port}…", null, "This can take a few seconds.");
+            Net.StartClient(address, port, Settings.Current.playerName, roomPassword, PlayerDevices());
+            Waiting("CONNECTING", $"Connecting to {address}:{port}…", JoinMenu);
+        }
+
+        void StartRelayClient(string code)
+        {
+            Net.StartRelayClient(code, Settings.Current.playerName, roomPassword, PlayerDevices());
+            Waiting("CONNECTING", $"Joining game {code}…", JoinMenu);
+        }
+
+        void Waiting(string title, string what, Func<Menu> back)
+        {
+            var m = new Menu { Title = title, Parent = () => { Net.Shutdown(null); return back(); } };
+            m.Add(what, null, "This can take a few seconds.");
             m.Add("Cancel", null, null, open: m.Parent);
             m.Selected = 1;
             Open(m);
@@ -417,7 +453,7 @@ namespace TideWall
                 bool sel = index == menu.Selected;
                 bool blocked = it.Blocked?.Invoke() != null;
                 string value = it.Right == null ? "" : $"<color=#cbd5e1>{it.Right}</color>";
-                if (typingDone != null && sel) value = $"<color=#fde68a>{typing}_</color>";
+                if (typingDone != null && sel) value = $"<color=#fde68a>{(typingSecret ? new string('•', typing.Length) : typing)}_</color>";
                 t.text = $"<color={(blocked ? "#8a8f99" : sel ? "#fff3c4" : "#ffffff")}>{(sel ? "► " : "   ")}{it.Label}</color>   {value}";
                 if (sel) bg.color = new Color(.95f, .75f, .25f, .18f);
             }
@@ -428,11 +464,12 @@ namespace TideWall
         }
 
         // ------------------------------------------------------------------ typing
-        void Type(string start, Action<string> done)
+        void Type(string start, Action<string> done, bool secret = false)
         {
             if (Keyboard.current == null) { Say("Typing needs a keyboard."); return; }
             typing = start ?? "";
             typingDone = done;
+            typingSecret = secret;
         }
 
         void OnText(char ch)

@@ -2,6 +2,7 @@
 // you're running low, the Perfect-reload tag, and the kill combo counter (to the right). Follows the reticle: the screen
 // centre in first person, the aim point from above. Draws from Player state only, so it works the same online.
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,10 +16,10 @@ namespace TideWall
         readonly RectTransform widget;
         readonly Image barBg, zone1, zone2, fill, danger, marker, timer, beatDot, beatRing;
         readonly List<Image> pips = new();
-        readonly Text caption, word, ammo;
+        readonly TMP_Text caption, word, ammo;
         // Combo
         readonly RectTransform comboRoot;
-        readonly Text comboCount, comboLabel;
+        readonly TMP_Text comboCount, comboLabel;
         readonly Image comboBar;
         int lastCombo;
         float comboPop;
