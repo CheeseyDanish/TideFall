@@ -70,7 +70,7 @@ namespace TideWall
                     if (g.splash > 0) Explode(h.point, g.splash, g.damage * damageMult * .5f, g.element, p, false);
                     break;
                 }
-                Fx.Tracer(origin, end, g.element == Element.Fire ? new Color(1, .55f, .2f) : new Color(1, .95f, .7f), g.pierce > 0 ? .08f : .045f);
+                Fx.Tracer(origin, end, g.element == Element.Fire ? new Color(1, .55f, .2f) : g.element == Element.Shock ? new Color(.45f, .9f, 1f) : new Color(1, .95f, .7f), g.pierce > 0 ? .08f : .045f);
             }
         }
 

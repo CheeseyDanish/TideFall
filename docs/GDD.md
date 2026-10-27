@@ -200,19 +200,27 @@ Behind a breach, creatures go for the powerplant and anyone in town. Bosses arri
 ### Gunplay
 Every shot kicks: the view snaps up and settles (heavier guns kick harder), the gun jolts back, a muzzle flash and an ejected shell, the crosshair spreads and recovers. Hits flash the creature, make it flinch, and pop a **damage number** (yellow with "!" on weak points); kills flash a red X with a thunk.
 
-### Gun attachments (shop → Attachments, for the gun in your hands)
-Four slots per gun (sight, barrel, magazine, grip), one attachment each; buying a second for a taken slot replaces the first. They stay on that gun (switching guns doesn't move them), are saved with the run, and show on the gun model (and in first person).
+### Gun attachments and ammo (shop → Attachments, for the gun in your hands)
+Each gun has **two slots: one attachment and one ammo modifier**, so incendiary rounds and a sharkskin grip go together, but a scope and a grip don't. Buying a second for a taken slot replaces the first (the shop says what it replaces). They stay on that gun (switching guns doesn't move them), are saved with the run, and the attachment shows on the gun model (and in first person). Tracers take the ammo's colour (orange fire, blue shock).
 
-| Attachment | Slot | Price | Effect |
+| Attachment (one per gun) | Mount | Price | Effect |
 |---|---|---|---|
-| Brass Sight | Sight | 120 | 45% less spread |
-| Spyglass Scope | Sight | 260 | +60% range, +10% damage, 60% less spread, 10% slower fire |
-| Barnacle Brake | Barrel | 140 | half the kick, 15% less spread |
-| Long Barrel | Barrel | 220 | +20% damage, +30% range, +15% kick |
-| Drum Magazine | Magazine | 180 | +60% magazine (comes loaded), 15% slower reload |
-| Quick-Draw Clip | Magazine | 160 | reloads 35% faster |
-| Sharkskin Grip | Grip | 150 | +15% fire rate, 15% less kick |
-| Driftwood Stock | Grip | 130 | 40% less kick, 20% less spread |
+| Brass Sight | sight | 120 | 45% less spread |
+| Spyglass Scope | sight | 260 | +60% range, +10% damage, 60% less spread, 10% slower fire |
+| Barnacle Brake | barrel | 140 | half the kick, 15% less spread |
+| Long Barrel | barrel | 220 | +20% damage, +30% range, +15% kick |
+| Drum Magazine | magazine | 180 | +60% magazine (comes loaded), 15% slower reload |
+| Quick-Draw Clip | magazine | 160 | reloads 35% faster |
+| Sharkskin Grip | grip | 150 | +15% fire rate, 15% less kick |
+| Driftwood Stock | grip | 130 | 40% less kick, 20% less spread |
+
+| Ammo (one per gun) | Price | Effect |
+|---|---|---|
+| Incendiary Rounds | 200 | fire: sets dry creatures alight (wet ones steam); 5% less damage |
+| Eel-Shock Rounds | 220 | shock: hits wet creatures hard |
+| Harpoon-Tip Rounds | 180 | every shot pierces one more creature, +5% damage |
+| Blasting Caps | 280 | 1.6 m blast on impact; 15% less damage, 10% slower fire |
+| Hollow Points | 160 | +50% damage to limbs |
 
 ### Guns (each player's own; bought with team sand dollars)
 | Gun | Price | Notes | Reload minigame |
@@ -265,11 +273,11 @@ Repair Wall (every section +40%, breaches rebuilt) · Reinforce Wall (+20% secti
 - **Menus never stop you walking**: the d-pad / arrow keys (and mouse wheel) drive menus while the left stick / WASD still walks and you can still look around. A stall's menu closes if you walk away from it.
 
 ## The Lucky Barnacle (casino)
-A booth in town (striped awning, a roulette wheel on top) run by a crab in a top hat. On Part II's seabed the crab's card crate sits opposite the supply cache. Every game is played with the **team's sand dollars** (no real money), the bet going from 5 to 1,000 SD. In Part I the tables only deal **between fights**; Part II never stops, so neither does the crab. Every game has a **How to play** page on the table. **Left/right changes the bet from any row**, and **Reload repeats the last wager in one press** (spin again, deal again, re-bet the same roulette chips and spin, draw in video poker, skip ahead in Fathoms). After each round the main action stays selected, so Interact does the same.
+A booth in town (striped awning, a roulette wheel on top) run by a crab in a top hat, with a **Tide Machine** slot cabinet on either side (walk up to one to play slots straight away). Its front is a row of **game cards with pictures**; each table is green baize in a brass rail, and a win makes the rail flare gold and sand dollars rain across the felt. On Part II's seabed the crab's card crate sits opposite the supply cache. Every game is played with the **team's sand dollars** (no real money), the bet going from 5 to 1,000 SD. In Part I the tables only deal **between fights**; Part II never stops, so neither does the crab. Every game has a **How to play** page on the table. **Left/right changes the bet from any row**, and **Reload repeats the last wager in one press** (spin again, deal again, re-bet the same roulette chips and spin, draw in video poker, skip ahead in Fathoms). After each round the main action stays selected, so Interact does the same.
 
 | Game | How it works | Pays |
 |---|---|---|
-| **Slots** | Three reels stop left to right. Three of a kind on the line, or two cherries anywhere. About 93% back over time. | 7 7 7 ×80 · BAR ×30 · BELL ×18 · PLUM ×12 · CHERRY ×10 · LEMON ×8 · two cherries ×5 |
+| **Slots** (the Tide Machine) | Three reel windows of pictures (shells, starfish, hotdogs, anchors, golden pearls, the Glizzy Monster) scroll and stop left to right with a bounce; pull the lever with Reload. When the first two match, the third reel **holds its breath** (spins longer, its window glowing). **High Tide:** each losing spin raises a tide meter beside the reels; at 10 the next spin is **free and pays double**. About 92% back over time, High Tide included. | Glizzy ×3 = 80 · Pearl 25 · Anchor 16 · Hotdog 10 · Starfish 8 · Shell 8 · any two shells 4 |
 | **Blackjack** | Six-deck shoe. Hit, stand, double on any two cards, split a pair once (aces get one card each). Dealer stands on all 17s and checks for blackjack. No insurance. | 1 to 1; blackjack 3 to 2 |
 | **Roulette** | European wheel (one zero). Chips on single numbers, red/black, odd/even, 1–18/19–36 and the dozens, as many as you like, then spin. | number 35 to 1 · dozen 2 to 1 · the rest 1 to 1 |
 | **Video Poker** | Jacks or Better, 9/6. Hold any of five cards, draw once. | royal flush 800 · straight flush 50 · four of a kind 25 · full house 9 · flush 6 · straight 4 · three of a kind 3 · two pair 2 · jacks or better 1 |

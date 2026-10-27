@@ -6,6 +6,7 @@ using System.IO;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
@@ -94,16 +95,15 @@ namespace TideWall.Tests
         }
 
         [UnityTest]
-        public IEnumerator SlotsPayTheTable()
+        public IEnumerator SlotsPayTheTableAndHighTideGivesAFreeDoubleSpin()
         {
-            Assert.AreEqual(80, Slots.Payout(5, 5, 5), "three 7s");
-            Assert.AreEqual(Slots.TwoCherries, Slots.Payout(0, 3, 0), "two cherries anywhere");
+            Assert.AreEqual(80, Slots.Payout(5, 5, 5), "three Glizzy Monsters: the jackpot");
+            Assert.AreEqual(Slots.TwoShells, Slots.Payout(0, 3, 0), "two shells anywhere");
             Assert.AreEqual(0, Slots.Payout(0, 3, 4));
-            // About 93% back over time
-            double total = 0, ways = 0; int w = 0; foreach (var x in Slots.Weights) w += x;
-            for (int a = 0; a < 6; a++) for (int b = 0; b < 6; b++) for (int c = 0; c < 6; c++)
-            { double pr = Slots.Weights[a] * Slots.Weights[b] * Slots.Weights[c]; total += pr * Slots.Payout(a, b, c); ways += pr; }
-            Assert.That(total / ways, Is.InRange(.88, .97), "the machine keeps a few percent");
+            for (int r = 0; r < 3; r++)
+                for (int sym = 0; sym < Slots.Weights.Length; sym++)
+                    Assert.AreEqual(Slots.Weights[sym], System.Array.FindAll(Slots.Strips[r], x => x == sym).Length, $"reel {r} carries symbol {sym} {Slots.Weights[sym]} times");
+            Assert.That(Slots.SimulateReturn(400000, 7), Is.InRange(.88, .97), "with High Tide, the machine still keeps a few percent");
 
             var p = Seated();
             yield return null;
@@ -111,8 +111,18 @@ namespace TideWall.Tests
             slots.SpinTo(5, 5, 5);
             Assert.AreEqual(990, gm.SandDollars, "the 10 SD bet is taken");
             Assert.IsTrue(slots.Busy);
-            slots.Tick(5);
-            Assert.AreEqual(990 + 800, gm.SandDollars, "three 7s pay 80× when the reels stop");
+            slots.Tick(10);
+            Assert.AreEqual(990 + 800, gm.SandDollars, "the jackpot pays 80× when the reels stop");
+
+            // Ten losing spins raise the tide; the next spin is free and pays double
+            for (int i = 0; i < Slots.TideFill; i++) { slots.SpinTo(1, 2, 3); slots.Tick(10); }
+            Assert.IsTrue(slots.HighTide);
+            int purse = gm.SandDollars;
+            slots.SpinTo(4, 4, 4);
+            Assert.AreEqual(purse, gm.SandDollars, "a High Tide spin is free");
+            slots.Tick(10);
+            Assert.AreEqual(purse + 10 * Slots.Three[4] * Slots.TideMultiplier, gm.SandDollars, "and pays double");
+            Assert.IsFalse(slots.HighTide, "the tide goes back out");
         }
 
         [UnityTest]
@@ -241,6 +251,95 @@ namespace TideWall.Tests
             Assert.IsTrue(r.Busy, "the same chips go back down and the wheel spins");
             Assert.AreEqual(2, r.Chips.Count);
             Assert.AreEqual(before - 100, gm.SandDollars);
+        }
+
+        // ------------------------------------------------------------------ four at the casino
+        /// <summary>Press these buttons on these pads in the same frame (null = nothing on that pad), then let go.</summary>
+        static IEnumerator Press(Gamepad[] pads, params GamepadButton?[] buttons)
+        {
+            for (int i = 0; i < pads.Length; i++) InputSystem.QueueStateEvent(pads[i], buttons[i].HasValue ? new GamepadState().WithButton(buttons[i].Value) : new GamepadState());
+            yield return null;
+            foreach (var pad in pads) InputSystem.QueueStateEvent(pad, new GamepadState());
+            yield return null;
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator FourPlayersGambleAtOnce()
+        {
+            var pads = new Gamepad[4];
+            var players = new Player[4];
+            for (int i = 0; i < 4; i++)
+            {
+                pads[i] = InputSystem.AddDevice<Gamepad>();
+                devices.Add(pads[i]);
+                players[i] = gm.Players.Join(new InputDevice[] { pads[i] });
+            }
+            yield return null;
+            Assert.AreEqual(4, gm.Players.Count);
+            gm.TrySpend(gm.SandDollars);
+            gm.AddSandDollars(5000);
+            var booth = Object.FindAnyObjectByType<CasinoBooth>().transform.position;
+            for (int i = 0; i < 4; i++)
+            {
+                players[i].Place(booth + new Vector3(-3 + i * 2, 0, 3));
+                players[i].OpenMenu(Casino.Lobby(players[i], booth));
+            }
+            yield return null;
+            Assert.IsNull(gm.Casino.Closed(), "the first morning: the tables are open");
+
+            // Everyone picks a different game from the lobby's cards, all at the same time, with their own controller:
+            // Red slots, Blue blackjack, Green roulette, Gold video poker
+            var R = GamepadButton.DpadRight; var D = GamepadButton.DpadDown; var A = GamepadButton.South; var X = GamepadButton.West;
+            yield return Press(pads, null, R, R, D);
+            yield return Press(pads, null, null, R, null);
+            yield return Press(pads, A, A, A, A);
+            string[] titles = { "SLOTS", "BLACKJACK", "ROULETTE", "VIDEO POKER" };
+            for (int i = 0; i < 4; i++)
+            {
+                Assert.AreEqual(MenuLayout.Table, players[i].OpenedMenu?.Layout, $"player {i + 1} sits down at a table");
+                StringAssert.EndsWith(titles[i], players[i].OpenedMenu.Title);
+            }
+            // Green puts a chip on red (two rows down)
+            yield return Press(pads, null, null, D, null);
+            yield return Press(pads, null, null, D, null);
+            yield return Press(pads, null, null, A, null);
+            // Then all four play at once: Red pulls the lever, Blue deals, Green spins, Gold deals
+            int before = gm.SandDollars, net = gm.Casino.Net, hands = gm.Casino.HandsPlayed;
+            yield return Press(pads, X, A, X, A);
+            var slots = gm.Casino.Seat<Slots>(players[0], booth);
+            var bj = gm.Casino.Seat<Blackjack>(players[1], booth);
+            var rou = gm.Casino.Seat<Roulette>(players[2], booth);
+            var vp = gm.Casino.Seat<VideoPoker>(players[3], booth);
+            Assert.IsTrue(slots.Busy, "Red's reels are spinning");
+            Assert.AreNotEqual(Blackjack.Phase.Betting, bj.State, "Blue's hand is dealt");
+            Assert.IsTrue(rou.Busy, "Green's ball is rolling");
+            Assert.AreEqual(VideoPoker.Phase.Draw, vp.State, "Gold's cards are dealt");
+            Assert.AreEqual(hands + 3, gm.Casino.HandsPlayed, "three more bets (Green's chip went down earlier)");
+            Assert.AreEqual(before + (gm.Casino.Net - net), gm.SandDollars, "all from the one purse (a blackjack may already have paid)");
+            // Gold draws, Blue stands (if the hand's still going), and everything settles
+            yield return Press(pads, null, bj.State == Blackjack.Phase.Playing ? GamepadButton.DpadDown : (GamepadButton?)null, null, X);
+            if (bj.State == Blackjack.Phase.Playing) yield return Press(pads, null, A, null, null);
+            for (float t = 0; t < 8 && (slots.Busy || rou.Busy); t += Time.unscaledDeltaTime) yield return null;
+            Assert.IsFalse(slots.Busy); Assert.IsFalse(rou.Busy);
+            Assert.AreEqual(Blackjack.Phase.Over, bj.State);
+            Assert.AreEqual(VideoPoker.Phase.Deal, vp.State);
+            Assert.AreEqual(5000 + gm.Casino.Net, gm.SandDollars, "every stake and payout went through the one purse, nothing lost or doubled");
+            Assert.AreEqual(4, gm.Casino.HandsPlayed);
+
+            // Now all four at the same machine: four seats, four independent spins
+            for (int i = 0; i < 4; i++) players[i].OpenMenu(Casino.Table(players[i], gm.Casino.Seat<Slots>(players[i], booth), booth));
+            yield return null;
+            before = gm.SandDollars;
+            yield return Press(pads, X, X, X, X);
+            var seats = new Slots[4];
+            for (int i = 0; i < 4; i++) { seats[i] = gm.Casino.Seat<Slots>(players[i], booth); Assert.IsTrue(seats[i].Busy, $"player {i + 1}'s reels spin"); }
+            Assert.AreEqual(4, new System.Collections.Generic.HashSet<Slots>(seats).Count, "everyone has their own seat");
+            Assert.AreEqual(before - 40, gm.SandDollars);
+            for (float t = 0; t < 8 && System.Array.Exists(seats, s => s.Busy); t += Time.unscaledDeltaTime) yield return null;
+            int won = 0; foreach (var s in seats) won += s.LastWin;
+            Assert.AreEqual(before - 40 + won, gm.SandDollars, "each seat paid its own win");
+            Assert.AreEqual(5000 + gm.Casino.Net, gm.SandDollars);
         }
 
         [UnityTest]

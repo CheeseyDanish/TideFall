@@ -95,7 +95,7 @@ namespace TideWall
         public readonly Dictionary<string, int> Allocated = new();
         /// <summary>Mods on each weapon (weapon id → mod ids).</summary>
         public readonly Dictionary<string, List<string>> Mods = new();
-        /// <summary>Attachments fitted to each gun (gun id → attachment ids, one per slot). Bought in the shop.</summary>
+        /// <summary>Attachment and ammo on each gun (gun id → ids, one per slot). Bought in the shop.</summary>
         public readonly Dictionary<string, List<string>> Attachments = new();
         /// <summary>The mods on offer right now (null if none is waiting).</summary>
         public List<ModDef> ModOffer { get; private set; }

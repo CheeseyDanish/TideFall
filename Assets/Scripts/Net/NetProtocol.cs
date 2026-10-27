@@ -41,7 +41,7 @@ namespace TideWall
 
     public static class NetProtocol
     {
-        public const int Version = 8;
+        public const int Version = 9;
         public const int DefaultPort = 7777;
         public const int DiscoveryPort = 47777;
         public const string DiscoveryTag = "TIDEWALL2";
@@ -315,6 +315,10 @@ namespace TideWall
             w.Write(m.Title ?? ""); w.Write((short)m.Selected); w.Write(m.System);
             w.Write((byte)m.Layout); w.Write((byte)m.Tab);
             w.Write(m.Board?.Invoke() ?? ""); w.Write(m.QuickLabel?.Invoke() ?? "");
+            var reels = m.Reels?.Invoke();
+            w.Write((byte)(reels?.Length ?? 0));
+            if (reels != null) foreach (var f in reels) w.Write(f);
+            w.Write(m.Celebrate?.Invoke() ?? 0f);
             w.Write((byte)(m.Tabs?.Length ?? 0));
             if (m.Tabs != null) foreach (var t in m.Tabs) w.Write(t);
             w.Write((short)m.Items.Count);
@@ -335,6 +339,10 @@ namespace TideWall
             if (board.Length > 0) m.Board = () => board;
             string quick = r.ReadString();
             if (quick.Length > 0) m.QuickLabel = () => quick;
+            int reelCount = r.ReadByte();
+            if (reelCount > 0) { var reels = new float[reelCount]; for (int i = 0; i < reelCount; i++) reels[i] = r.ReadSingle(); m.Reels = () => reels; }
+            float cheer = r.ReadSingle();
+            if (cheer > 0) m.Celebrate = () => cheer;
             int tabs = r.ReadByte();
             if (tabs > 0) { m.Tabs = new string[tabs]; for (int i = 0; i < tabs; i++) m.Tabs[i] = r.ReadString(); }
             int n = r.ReadInt16();

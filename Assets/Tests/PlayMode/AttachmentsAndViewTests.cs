@@ -77,19 +77,27 @@ namespace TideWall.Tests
             Assert.Less(p.EffGun.spreadDegrees, spread, "and tightens the shots");
             Assert.IsNotNull(FindDeep(p.transform, "AttScope"), "it's fitted to the gun in your hands");
 
-            // Same slot: the brass sight replaces the scope
-            Menus.Shop(p, Menus.ShopTab.Attachments, p.transform.position).Items.Find(i => i.Label == "Brass Sight").OnPick();
-            Assert.IsFalse(p.HasAttachment(p.Gun.id, "spyglass"), "one sight per gun");
-            Assert.AreEqual(gm.DB.Attachment("brasssight"), p.AttachmentIn(p.Gun.id, AttachmentSlot.Sight));
+            // One attachment per gun: the Sharkskin Grip replaces the scope
+            Menus.Shop(p, Menus.ShopTab.Attachments, p.transform.position).Items.Find(i => i.Label == "Sharkskin Grip").OnPick();
+            Assert.IsFalse(p.HasAttachment(p.Gun.id, "spyglass"), "one attachment per gun");
+            Assert.AreEqual(gm.DB.Attachment("sharkgrip"), p.AttachmentIn(p.Gun.id, AttachmentSlot.Attachment));
             Assert.AreEqual(range, p.EffGun.range, .01f, "the scope's reach went with it");
+            Assert.IsNotNull(FindDeep(p.transform, "AttGrip"));
 
-            // A drum: a bigger magazine, loaded
-            int mag = p.MagSize;
-            Menus.Shop(p, Menus.ShopTab.Attachments, p.transform.position).Items.Find(i => i.Label == "Drum Magazine").OnPick();
-            Assert.Greater(p.MagSize, mag);
-            Assert.AreEqual(p.MagSize, p.Ammo, "the new drum comes loaded");
-            var again = Menus.Shop(p, Menus.ShopTab.Attachments, p.transform.position).Items.Find(i => i.Label == "Drum Magazine");
+            // ... and one ammo modifier alongside it: incendiary rounds with a sharkskin grip
+            var fire = gm.DB.Attachment("incendiary");
+            Menus.Shop(p, Menus.ShopTab.Attachments, p.transform.position).Items.Find(i => i.Label == fire.displayName).OnPick();
+            Assert.AreEqual(fire, p.AttachmentIn(p.Gun.id, AttachmentSlot.Ammo));
+            Assert.IsTrue(p.HasAttachment(p.Gun.id, "sharkgrip"), "the grip stays: ammo has its own slot");
+            Assert.AreEqual(Element.Fire, p.EffGun.element, "the rounds burn");
+            Assert.Greater(p.EffGun.fireRate, p.Gun.fireRate, "and the grip still speeds up the trigger");
+            var again = Menus.Shop(p, Menus.ShopTab.Attachments, p.transform.position).Items.Find(i => i.Label == fire.displayName);
             Assert.IsNotNull(again.Blocked(), "can't buy it twice for the same gun");
+            // Other ammo replaces it
+            Menus.Shop(p, Menus.ShopTab.Attachments, p.transform.position).Items.Find(i => i.Label == "Harpoon-Tip Rounds").OnPick();
+            Assert.AreEqual(Element.None, p.EffGun.element, "the fire's gone");
+            Assert.AreEqual(p.Gun.pierce + 1, p.EffGun.pierce, "harpoon tips go through one more");
+            Assert.IsTrue(p.HasAttachment(p.Gun.id, "sharkgrip"));
 
             // Online: the host's snapshot lists them, for the proxies' models
             var state = NetPlayerState.From(p);
@@ -98,14 +106,18 @@ namespace TideWall.Tests
             ms.Position = 0;
             using var r = new BinaryReader(ms);
             var copy = NetPlayerState.Read(r);
-            StringAssert.Contains("drum", copy.attach);
-            StringAssert.Contains("brasssight", copy.attach);
+            StringAssert.Contains("sharkgrip", copy.attach);
+            StringAssert.Contains("harpoontip", copy.attach);
 
-            // Another gun starts bare
+            // A drum on another gun comes loaded; that gun starts bare
             p.GiveGun("scattergun");
             yield return null;   // (the old gun model goes at the end of the frame)
-            Assert.IsNull(p.AttachmentIn("scattergun", AttachmentSlot.Sight));
-            Assert.IsNull(FindDeep(p.transform, "AttSight"), "the revolver's sight stays on the revolver");
+            Assert.IsNull(p.AttachmentIn("scattergun", AttachmentSlot.Attachment));
+            Assert.IsNull(FindDeep(p.transform, "AttGrip"), "the revolver's grip stays on the revolver");
+            int mag = p.MagSize;
+            Menus.Shop(p, Menus.ShopTab.Attachments, p.transform.position).Items.Find(i => i.Label == "Drum Magazine").OnPick();
+            Assert.Greater(p.MagSize, mag);
+            Assert.AreEqual(p.MagSize, p.Ammo, "the new drum comes loaded");
         }
 
         static Transform FindDeep(Transform t, string name)
@@ -118,7 +130,8 @@ namespace TideWall.Tests
         public void EveryAttachmentHasAModelAndASlot()
         {
             var db = GameDatabase.Load();
-            Assert.GreaterOrEqual(db.attachments.Count, 8);
+            Assert.GreaterOrEqual(db.attachments.FindAll(a => a.slot == AttachmentSlot.Attachment).Count, 8);
+            Assert.GreaterOrEqual(db.attachments.FindAll(a => a.slot == AttachmentSlot.Ammo).Count, 5);
             foreach (AttachmentSlot slot in System.Enum.GetValues(typeof(AttachmentSlot)))
                 Assert.IsTrue(db.attachments.Exists(a => a.slot == slot), $"something for the {slot}");
             foreach (var a in db.attachments) Assert.IsNotNull(Content.Model(a.model), $"{a.id}'s model {a.model}");

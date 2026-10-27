@@ -20,6 +20,7 @@ namespace TideWall
         public override string Name => "Roulette";
         public override string Blurb => "Bet on where the ball lands: a number, a colour, odd or even, a dozen. One zero.";
         public override string Pays => "up to 35 to 1";
+        public override string Icon => "RouletteWheel";
         public override string[] Rules => new[]
         {
             "<b>ROULETTE</b> (European: one green zero)\n" +
@@ -149,7 +150,7 @@ namespace TideWall
             foreach (var c in Chips) lastWin += Return(c, Result);
             LastChips.Clear(); LastChips.AddRange(Chips);
             Pay(lastWin);
-            if (lastWin > lastStaked) Sfx.Play("bell", .5f, .2f);
+            if (lastWin > lastStaked) { Sfx.Play("bell", .5f, .2f); Cheer(lastWin >= lastStaked * 10 ? 1 : .5f); }
             History.Insert(0, Result);
             if (History.Count > 12) History.RemoveAt(History.Count - 1);
             Chips.Clear();

@@ -24,6 +24,7 @@ namespace TideWall
         public override string Name => "Blackjack";
         public override string Blurb => "Beat the dealer's hand without going over 21. Blackjack pays 3 to 2.";
         public override string Pays => "3 to 2";
+        public override string Icon => "CardFan";
         public override string[] Rules => new[]
         {
             "<b>BLACKJACK</b>\n" +
@@ -160,7 +161,7 @@ namespace TideWall
             }
             Pay(paid);
             message = paid > staked ? Felt.Good($"You win {paid - staked} SD") : paid == staked ? "Push: your bet comes back" : Felt.Bad($"The house takes {staked - paid} SD");
-            if (paid > staked) Sfx.Play("bell", .5f, .2f);
+            if (paid > staked) { Sfx.Play("bell", .5f, .2f); Cheer(Hands.Exists(h => h.Result == "Blackjack!") ? .8f : .45f); }
         }
 
         protected override string Table()

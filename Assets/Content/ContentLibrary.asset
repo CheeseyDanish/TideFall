@@ -22,6 +22,16 @@ MonoBehaviour:
   particleAdditive: {fileID: 2100000, guid: 800454bda38a2ed4eb91ba4e5b7497b2, type: 2}
   sky: {fileID: 2100000, guid: 9433d32414b0a3d439bb5540426f44ce, type: 2}
   models:
+  - name: AmmoBlast
+    prefab: {fileID: 919132149155446097, guid: f0bc3d00c1d25694db7aee14bc2088c4, type: 3}
+  - name: AmmoFire
+    prefab: {fileID: 919132149155446097, guid: 39607eed154b2bc4790431682ac394b9, type: 3}
+  - name: AmmoHollow
+    prefab: {fileID: 919132149155446097, guid: f8bac883aa9924d4591b271a57a1a178, type: 3}
+  - name: AmmoPierce
+    prefab: {fileID: 919132149155446097, guid: 082f2227fd305ae46955c9aa6db425df, type: 3}
+  - name: AmmoShock
+    prefab: {fileID: 919132149155446097, guid: 2d29c0d08ed8d3b4bbbc9b06b84ee519, type: 3}
   - name: Anchor
     prefab: {fileID: 919132149155446097, guid: fe35e4f2fdbaa3a41a0842e23962cde5, type: 3}
   - name: Arch
@@ -62,6 +72,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: b81de2080c920e34dab3ae3540b6c77b, type: 3}
   - name: Burger
     prefab: {fileID: 919132149155446097, guid: 89bd0c927446381438c46b79ae609740, type: 3}
+  - name: CardFan
+    prefab: {fileID: 919132149155446097, guid: 47b3722db3d46394f8fd86159003ea8e, type: 3}
   - name: CasinoBooth
     prefab: {fileID: 919132149155446097, guid: bfd8862006d85f84fb93f0f954564e20, type: 3}
   - name: CasinoCrate
@@ -144,6 +156,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: 6e457df40f520ce4cbe1766e40804079, type: 3}
   - name: PetalSeat
     prefab: {fileID: 919132149155446097, guid: cc000478a70e73645880b1ee6fb11363, type: 3}
+  - name: PokerHand
+    prefab: {fileID: 919132149155446097, guid: 11733f3955c126b479b7ecbe39cffa40, type: 3}
   - name: Powerplant
     prefab: {fileID: 919132149155446097, guid: eb12c2159fee3de45a9ac51c6c38ad0d, type: 3}
   - name: Puffer
@@ -154,6 +168,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: a010ea140a9dfa64ebac5640fb7c9f8f, type: 3}
   - name: Rock
     prefab: {fileID: 919132149155446097, guid: 102755ad231e200478fbcd90727acf9d, type: 3}
+  - name: RouletteWheel
+    prefab: {fileID: 919132149155446097, guid: eecab96b3bec6ec4abebf402aba88f22, type: 3}
   - name: Sailor
     prefab: {fileID: 919132149155446097, guid: 7741acd1dbe043846957f83fb26d7fbe, type: 3}
   - name: Sandcastle
@@ -170,6 +186,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: fc75ce00976886f4f835818cda193392, type: 3}
   - name: ShopKiosk
     prefab: {fileID: 919132149155446097, guid: af95121cfc39c8649bd71f07d4d22213, type: 3}
+  - name: SlotMachine
+    prefab: {fileID: 919132149155446097, guid: e3373a662f09f88439c4b3058bde1461, type: 3}
   - name: Spade
     prefab: {fileID: 919132149155446097, guid: 0d4963813aaf4274885294723320412c, type: 3}
   - name: Spikes

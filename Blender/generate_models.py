@@ -983,4 +983,63 @@ build('AttStock', [
     ('Body', 'box', (.07, .05, .16), (0, .37, -.05), 'woodD'),
 ])
 
+# =====================================================================================  CASINO PIECES
+# The slot machine cabinet (beside the Lucky Barnacle, and the lobby's picture of Slots), and the other games' pictures.
+# Front faces -Y: the slot machine's three reel windows and lever face the player.
+COL.update({'cabinet': (.62, .1, .14), 'cabinetD': (.38, .05, .08), 'glass': (.85, .95, 1), 'cardW': (.97, .96, .92)})
+slot = [
+    ('Body', 'box', (1.0, .8, 1.0), (0, 0, .5), 'cabinetD'),
+    ('Body', 'box', (.95, .75, .9), (0, .02, 1.45), 'cabinet'),
+    ('Body', 'cyl', (1.0, .78, 1.0), (0, .02, 1.95), 'cabinet', None, (0, 90, 0), 16),
+    ('Body', 'box', (.98, .78, .06), (0, 0, 1.0), 'gold'),
+    ('Body', 'box', (.8, .06, .38), (0, -.39, 1.48), 'gold'),
+    ('Body', 'box', (.86, .06, .2), (0, -.36, 2.1), 'navy'),
+    ('Body', 'box', (.9, .3, .08), (0, -.45, 1.1), 'gold'),
+    ('Body', 'cyl', (.12, .12, .1), (-.3, -.4, 1.18), 'red', None, (90, 0, 0), 10),
+    ('Body', 'cyl', (.12, .12, .1), (0, -.4, 1.18), 'yellow', None, (90, 0, 0), 10),
+    ('Body', 'cyl', (.12, .12, .1), (.3, -.4, 1.18), 'green', None, (90, 0, 0), 10),
+    # The lever on the right side, and its red ball
+    ('Body', 'cyl', (.16, .16, .2), (.55, 0, 1.45), 'steel', None, (0, 90, 0), 8),
+    ('Body', 'cyl', (.05, .05, .7), (.62, 0, 1.8), 'steel', None, None, 6),
+    ('Body', 'ball', (.16, .16, .16), (.62, 0, 2.18), 'red'),
+    # A tray of sand dollars at the bottom
+    ('Body', 'box', (.6, .2, .1), (0, -.45, .45), 'greyD'),
+]
+for i, x in enumerate((-.26, 0, .26)):   # the reel windows: glass over a pale strip
+    slot.append(('Body', 'box', (.22, .03, .3), (x, -.41, 1.48), 'glass'))
+build('SlotMachine', slot)
+
+def card(x, z, rot, pip):
+    return [('Body', 'box', (.32, .02, .45), (x, 0, z), 'cardW', None, (0, rot, 0)),
+            ('Body', 'box', (.08, .03, .08), (x + math.sin(math.radians(rot)) * .0, -.012, z), pip, None, (0, rot + 45, 0))]
+build('CardFan', card(-.1, .3, 12, 'black') + card(.1, .32, -12, 'red'))
+build('PokerHand', [p for k, r in enumerate((24, 12, 0, -12, -24)) for p in card(-.24 + k * .12, .3 + (2 - abs(k - 2)) * .02, r, 'red' if k % 2 else 'black')])
+wheel = [('Body', 'cyl', (.9, .9, .12), (0, 0, .06), 'woodD', None, None, 24),
+         ('Body', 'cyl', (.78, .78, .13), (0, 0, .07), 'gold', None, None, 24),
+         ('Body', 'cyl', (.7, .7, .14), (0, 0, .08), 'black', None, None, 24),
+         ('Body', 'cyl', (.22, .22, .2), (0, 0, .12), 'gold', None, None, 12),
+         ('Body', 'cone', (.12, .12, .2), (0, 0, .3), 'gold', None, None, 8),
+         ('Body', 'ball', (.06, .06, .06), (.25, -.1, .17), 'white')]
+for k in range(12):
+    a = math.radians(k * 30)
+    wheel.append(('Body', 'box', (.1, .2, .02), (math.cos(a) * .25, math.sin(a) * .25, .155), 'red' if k % 2 else 'black', None, (0, 0, k * 30 + 90)))
+wheel.append(('Body', 'box', (.1, .2, .02), (.25, 0, .156), 'green', None, (0, 0, 90)))
+build('RouletteWheel', wheel)
+
+# Ammo modifiers: three standing rounds each, brass cases with tips that say what they do (the shop's pictures)
+COL.update({'shockTip': (.35, .85, 1), 'fireTip': (1, .42, .1)})
+def rounds(name, tip, tipKind='cone', band=None):
+    parts = []
+    for k, x in enumerate((-.07, 0, .07)):
+        y = (k - 1) * .02
+        parts += [('Body', 'cyl', (.05, .05, .14), (x, y, .07), 'gold', None, None, 10),
+                  ('Body', tipKind, (.05, .05, .07), (x, y, .175), tip, None, None, 10)]
+        if band: parts.append(('Body', 'cyl', (.054, .054, .02), (x, y, .12), band, None, None, 10))
+    build(name, parts)
+rounds('AmmoFire', 'fireTip', band='red')
+rounds('AmmoShock', 'shockTip', band='blue')
+rounds('AmmoPierce', 'steel')
+rounds('AmmoBlast', 'red', 'ball', band='black')
+rounds('AmmoHollow', 'greyD', 'cyl')
+
 print('TIDEWALL_MODELS_DONE', sorted(os.listdir(OUT)))

@@ -1404,6 +1404,7 @@ MonoBehaviour:
     description: 'A ring-and-post sight off a ship''s cannon. Shots go where you
       point: 45% less spread.'
     slot: 0
+    mount: 1
     price: 120
     model: AttSight
     damage: 1
@@ -1413,11 +1414,18 @@ MonoBehaviour:
     range: 1
     spread: 0.55
     recoil: 1
+    pierce: 0
+    splash: 0
+    knockback: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
   - id: spyglass
     displayName: Spyglass Scope
     description: A captain's spyglass, strapped on. Far reach and tight shots (+60%
       range, +10% damage, 60% less spread), a little slower to fire.
     slot: 0
+    mount: 1
     price: 260
     model: AttScope
     damage: 1.1
@@ -1427,11 +1435,18 @@ MonoBehaviour:
     range: 1.6
     spread: 0.4
     recoil: 1
+    pierce: 0
+    splash: 0
+    knockback: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
   - id: brake
     displayName: Barnacle Brake
     description: A muzzle brake crusted with barnacles. Half the kick, and a little
       tighter.
-    slot: 1
+    slot: 0
+    mount: 2
     price: 140
     model: AttBrake
     damage: 1
@@ -1441,11 +1456,18 @@ MonoBehaviour:
     range: 1
     spread: 0.85
     recoil: 0.5
+    pierce: 0
+    splash: 0
+    knockback: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
   - id: longbarrel
     displayName: Long Barrel
     description: A longer barrel from the harbour armoury. +20% damage and +30% range;
       kicks a bit harder.
-    slot: 1
+    slot: 0
+    mount: 2
     price: 220
     model: AttBarrel
     damage: 1.2
@@ -1455,10 +1477,17 @@ MonoBehaviour:
     range: 1.3
     spread: 1
     recoil: 1.15
+    pierce: 0
+    splash: 0
+    knockback: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
   - id: drum
     displayName: Drum Magazine
     description: 'A fat drum of rounds: +60% magazine, but it''s slower to reload.'
-    slot: 2
+    slot: 0
+    mount: 3
     price: 180
     model: AttDrum
     damage: 1
@@ -1468,10 +1497,17 @@ MonoBehaviour:
     range: 1
     spread: 1
     recoil: 1
+    pierce: 0
+    splash: 0
+    knockback: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
   - id: quickclip
     displayName: Quick-Draw Clip
     description: Rounds pre-loaded on a brass clip. Reloads 35% faster.
-    slot: 2
+    slot: 0
+    mount: 3
     price: 160
     model: AttClip
     damage: 1
@@ -1481,11 +1517,18 @@ MonoBehaviour:
     range: 1
     spread: 1
     recoil: 1
+    pierce: 0
+    splash: 0
+    knockback: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
   - id: sharkgrip
     displayName: Sharkskin Grip
     description: Rough sharkskin that never slips, wet or dry. +15% fire rate, a
       little less kick.
-    slot: 3
+    slot: 0
+    mount: 4
     price: 150
     model: AttGrip
     damage: 1
@@ -1495,11 +1538,18 @@ MonoBehaviour:
     range: 1
     spread: 1
     recoil: 0.85
+    pierce: 0
+    splash: 0
+    knockback: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
   - id: driftstock
     displayName: Driftwood Stock
     description: A stock carved from driftwood, braced on the shoulder. 40% less
       kick, 20% less spread.
-    slot: 3
+    slot: 0
+    mount: 4
     price: 130
     model: AttStock
     damage: 1
@@ -1509,6 +1559,115 @@ MonoBehaviour:
     range: 1
     spread: 0.8
     recoil: 0.6
+    pierce: 0
+    splash: 0
+    knockback: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: incendiary
+    displayName: Incendiary Rounds
+    description: Rounds packed with lamp oil. Sets dry creatures alight; wet ones
+      only steam.
+    slot: 1
+    mount: 0
+    price: 200
+    model: AmmoFire
+    damage: 0.95
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    spread: 1
+    recoil: 1
+    pierce: 0
+    splash: 0
+    knockback: 0
+    limbBonus: 0
+    setElement: 1
+    element: 1
+  - id: shock
+    displayName: Eel-Shock Rounds
+    description: Charged from a live eel. Shock hits wet creatures hard, and most
+      of them come out of the sea dripping.
+    slot: 1
+    mount: 0
+    price: 220
+    model: AmmoShock
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    spread: 1
+    recoil: 1
+    pierce: 0
+    splash: 0
+    knockback: 0
+    limbBonus: 0
+    setElement: 1
+    element: 2
+  - id: harpoontip
+    displayName: Harpoon-Tip Rounds
+    description: 'Barbed steel tips: every shot goes through one more creature.'
+    slot: 1
+    mount: 0
+    price: 180
+    model: AmmoPierce
+    damage: 1.05
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    spread: 1
+    recoil: 1
+    pierce: 1
+    splash: 0
+    knockback: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: blasting
+    displayName: Blasting Caps
+    description: Rounds that burst on impact, hurting everything close by. A touch
+      weaker and slower.
+    slot: 1
+    mount: 0
+    price: 280
+    model: AmmoBlast
+    damage: 0.85
+    fireRate: 0.9
+    reload: 1
+    magazine: 1
+    range: 1
+    spread: 1
+    recoil: 1
+    pierce: 0
+    splash: 1.6
+    knockback: 0
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: hollow
+    displayName: Hollow Points
+    description: 'Mushrooming rounds: +50% damage to limbs. Shoot their claws off.'
+    slot: 1
+    mount: 0
+    price: 160
+    model: AmmoHollow
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    spread: 1
+    recoil: 1
+    pierce: 0
+    splash: 0
+    knockback: 0
+    limbBonus: 0.5
+    setElement: 0
+    element: 0
   cards:
   - id: redtide
     displayName: Red Tide

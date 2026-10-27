@@ -91,10 +91,10 @@ namespace TideWall
             p2.OpenMenu(Menus.Stats(p2));
             yield return new WaitForSecondsRealtime(.6f);
             yield return Shot("04-shop-and-stats");
-            // Gun attachments (a scope and a drum on player 1's revolver) and player 2 in third person on the beach
+            // Gun attachments (a scope and incendiary rounds on player 1's revolver) and player 2 in third person on the beach
             gm.AddSandDollars(1000);
             p1.FitAttachment(gm.DB.Attachment("spyglass"));
-            p1.FitAttachment(gm.DB.Attachment("drum"));
+            p1.FitAttachment(gm.DB.Attachment("incendiary"));
             p1.OpenMenu(Menus.Shop(p1, Menus.ShopTab.Attachments, p1.transform.position));
             p2.CloseMenu();
             p2.SwitchView();
@@ -209,6 +209,7 @@ namespace TideWall
             gm.Players.Join(new InputDevice[] { pad3 }); gm.Players.Join(new InputDevice[] { pad4 });
             yield return new WaitForSecondsRealtime(2f);
             yield return Shot("11-four-players");
+            yield return FourAtTheCasino(gm);
             yield return Undertow(gm);
             Debug.Log("TIDEWALL_CAPTURE_DONE");
             Application.Quit();
@@ -263,6 +264,29 @@ namespace TideWall
             yield return Shot("04j-casino-lobby-and-debug-menu");
             DebugTools.ResetAll();
             p1.CloseMenu(); p2.CloseMenu();
+        }
+
+        /// <summary>All four players at the Lucky Barnacle at once: slots (the third reel holding its breath, then a win),
+        /// blackjack, roulette and Fathoms.</summary>
+        IEnumerator FourAtTheCasino(GameManager gm)
+        {
+            DebugTools.CasinoAlwaysOpen = DebugTools.Freeze = DebugTools.God = true;
+            gm.AddSandDollars(4000);
+            var four = gm.Players.All;
+            var at = new Vector3(-30, 0, -10);
+            for (int i = 0; i < four.Count; i++) { Teleport(four[i], at + new Vector3(-3 + i * 2, 0, 4)); four[i].SetLook(180, 10); }
+            Menu Table(Player p, CasinoGame g) => TideWall.Casino.Table(p, g, at);
+            var s = gm.Casino.Seat<Slots>(four[0], at); s.SpinTo(4, 4, 4);
+            four[0].OpenMenu(Table(four[0], s));
+            if (four.Count > 1) { var b = gm.Casino.Seat<Blackjack>(four[1], at); b.Deal(); four[1].OpenMenu(Table(four[1], b)); }
+            if (four.Count > 2) { var r = gm.Casino.Seat<Roulette>(four[2], at); r.Place(Roulette.Kind.Red, 0); r.Place(Roulette.Kind.Number, 7); r.SpinTo(7); four[2].OpenMenu(Table(four[2], r)); }
+            if (four.Count > 3) { var f = gm.Casino.Seat<Fathoms>(four[3], at); f.Deal(); four[3].OpenMenu(Table(four[3], f)); }
+            yield return new WaitForSecondsRealtime(2.1f);
+            yield return Shot("12-four-at-the-casino");
+            yield return new WaitForSecondsRealtime(2.2f);
+            yield return Shot("12b-four-at-the-casino-wins");
+            foreach (var p in four) p.CloseMenu();
+            DebugTools.ResetAll();
         }
 
         IEnumerator Undertow(GameManager gm)

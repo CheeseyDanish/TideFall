@@ -49,6 +49,10 @@ namespace TideWall
         /// <summary>Table layout (the casino): what's on the table, as rich text, drawn above the list of actions. Read every frame,
         /// so it can animate (reels spinning, cards turning over).</summary>
         public Func<string> Board;
+        /// <summary>Table layout, slots: reel positions and the machine's state (Slots.Show), drawn as reel windows.</summary>
+        public Func<float[]> Reels;
+        /// <summary>Table layout: 0..1, a win being celebrated (the rail glows, sand dollars rain on the felt).</summary>
+        public Func<float> Celebrate;
         /// <summary>Left/right on a row that has no OnAdjust of its own (the casino: change the bet from any row).</summary>
         public Action<int> OnSide;
         /// <summary>The Reload button does this from any row (the casino: the same wager again), and the help line says what.</summary>
@@ -126,7 +130,7 @@ namespace TideWall
                     }
                     break;
                 case ShopTab.Attachments:
-                    // For the gun in your hands: one per slot; a new one replaces what's in its slot
+                    // For the gun in your hands: one attachment and one ammo; a new one replaces what's in its slot
                     m.Title = p.Gun.displayName.ToUpperInvariant();
                     foreach (var at in gm.DB.attachments)
                     {
@@ -138,7 +142,7 @@ namespace TideWall
                             Label = a.displayName, Icon = a.model,
                             Detail = $"For your {p.Gun.displayName}: {a.description}" + (current != null && !fitted ? $" Replaces your {current.displayName}." : ""),
                             Owned = fitted,
-                            Info = $"{a.slot}\n{AttachmentEffects(a)}",
+                            Info = $"{(a.slot == AttachmentSlot.Ammo ? "Ammo" : $"Attachment · {a.mount}")}\n{AttachmentEffects(a)}",
                             Right = fitted ? "Fitted" : $"{a.price} SD",
                             Blocked = () => fitted ? "Already fitted to this gun" : gm.SandDollars < a.price ? "Not enough sand dollars" : null,
                             OnPick = () => { if (gm.TrySpend(a.price)) p.FitAttachment(a); },
@@ -195,6 +199,10 @@ namespace TideWall
             }
             Add(a.damage, "dmg"); Add(a.range, "range"); Add(a.fireRate, "fire rate"); Add(a.magazine, "mag");
             Add(a.reload, "reload time"); Add(a.spread, "spread"); Add(a.recoil, "kick");
+            if (a.setElement) parts.Add(a.element == Element.Fire ? "fire" : a.element == Element.Shock ? "shock" : a.element.ToString());
+            if (a.pierce > 0) parts.Add($"+{a.pierce} pierce");
+            if (a.splash > 0) parts.Add($"{a.splash:0.#} m blast");
+            if (a.limbBonus > 0) parts.Add($"+{a.limbBonus * 100:0}% to limbs");
             return string.Join(" · ", parts);
         }
 

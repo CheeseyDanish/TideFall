@@ -180,20 +180,31 @@ namespace TideWall
         public int maxPoints = 10;
     }
 
-    /// <summary>Where an attachment goes on a gun; one of each per gun.</summary>
-    public enum AttachmentSlot { Sight, Barrel, Magazine, Grip }
+    /// <summary>A gun's two slots: one attachment (a part fitted to the gun) and one ammo modifier.</summary>
+    public enum AttachmentSlot { Attachment, Ammo }
 
-    /// <summary>A gun attachment, bought in the shop's Attachments tab for the gun in your hands. One per slot per gun;
-    /// a new one in a taken slot replaces the old. Its numbers apply on top of the gun's (and its mods).</summary>
+    /// <summary>Where an attachment's model sits on the gun (ammo has none).</summary>
+    public enum AttachmentMount { None, Sight, Barrel, Magazine, Grip }
+
+    /// <summary>A gun attachment or ammo modifier, bought in the shop's Attachments tab for the gun in your hands. Each
+    /// gun has one attachment slot and one ammo slot; a new one replaces what's in its slot. Its numbers apply on top
+    /// of the gun's (and its mods).</summary>
     [Serializable]
     public class AttachmentDef
     {
         public string id, displayName, description;
         public AttachmentSlot slot;
+        [Tooltip("Where its model sits on the gun")] public AttachmentMount mount;
         public int price = 150;
         [Tooltip("The small model fitted to the gun (and its shop picture)")] public string model;
         [Header("Multipliers (1 = no change)")]
         public float damage = 1, fireRate = 1, reload = 1, magazine = 1, range = 1, spread = 1, recoil = 1;
+        [Header("Additions (ammo)")]
+        public int pierce;
+        public float splash, knockback;
+        [Tooltip("Extra damage to limbs (0.5 = +50%)")] public float limbBonus;
+        [Tooltip("The rounds carry this element (fire burns dry creatures; shock hits wet ones hard)")] public bool setElement;
+        public Element element;
     }
 
     /// <summary>A weapon mod, offered every few levels. Applies to the gun or melee weapon it was taken on.</summary>
@@ -507,22 +518,33 @@ namespace TideWall
             };
             attachments = new List<AttachmentDef>
             {
-                new() { id = "brasssight", displayName = "Brass Sight", slot = AttachmentSlot.Sight, price = 120, model = "AttSight", spread = .55f,
+                new() { id = "brasssight", displayName = "Brass Sight", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Sight, price = 120, model = "AttSight", spread = .55f,
                         description = "A ring-and-post sight off a ship's cannon. Shots go where you point: 45% less spread." },
-                new() { id = "spyglass", displayName = "Spyglass Scope", slot = AttachmentSlot.Sight, price = 260, model = "AttScope", spread = .4f, range = 1.6f, damage = 1.1f, fireRate = .9f,
+                new() { id = "spyglass", displayName = "Spyglass Scope", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Sight, price = 260, model = "AttScope", spread = .4f, range = 1.6f, damage = 1.1f, fireRate = .9f,
                         description = "A captain's spyglass, strapped on. Far reach and tight shots (+60% range, +10% damage, 60% less spread), a little slower to fire." },
-                new() { id = "brake", displayName = "Barnacle Brake", slot = AttachmentSlot.Barrel, price = 140, model = "AttBrake", recoil = .5f, spread = .85f,
+                new() { id = "brake", displayName = "Barnacle Brake", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Barrel, price = 140, model = "AttBrake", recoil = .5f, spread = .85f,
                         description = "A muzzle brake crusted with barnacles. Half the kick, and a little tighter." },
-                new() { id = "longbarrel", displayName = "Long Barrel", slot = AttachmentSlot.Barrel, price = 220, model = "AttBarrel", damage = 1.2f, range = 1.3f, recoil = 1.15f,
+                new() { id = "longbarrel", displayName = "Long Barrel", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Barrel, price = 220, model = "AttBarrel", damage = 1.2f, range = 1.3f, recoil = 1.15f,
                         description = "A longer barrel from the harbour armoury. +20% damage and +30% range; kicks a bit harder." },
-                new() { id = "drum", displayName = "Drum Magazine", slot = AttachmentSlot.Magazine, price = 180, model = "AttDrum", magazine = 1.6f, reload = 1.15f,
+                new() { id = "drum", displayName = "Drum Magazine", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Magazine, price = 180, model = "AttDrum", magazine = 1.6f, reload = 1.15f,
                         description = "A fat drum of rounds: +60% magazine, but it's slower to reload." },
-                new() { id = "quickclip", displayName = "Quick-Draw Clip", slot = AttachmentSlot.Magazine, price = 160, model = "AttClip", reload = .65f,
+                new() { id = "quickclip", displayName = "Quick-Draw Clip", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Magazine, price = 160, model = "AttClip", reload = .65f,
                         description = "Rounds pre-loaded on a brass clip. Reloads 35% faster." },
-                new() { id = "sharkgrip", displayName = "Sharkskin Grip", slot = AttachmentSlot.Grip, price = 150, model = "AttGrip", fireRate = 1.15f, recoil = .85f,
+                new() { id = "sharkgrip", displayName = "Sharkskin Grip", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Grip, price = 150, model = "AttGrip", fireRate = 1.15f, recoil = .85f,
                         description = "Rough sharkskin that never slips, wet or dry. +15% fire rate, a little less kick." },
-                new() { id = "driftstock", displayName = "Driftwood Stock", slot = AttachmentSlot.Grip, price = 130, model = "AttStock", recoil = .6f, spread = .8f,
+                new() { id = "driftstock", displayName = "Driftwood Stock", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Grip, price = 130, model = "AttStock", recoil = .6f, spread = .8f,
                         description = "A stock carved from driftwood, braced on the shoulder. 40% less kick, 20% less spread." },
+                // Ammo: one modifier per gun, whatever its attachment
+                new() { id = "incendiary", displayName = "Incendiary Rounds", slot = AttachmentSlot.Ammo, price = 200, model = "AmmoFire", setElement = true, element = Element.Fire, damage = .95f,
+                        description = "Rounds packed with lamp oil. Sets dry creatures alight; wet ones only steam." },
+                new() { id = "shock", displayName = "Eel-Shock Rounds", slot = AttachmentSlot.Ammo, price = 220, model = "AmmoShock", setElement = true, element = Element.Shock,
+                        description = "Charged from a live eel. Shock hits wet creatures hard, and most of them come out of the sea dripping." },
+                new() { id = "harpoontip", displayName = "Harpoon-Tip Rounds", slot = AttachmentSlot.Ammo, price = 180, model = "AmmoPierce", pierce = 1, damage = 1.05f,
+                        description = "Barbed steel tips: every shot goes through one more creature." },
+                new() { id = "blasting", displayName = "Blasting Caps", slot = AttachmentSlot.Ammo, price = 280, model = "AmmoBlast", splash = 1.6f, damage = .85f, fireRate = .9f,
+                        description = "Rounds that burst on impact, hurting everything close by. A touch weaker and slower." },
+                new() { id = "hollow", displayName = "Hollow Points", slot = AttachmentSlot.Ammo, price = 160, model = "AmmoHollow", limbBonus = .5f,
+                        description = "Mushrooming rounds: +50% damage to limbs. Shoot their claws off." },
             };
 
             // The 2D game's reload minigames (its RELOADS table). {r} is the player's reload button.

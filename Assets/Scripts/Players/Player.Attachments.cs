@@ -1,6 +1,6 @@
-// TideWall 3D — Player: gun attachments (sights, barrels, magazines, grips) bought in the shop. One per slot per gun;
-// their numbers are folded into EffGun by RebuildWeapons, and their little models are fitted to the gun in your hands
-// (and the first-person view model).
+// TideWall 3D — Player: gun attachments and ammo bought in the shop. Each gun has two slots: one attachment (a sight,
+// barrel, magazine or grip part) and one ammo modifier (incendiary, shock…). Their numbers are folded into EffGun by
+// RebuildWeapons, and the attachment's little model is fitted to the gun in your hands (and the first-person view model).
 // (One part of the Player class; Player.cs has the overview, the fields and the frame loop.)
 using System.Collections.Generic;
 using UnityEngine;
@@ -57,8 +57,8 @@ namespace TideWall
 
         public string AttachmentList(string gunId) => Attachments.TryGetValue(gunId, out var ids) ? string.Join(",", ids) : "";
 
-        /// <summary>Put the attachments' models on a gun model: sight on top, barrel piece at the muzzle, magazine under
-        /// the middle, grip or stock at the back. Placed from the gun's muzzle socket (guns point along +Z).</summary>
+        /// <summary>Put the attachment's model on a gun model by where it mounts: sight on top, barrel piece at the
+        /// muzzle, magazine under the middle, grip or stock at the back (ammo shows no part). Placed from the gun's muzzle socket (guns point along +Z).</summary>
         public static void DressGun(Model gun, IEnumerable<AttachmentDef> fitted)
         {
             var old = gun.root.transform.Find("Attachments");
@@ -69,18 +69,18 @@ namespace TideWall
             float len = Mathf.Max(.25f, muzzle.z);
             foreach (var a in fitted)
             {
-                if (string.IsNullOrEmpty(a.model)) continue;
-                var at = a.slot switch
+                if (string.IsNullOrEmpty(a.model) || a.mount == AttachmentMount.None) continue;
+                var at = a.mount switch
                 {
-                    AttachmentSlot.Sight => new Vector3(0, muzzle.y + .07f, len * .35f),
-                    AttachmentSlot.Barrel => muzzle,
-                    AttachmentSlot.Magazine => new Vector3(0, muzzle.y - .1f, len * .3f),
+                    AttachmentMount.Sight => new Vector3(0, muzzle.y + .07f, len * .35f),
+                    AttachmentMount.Barrel => muzzle,
+                    AttachmentMount.Magazine => new Vector3(0, muzzle.y - .1f, len * .3f),
                     _ => new Vector3(0, muzzle.y - .02f, -.12f),
                 };
                 var part = ModelFactory.Spawn(a.model, holder, at);
                 if (part == null) continue;
                 foreach (var c in part.root.GetComponentsInChildren<Collider>()) Object.Destroy(c);
-                if (a.slot == AttachmentSlot.Barrel) part.root.transform.localPosition = muzzle;
+                if (a.mount == AttachmentMount.Barrel) part.root.transform.localPosition = muzzle;
             }
         }
 

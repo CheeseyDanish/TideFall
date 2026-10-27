@@ -14,15 +14,20 @@ namespace TideWall
         static Light key;
 
         /// <summary>The picture of a model (null if it can't be drawn, e.g. without a graphics device).</summary>
-        public static Sprite For(string model)
+        public static Sprite For(string model) => For(model, .35f);
+
+        /// <summary>The picture from higher up (elevation: how far above the three-quarter view the camera sits; the
+        /// slot machine's reels look down on flat things like starfish and hotdogs).</summary>
+        public static Sprite For(string model, float elevation)
         {
             if (string.IsNullOrEmpty(model)) return null;
-            if (cache.TryGetValue(model, out var s)) return s;
-            cache[model] = s = Render(model);
+            string key = Mathf.Approximately(elevation, .35f) ? model : $"{model}@{elevation:0.##}";
+            if (cache.TryGetValue(key, out var s)) return s;
+            cache[key] = s = Render(model, elevation);
             return s;
         }
 
-        static Sprite Render(string model)
+        static Sprite Render(string model, float elevation)
         {
             if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) return null;
             var stage = new Vector3(0, -400, 0);
@@ -53,7 +58,7 @@ namespace TideWall
                 go.transform.rotation = Quaternion.Euler(0, 210, 0);   // three-quarter view
                 var b = ModelFactory.Bounds(go);
                 float dist = b.extents.magnitude / Mathf.Tan(cam.fieldOfView * .5f * Mathf.Deg2Rad) * 1.05f;
-                cam.transform.position = b.center + new Vector3(0, .35f, -1).normalized * dist;
+                cam.transform.position = b.center + new Vector3(0, elevation, -1).normalized * dist;
                 cam.transform.LookAt(b.center);
                 cam.nearClipPlane = .01f; cam.farClipPlane = dist * 3;
                 rt = RenderTexture.GetTemporary(Size, Size, 24, RenderTextureFormat.ARGB32);

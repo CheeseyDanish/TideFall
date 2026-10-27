@@ -46,6 +46,8 @@ namespace TideWall
                     g.damage *= a.damage; g.fireRate *= a.fireRate; g.reload *= a.reload; g.range *= a.range;
                     g.magazine = Mathf.Max(1, Mathf.RoundToInt(g.magazine * a.magazine));
                     g.spreadDegrees *= a.spread; g.recoil *= a.recoil;
+                    g.pierce += a.pierce; g.splash += a.splash; g.knockback += a.knockback; g.limbBonus += a.limbBonus;
+                    if (a.setElement) g.element = a.element;
                 }
                 EffGun = g;
             }

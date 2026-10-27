@@ -21,6 +21,14 @@ namespace TideWall
         public abstract string Blurb { get; }
         /// <summary>What it pays at best, for the list ("up to 80×").</summary>
         public abstract string Pays { get; }
+        /// <summary>The model pictured on the lobby's card for this game.</summary>
+        public abstract string Icon { get; }
+        /// <summary>0..1 while a win is being celebrated (TableView: the rail glows, sand dollars rain).</summary>
+        public float Celebration => Mathf.Clamp01(cheerT / 2.5f) * cheer;
+        float cheerT, cheer;
+        /// <summary>Celebrate a win: 0.3 a small one … 1 a jackpot.</summary>
+        protected void Cheer(float strength) { cheer = Mathf.Clamp01(strength); cheerT = 2.5f; }
+        public void TickCheer(float dt) { if (cheerT > 0) cheerT -= dt; }
         /// <summary>"How to play": pages of rules shown on the felt instead of the table.</summary>
         public abstract string[] Rules { get; }
         public int RulesPage = -1;
@@ -74,7 +82,7 @@ namespace TideWall
         void Update()
         {
             float dt = Time.deltaTime;
-            foreach (var g in seats.Values) g.Tick(dt);
+            foreach (var g in seats.Values) { g.TickCheer(dt); g.Tick(dt); }
         }
 
         /// <summary>This player's seat at game T (made on first visit; it keeps a hand in progress if you walk off).</summary>
@@ -122,33 +130,31 @@ namespace TideWall
         }
 
         // ------------------------------------------------------------------ menus
-        /// <summary>The casino's front: the five games.</summary>
+        /// <summary>The casino's front: a card for each game, with its picture, what it pays, and how the run's going.</summary>
         public static Menu Lobby(Player p, Vector3 at)
         {
             var c = GameManager.I.Casino;
-            var m = new Menu { Title = Title, Layout = MenuLayout.Table, Anchor = at, AnchorRange = 7 };
+            var m = new Menu { Title = "LUCKY BARNACLE", Layout = MenuLayout.Grid, Anchor = at, AnchorRange = 7 };
             m.Rebuild = () => Lobby(p, at);
-            m.Board = () =>
-            {
-                string net = c.Net > 0 ? Felt.Good($"+{c.Net}") : c.Net < 0 ? Felt.Bad(c.Net.ToString()) : "0";
-                string closed = c.Closed();
-                return $"<size=34><color=#fde68a><b>~ THE LUCKY BARNACLE ~</b></color></size>\n" +
-                       "<size=17>Five games. All played with the team's sand dollars.</size>\n\n" +
-                       $"<size=18>This run at the tables: <b>{net} SD</b> over {c.HandsPlayed} hand{(c.HandsPlayed == 1 ? "" : "s")}</size>\n" +
-                       (closed != null ? $"\n<size=18>{Felt.Bad(closed)}</size>" : "\n<size=15>" + Felt.Dim("Pick a game below. Every game has a How to play page.") + "</size>");
-            };
+            string closed = c.Closed();
+            string run = c.HandsPlayed == 0 ? "" : $"  This run at the tables: {(c.Net >= 0 ? "+" : "")}{c.Net} SD over {c.HandsPlayed} hand{(c.HandsPlayed == 1 ? "" : "s")}.";
             void Game<T>() where T : CasinoGame, new()
             {
                 var g = c.Seat<T>(p, at);
-                m.Add(g.Name, g.Pays, g.Blurb, open: () => Table(p, g, at));
+                string extra = g is Slots s ? (s.HighTide ? "\nHIGH TIDE: free spin!" : $"\nTide {s.Tide}/{Slots.TideFill}") : "";
+                m.Items.Add(new MenuItem
+                {
+                    Label = g.Name, Icon = g.Icon, Info = $"Pays {g.Pays}{extra}", Right = closed != null ? "Closed" : g.Busy ? "In play" : "Play",
+                    Detail = g.Blurb + (closed != null ? $"  {closed}" : run), Open = () => Table(p, g, at),
+                    Blocked = () => null,
+                });
             }
             Game<Slots>();
             Game<Blackjack>();
             Game<Roulette>();
             Game<VideoPoker>();
             Game<Fathoms>();
-            m.Add("Leave", null, "Back to the beach.", pick: p.CloseMenu);
-            m.FirstSelectable();
+            m.Selected = 0;
             return m;
         }
 
@@ -156,7 +162,7 @@ namespace TideWall
         public static Menu Table(Player p, CasinoGame g, Vector3 at)
         {
             var c = g.Casino;
-            var m = new Menu { Title = $"{Title} · {g.Name.ToUpperInvariant()}", Layout = MenuLayout.Table, Anchor = at, AnchorRange = 7, Board = g.Board };
+            var m = new Menu { Title = $"{Title} · {g.Name.ToUpperInvariant()}", Layout = MenuLayout.Table, Anchor = at, AnchorRange = 7, Board = g.Board, Celebrate = () => g.Celebration };
             m.Rebuild = () => Table(p, g, at);
             m.Parent = () => Lobby(p, at);
             m.Quick = () => { if (g.RepeatLabel != null) g.Repeat(); };

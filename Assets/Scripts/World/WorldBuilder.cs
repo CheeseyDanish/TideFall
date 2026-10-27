@@ -81,6 +81,9 @@ namespace TideWall
             // The Lucky Barnacle: the casino booth on the west side of town, its counter toward the beach, and the crab behind it
             Interactable.Add<CasinoBooth>(Prop(town, "CasinoBooth", new Vector3(-30, 0, -10), 0, solid: new Vector3(3, 2.2f, 1.4f)), "CASINO", 3.6f);
             world.casinoCrab = Vendor.Create(town, "VendorCrab", new Vector3(-30, 0, -11.4f), 0, Casino.CrabLines);
+            // Two Tide Machines (slot machines) on either side of the booth
+            foreach (float sx in new[] { -1f, 1f })
+                Interactable.Add<SlotMachineProp>(Prop(town, "SlotMachine", new Vector3(-30 + sx * 3.4f, 0, -10.2f), -sx * 12, solid: new Vector3(1, 2.4f, .8f)), "", 2.2f);
             Interactable.Add<ReadyBell>(Prop(town, "Bell", new Vector3(0, 0, -4), 0, solid: new Vector3(.3f, 2, .3f)), "READY BELL", 2.8f);
 
             // --- lights: torches behind the wall and around town, the lighthouse beam

@@ -16,6 +16,7 @@ namespace TideWall
         public override string Name => "Video Poker";
         public override string Blurb => "Jacks or Better: five cards, hold the ones you want, draw once. Paid by poker hand.";
         public override string Pays => "up to 800×";
+        public override string Icon => "PokerHand";
         public override string[] Rules => new[]
         {
             "<b>VIDEO POKER · JACKS OR BETTER</b>\n" +
@@ -82,6 +83,7 @@ namespace TideWall
             lastWin = stake * Paytable[(int)Last];
             Pay(lastWin);
             if (Last >= Rank.Straight) Sfx.Play("bell", .6f, .2f);
+            if (lastWin > stake) Cheer(Last >= Rank.FourOfAKind ? 1 : Last >= Rank.Straight ? .7f : .4f);
         }
 
         public static Rank Evaluate(IList<PlayingCard> hand)

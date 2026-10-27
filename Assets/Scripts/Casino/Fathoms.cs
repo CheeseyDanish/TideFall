@@ -19,6 +19,7 @@ namespace TideWall
         public override string Name => "Fathoms";
         public override string Blurb => "Sailors' baccarat. Bet on the Sailor's hand, the Captain's, or a tie. The dealer explains every draw.";
         public override string Pays => "up to 8 to 1";
+        public override string Icon => "Anchor";
         public override string[] Rules => new[]
         {
             "<b>FATHOMS</b> · baccarat, as sailors play it. You never play a hand: you only bet on one.\n" +
@@ -162,7 +163,7 @@ namespace TideWall
             shown = steps.Count;
             revealT = -1;
             Pay(payout);
-            if (payout > stake) Sfx.Play("bell", .5f, .2f);
+            if (payout > stake) { Sfx.Play("bell", .5f, .2f); Cheer(winner == Side.Slack ? 1 : .5f); }
         }
 
         protected override string Table()

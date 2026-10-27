@@ -3,8 +3,10 @@
 //               name, stat line, price, owned/equipped), and the selected item's description.
 //   CardsView — the tidal card vote: a row of big cards (colour, name, waves, description, votes), a face-down
 //               random card, and sometimes a re-roll.
-//   TableView — the casino: a felt table (the menu's Board, redrawn every frame so reels can spin) above the list of
-//               actions (bet, deal, hit…), with the purse and the selected action's description.
+//   TableView — the casino: a felt table in a brass rail (the menu's Board, redrawn every frame so cards can turn
+//               over) above the list of actions (bet, deal, hit…), the purse, the selected action's description, and
+//               a win's celebration (the rail flares, sand dollars rain).
+//   SlotsView — the slot machine on that felt: reel windows of pictures, the lever, the paytable, the tide meter.
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -91,7 +93,7 @@ namespace TideWall
             var cur = m.Current;
             string why = cur?.Blocked?.Invoke();
             detail.text = cur == null ? "" : cur.Detail + (why != null && !cur.Equipped ? $"\n<color=#fca5a5>{why}</color>" : "");
-            help.text = $"{(p.UsesMouse ? "Arrows / wheel" : "D-pad")} choose · {p.Glyph(Btn.Interact)} buy · " +
+            help.text = $"{(p.UsesMouse ? "Arrows / wheel" : "D-pad")} choose · {p.Glyph(Btn.Interact)} {(cur?.Open != null && cur.OnPick == null ? "open" : "buy")} · " +
                         (m.Tabs != null ? $"{p.Glyph(Btn.Swap)} / {p.Glyph(Btn.Reload)} tabs · " : "") + $"{p.Glyph(Btn.Back)} close · you can keep walking";
         }
     }
@@ -156,23 +158,45 @@ namespace TideWall
 
     public class TableView
     {
-        readonly RectTransform root;
+        readonly RectTransform root, feltRt;
         readonly TMP_Text title, purse, board, actions, detail, help;
+        readonly Image rail, glow;
+        readonly List<Image> coins = new();
+        readonly SlotsView slots;
 
         public TableView(Transform canvas)
         {
-            var panel = Ui.Image(canvas, "Table", new Vector2(.5f, .5f), new Vector2(0, -6), new Vector2(880, 520), new Color(.05f, .07f, .12f, .94f));
+            var panel = Ui.Image(canvas, "Table", new Vector2(.5f, .5f), new Vector2(0, -6), new Vector2(880, 520), new Color(.04f, .06f, .11f, .95f));
             root = panel.rectTransform;
-            var header = Ui.Image(root, "Header", new Vector2(.5f, 1), Vector2.zero, new Vector2(880, 48), new Color(.3f, .08f, .1f, .96f));
-            title = Ui.Text(header.transform, "Title", new Vector2(0, .5f), new Vector2(18, 0), new Vector2(520, 40), 22, TextAnchor.MiddleLeft, new Color(1, .85f, .4f));
+            // Header: maroon with a gold trim, a suit flourish, and the purse with its sand dollar
+            var header = Ui.Image(root, "Header", new Vector2(.5f, 1), Vector2.zero, new Vector2(880, 48), new Color(.36f, .07f, .1f, .98f));
+            Ui.Image(header.transform, "Trim", new Vector2(.5f, 0), Vector2.zero, new Vector2(880, 3), new Color(.9f, .72f, .3f, 1));
+            title = Ui.Text(header.transform, "Title", new Vector2(0, .5f), new Vector2(18, 0), new Vector2(560, 40), 22, TextAnchor.MiddleLeft, new Color(1, .85f, .4f));
             title.rectTransform.pivot = new Vector2(0, .5f);
-            purse = Ui.Text(header.transform, "Purse", new Vector2(1, .5f), new Vector2(-14, 0), new Vector2(300, 40), 16, TextAnchor.MiddleRight, new Color(1f, .93f, .75f));
+            purse = Ui.Text(header.transform, "Purse", new Vector2(1, .5f), new Vector2(-14, 0), new Vector2(260, 40), 18, TextAnchor.MiddleRight, new Color(1f, .93f, .75f));
             purse.rectTransform.pivot = new Vector2(1, .5f);
-            // The felt: green baize with a brass rail
-            var rail = Ui.Image(root, "Rail", new Vector2(.5f, 1), new Vector2(0, -54), new Vector2(852, 282), new Color(.55f, .4f, .16f, 1));
-            var felt = Ui.Image(rail.transform, "Felt", new Vector2(.5f, 1), new Vector2(0, -6), new Vector2(840, 270), new Color(.05f, .3f, .2f, 1));
+            var coin = Ui.Image(header.transform, "Coin", new Vector2(1, .5f), new Vector2(-280, 0), new Vector2(26, 26), Color.white);
+            coin.sprite = Ui.SandDollarIcon; coin.rectTransform.pivot = new Vector2(1, .5f);
+            // The felt: green baize inside a brass rail, darker toward the edges
+            rail = Ui.Image(root, "Rail", new Vector2(.5f, 1), new Vector2(0, -54), new Vector2(852, 282), new Color(.55f, .4f, .16f, 1));
+            var felt = Ui.Image(rail.transform, "Felt", new Vector2(.5f, 1), new Vector2(0, -6), new Vector2(840, 270), new Color(.06f, .33f, .22f, 1));
+            feltRt = felt.rectTransform;
+            felt.gameObject.AddComponent<RectMask2D>();
+            var vignette = Ui.Image(felt.transform, "Vignette", new Vector2(.5f, .5f), Vector2.zero, new Vector2(900, 330), new Color(0, .05f, .02f, .55f));
+            vignette.sprite = Ui.Radial(true);
+            glow = Ui.Image(felt.transform, "Glow", new Vector2(.5f, .5f), Vector2.zero, new Vector2(760, 300), new Color(1, .85f, .35f, 0));
+            glow.sprite = Ui.Radial(false);
+            slots = new SlotsView(felt.transform);
             board = Ui.Text(felt.transform, "Board", new Vector2(.5f, 1), new Vector2(0, -6), new Vector2(816, 258), 19, TextAnchor.MiddleCenter, Color.white);
             board.richText = true;
+            // Sand dollars that rain on the felt when you win
+            for (int i = 0; i < 18; i++)
+            {
+                var c = Ui.Image(felt.transform, "Coin", new Vector2(.5f, 1), Vector2.zero, new Vector2(30, 30), Color.white);
+                c.sprite = Ui.SandDollarIcon;
+                c.gameObject.SetActive(false);
+                coins.Add(c);
+            }
             actions = Ui.Text(root, "Actions", new Vector2(.5f, 0), new Vector2(0, 58), new Vector2(820, 124), 15, TextAnchor.UpperLeft, Color.white);
             detail = Ui.Text(root, "Detail", new Vector2(.5f, 0), new Vector2(0, 28), new Vector2(820, 30), 13, TextAnchor.MiddleCenter, new Color(.85f, .9f, 1));
             help = Ui.Text(root, "Help", new Vector2(.5f, 0), new Vector2(0, 6), new Vector2(820, 20), 12, TextAnchor.MiddleCenter, new Color(.6f, .65f, .8f));
@@ -184,10 +208,36 @@ namespace TideWall
         public void Show(Menu m, Player p, GameManager gm)
         {
             root.gameObject.SetActive(true);
-            title.text = $"<b>{m.Title}</b>";
-            purse.text = $"Team purse <color=#fde68a><b>{gm.SandDollars} SD</b></color>";
+            title.text = $"<color=#fca5a5>♥</color> <b>{m.Title}</b> <color=#e5e7eb>♠</color>";
+            purse.text = $"<b>{gm.SandDollars}</b> SD";
+            var reels = m.Reels?.Invoke();
+            slots.Show(reels);
+            // With reels on the table, the words go underneath them
+            var bt = board.rectTransform;
+            if (reels != null) { bt.anchoredPosition = new Vector2(0, -206); bt.sizeDelta = new Vector2(560, 58); }
+            else { bt.anchoredPosition = new Vector2(0, -6); bt.sizeDelta = new Vector2(816, 258); }
             board.text = m.Board?.Invoke() ?? "";
-            actions.text = PlayerHud.Render(m, 6, 40);
+
+            // A win: the rail flares gold, a glow swells on the felt, and sand dollars rain down
+            float cheer = m.Celebrate?.Invoke() ?? 0;
+            float t = Time.unscaledTime;
+            rail.color = Color.Lerp(new Color(.55f, .4f, .16f), new Color(1, .85f, .35f), cheer * (.6f + .4f * Mathf.Sin(t * 14)));
+            glow.color = new Color(1, .85f, .35f, cheer * .35f);
+            int n = Mathf.RoundToInt(coins.Count * cheer);
+            for (int i = 0; i < coins.Count; i++)
+            {
+                var c = coins[i];
+                bool on = i < n;
+                c.gameObject.SetActive(on);
+                if (!on) continue;
+                float seed = i * 0.6180339f % 1;
+                float fall = (t * (140 + seed * 120) + seed * 300) % 330;
+                c.rectTransform.anchoredPosition = new Vector2(-400 + seed * 800 + Mathf.Sin(t * 3 + i) * 18, 30 - fall);
+                c.rectTransform.localRotation = Quaternion.Euler(0, (t * 300 + i * 40) % 360, 0);
+                c.color = new Color(1, 1, 1, Mathf.Clamp01(cheer * 1.5f));
+            }
+
+            actions.text = Rows(m, 6);
             var cur = m.Current;
             string why = cur?.Blocked?.Invoke();
             detail.text = cur == null ? "" : (cur.Detail ?? "") + (!string.IsNullOrEmpty(why) ? $"  <color=#fca5a5>{why}</color>" : "");
@@ -195,6 +245,148 @@ namespace TideWall
             string ql = m.QuickLabel?.Invoke();
             string quick = !string.IsNullOrEmpty(ql) ? $" · <color=#fde68a>{p.Glyph(Btn.Reload)} {ql}</color>" : "";
             help.text = $"{(p.UsesMouse ? "Up/down" : "D-pad")} choose{adj} · {p.Glyph(Btn.Interact)} pick{quick} · {p.Glyph(Btn.Back)} {(m.Parent != null ? "back" : "leave")}";
+        }
+
+        /// <summary>The actions as rows; the selected one sits on a soft gold band.</summary>
+        static string Rows(Menu m, int rows)
+        {
+            var sb = new System.Text.StringBuilder();
+            int first = Mathf.Clamp(m.Selected - rows / 2, 0, Mathf.Max(0, m.Items.Count - rows));
+            for (int i = first; i < Mathf.Min(m.Items.Count, first + rows); i++)
+            {
+                var it = m.Items[i];
+                if (it.Header) { sb.Append($"<color=#93c5fd><b>{it.Label}</b></color>\n"); continue; }
+                bool sel = i == m.Selected;
+                bool blocked = it.Blocked?.Invoke() != null;
+                string colour = blocked ? "#94a3b8" : sel ? "#fde68a" : "#ffffff";
+                string line = $"{(sel ? "► " : "   ")}{it.Label}<pos=58%>{it.Right}";
+                sb.Append(sel ? $"<mark=#fde68a1f><color={colour}><b>{line}</b>      </color></mark>\n" : $"<color={colour}>{line}</color>\n");
+            }
+            return sb.ToString();
+        }
+    }
+
+    /// <summary>The Tide Machine on the felt: three reel windows of pictures scrolling past a gold line, the lever, the
+    /// paytable (pictures and multipliers), and the tide meter. Driven by Menu.Reels (Slots.Show).</summary>
+    public class SlotsView
+    {
+        const float Spacing = 84, IconSize = 92, Elevation = 1.4f;
+        readonly RectTransform root, stick, ball;
+        readonly Image[] frames = new Image[3];
+        readonly Image[][] icons = new Image[3][];
+        readonly Image tideFill, tideGlow;
+        readonly TMP_Text tideLabel;
+        bool pictures;
+
+        public SlotsView(Transform felt)
+        {
+            root = Ui.Rect(felt, "Slots", new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(.5f, 1), Vector2.zero, new Vector2(840, 270));
+            // The cabinet's face: a maroon housing with a gold edge around the windows
+            var edge = Ui.Image(root, "Edge", new Vector2(.5f, 1), new Vector2(0, -12), new Vector2(404, 184), new Color(.9f, .72f, .3f, 1));
+            Ui.Image(edge.transform, "Housing", new Vector2(.5f, .5f), Vector2.zero, new Vector2(396, 176), new Color(.4f, .06f, .1f, 1));
+            for (int r = 0; r < 3; r++)
+            {
+                var x = (r - 1) * 126f;
+                frames[r] = Ui.Image(edge.transform, $"Frame{r}", new Vector2(.5f, .5f), new Vector2(x, 0), new Vector2(122, 166), new Color(.25f, .04f, .07f, 1));
+                var window = Ui.Image(frames[r].transform, "Window", new Vector2(.5f, .5f), Vector2.zero, new Vector2(114, 158), new Color(.98f, .95f, .86f, 1));
+                window.gameObject.AddComponent<RectMask2D>();
+                icons[r] = new Image[4];
+                for (int k = 0; k < 4; k++)
+                {
+                    var ic = Ui.Image(window.transform, $"Symbol{k}", new Vector2(.5f, .5f), Vector2.zero, new Vector2(IconSize, IconSize), Color.white);
+                    ic.preserveAspect = true;
+                    icons[r][k] = ic;
+                }
+                // Shading at the top and bottom of the window, so the reel looks round
+                var top = Ui.Image(window.transform, "ShadeTop", new Vector2(.5f, 1), Vector2.zero, new Vector2(114, 30), new Color(0, 0, 0, .28f));
+                var bottom = Ui.Image(window.transform, "ShadeBottom", new Vector2(.5f, 0), Vector2.zero, new Vector2(114, 30), new Color(0, 0, 0, .28f));
+            }
+            Ui.Image(edge.transform, "Payline", new Vector2(.5f, .5f), Vector2.zero, new Vector2(392, 3), new Color(1, .82f, .3f, .9f));
+
+            // The lever: a chrome stick and a red ball, pulled down as the reels go
+            var leverBase = Ui.Image(root, "LeverBase", new Vector2(.5f, 1), new Vector2(232, -96), new Vector2(26, 26), new Color(.7f, .72f, .78f));
+            leverBase.sprite = Ui.Dot;
+            stick = Ui.Image(leverBase.transform, "Stick", new Vector2(.5f, .5f), Vector2.zero, new Vector2(8, 80), new Color(.78f, .8f, .86f)).rectTransform;
+            stick.pivot = new Vector2(.5f, 0);
+            var b = Ui.Image(leverBase.transform, "Ball", new Vector2(.5f, .5f), new Vector2(0, 80), new Vector2(30, 30), new Color(.9f, .15f, .15f));
+            b.sprite = Ui.Dot;
+            ball = b.rectTransform;
+
+            // The tide meter: a tall glass of sea that fills with each losing spin
+            var tube = Ui.Image(root, "Tide", new Vector2(.5f, 1), new Vector2(300, -24), new Vector2(34, 160), new Color(.05f, .1f, .2f, 1));
+            tideGlow = Ui.Image(tube.transform, "Glow", new Vector2(.5f, .5f), Vector2.zero, new Vector2(110, 230), new Color(.4f, .8f, 1, 0));
+            tideGlow.sprite = Ui.Radial(false);
+            tideFill = Ui.Image(tube.transform, "Sea", new Vector2(.5f, .5f), Vector2.zero, new Vector2(28, 154), new Color(.2f, .6f, .95f, 1));
+            tideFill.sprite = Ui.White; tideFill.type = Image.Type.Filled; tideFill.fillMethod = Image.FillMethod.Vertical; tideFill.fillOrigin = 0;
+            tideLabel = Ui.Text(root, "TideLabel", new Vector2(.5f, 1), new Vector2(300, -188), new Vector2(110, 40), 13, TextAnchor.UpperCenter, new Color(.7f, .9f, 1));
+
+            // The paytable: three little pictures and what they pay
+            for (int s = Slots.Symbols.Length - 1, row = 0; s >= 0; s--, row++)
+            {
+                float y = -22 - row * 27;
+                for (int k = 0; k < 3; k++)
+                {
+                    var ic = Ui.Image(root, $"Pay{s}{k}", new Vector2(.5f, 1), new Vector2(-394 + k * 30, y), new Vector2(29, 29), Color.white);
+                    ic.preserveAspect = true;
+                    ic.name = $"Pay{s}";
+                }
+                Ui.Text(root, $"PayText{s}", new Vector2(.5f, 1), new Vector2(-268, y), new Vector2(60, 24), 15, TextAnchor.MiddleLeft, s == 5 ? new Color(1, .85f, .4f) : Color.white)
+                  .text = $"<b>×{Slots.Three[s]}</b>";
+            }
+            for (int k = 0; k < 2; k++)
+            {
+                var ic = Ui.Image(root, "PayShells", new Vector2(.5f, 1), new Vector2(-379 + k * 30, -22 - 6 * 27), new Vector2(29, 29), Color.white);
+                ic.preserveAspect = true;
+            }
+            Ui.Text(root, "PayShellsText", new Vector2(.5f, 1), new Vector2(-268, -22 - 6 * 27), new Vector2(60, 24), 15, TextAnchor.MiddleLeft, Color.white).text = $"<b>×{Slots.TwoShells}</b>";
+            root.gameObject.SetActive(false);
+        }
+
+        /// <summary>Pictures of the symbols (rendered from their models), filled in once.</summary>
+        void Pictures()
+        {
+            if (pictures) return;
+            pictures = true;
+            foreach (var img in root.GetComponentsInChildren<Image>(true))
+            {
+                if (img.name.StartsWith("Pay") && img.name.Length == 4 && int.TryParse(img.name.Substring(3), out int s)) img.sprite = Icons.For(Slots.Models[s], Elevation);
+                else if (img.name == "PayShells") img.sprite = Icons.For(Slots.Models[0], Elevation);
+            }
+        }
+
+        public void Show(float[] state)
+        {
+            bool on = state != null && state.Length >= 7;
+            root.gameObject.SetActive(on);
+            if (!on) return;
+            Pictures();
+            float t = Time.unscaledTime;
+            for (int r = 0; r < 3; r++)
+            {
+                float p = state[r];
+                int c = Mathf.FloorToInt(p);
+                float frac = p - c;
+                for (int k = 0; k < 4; k++)
+                {
+                    int j = k - 1;   // -1 below the line … 2 above
+                    int index = ((c + j) % Slots.StripLength + Slots.StripLength) % Slots.StripLength;
+                    var ic = icons[r][k];
+                    ic.sprite = Icons.For(Slots.Models[Slots.Strips[r][index]], Elevation);
+                    ic.rectTransform.anchoredPosition = new Vector2(0, (j - frac) * Spacing);
+                }
+                // The reel holding its breath glows
+                bool suspense = Mathf.RoundToInt(state[4]) == r;
+                frames[r].color = suspense ? Color.Lerp(new Color(1, .75f, .2f), new Color(1, .95f, .6f), .5f + .5f * Mathf.Sin(t * 18)) : new Color(.25f, .04f, .07f, 1);
+            }
+            float pull = state[3];
+            stick.localScale = new Vector3(1, 1 - 1.8f * pull, 1);
+            ball.anchoredPosition = new Vector2(0, 80 * (1 - 1.8f * pull));
+            float tide = state[5];
+            bool high = state[6] > .5f;
+            tideFill.fillAmount = tide;
+            tideFill.color = high ? Color.Lerp(new Color(.3f, .85f, 1), new Color(1, .9f, .5f), .5f + .5f * Mathf.Sin(t * 6)) : new Color(.2f, .6f, .95f, 1);
+            tideGlow.color = new Color(.4f, .8f, 1, high ? .45f + .2f * Mathf.Sin(t * 6) : 0);
+            tideLabel.text = high ? "<b><color=#fde68a>HIGH\nTIDE!</color></b>" : $"TIDE\n{Mathf.RoundToInt(tide * Slots.TideFill)}/{Slots.TideFill}";
         }
     }
 }
