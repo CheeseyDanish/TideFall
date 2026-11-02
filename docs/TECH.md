@@ -203,6 +203,16 @@ The website's `.glb` models (`Blender/source/`) are imported, scaled to a target
 
 Conventions (CLAUDE.md R4–R6): front faces -Y in Blender; `Limb_<Part>` objects have their pivot at the joint; `Socket_<Name>` empties mark hands, muzzles and the keep's menu camera (`Socket_Camera`); a material named `coat` is recoloured per player.
 
+## Art pipeline (the cheap way to work)
+Graphics changes go in one place first. `export()` in `Blender/generate_models.py` runs on every model: `bevel` (small edges that catch the light), then `bake` (ray-cast ambient occlusion, darker toward the ground and a slight tone per face, stored in vertex colours). `Assets/Content/Shaders/Surface.shader` (`TideWall/Surface`, set on model materials by `ModelImport` and on the `Lit` base material) multiplies those in and adds a faint object-space grain; its other passes come from URP/Lit. `PhaseManager.ApplyLook` sets three-direction ambient light.
+
+- **Change all models:** edit `finish()`. Regenerating everything takes about 20 s headless and returns one line.
+- **Change one model or add one:** edit its `build(...)` data. Model data is short, and the shared helpers do the rest.
+- **Review:** `blender --background --factory-startup --python Blender/contact_sheet.py -- . out.png Name Name` renders many models into one image (baked shading only, no colours; viewing it costs one image, not one per model). Then check colours in the screenshot tour.
+- **After regenerating:** run Setup. Run `WorldBaker.Rebuild` and `ExpeditionBaker.Rebuild` if `Mats`, the level builders or the base materials changed. Don't commit unchanged FBX churn.
+- **Check the log for `Shader error`:** a shader that fails to compile silently falls back to URP/Lit, and the tests still pass.
+- **Avoid for bulk art:** the Blender MCP (each step is a round trip that re-sends the conversation, and scene state comes back as text) and a subagent per model (each starts cold and must re-learn the conventions, and the style drifts). Keep the MCP for inspecting one awkward file; use a single subagent only to keep a long art iteration out of a very long conversation.
+
 ## Commands
 Run these from the repo root. The `unity` CLI picks up the editor version from `ProjectSettings/ProjectVersion.txt`.
 

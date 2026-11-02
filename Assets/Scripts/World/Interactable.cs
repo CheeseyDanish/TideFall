@@ -39,7 +39,7 @@ namespace TideWall
         {
             var it = go.AddComponent<T>();
             it.radius = radius;
-            var label = Ui.Label(go.transform, "Sign", new Vector3(0, 3.6f, 0), .8f, new Color(1, .95f, .8f));
+            var label = Ui.Label(go.transform, "Sign", new Vector3(0, 3.6f, 0), .5f, new Color(1, .95f, .8f));
             label.text = sign;
             label.fontStyle = FontStyles.Bold;
             Billboard.Add(label.gameObject, upright: true, fadeNear: 6);

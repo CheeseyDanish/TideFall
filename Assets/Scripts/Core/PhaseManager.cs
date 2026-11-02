@@ -124,8 +124,12 @@ namespace TideWall
             sun.color = Color.Lerp(a.sunColor, b.sunColor, k);
             sun.intensity = Mathf.Lerp(a.sunIntensity, b.sunIntensity, k);
             sun.transform.rotation = Quaternion.Slerp(Quaternion.Euler(a.sunPitch, a.sunYaw, 0), Quaternion.Euler(b.sunPitch, b.sunYaw, 0), k);
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = Color.Lerp(a.ambientColor, b.ambientColor, k);
+            // Ambient from three directions: cooler from the sky, a dim warm bounce off the sand, so shapes read in shadow
+            var ambient = Color.Lerp(a.ambientColor, b.ambientColor, k);
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = Color.Lerp(ambient * 1.25f, SkyColor, .3f);
+            RenderSettings.ambientEquatorColor = ambient;
+            RenderSettings.ambientGroundColor = ambient * new Color(.62f, .52f, .42f);
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
             RenderSettings.fogColor = Color.Lerp(a.fogColor, b.fogColor, k);

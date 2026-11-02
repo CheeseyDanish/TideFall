@@ -9,8 +9,9 @@
 #     weak points; severing one kills.
 #   * Empties named "Socket_<Name>" mark attachment points (hands, muzzles).
 #   * Materials are flat colours. A material named "coat" is recoloured per player at runtime.
-import bpy, bmesh, math, os, sys
+import bpy, bmesh, math, os, random, sys
 from mathutils import Matrix, Vector, Euler
+from mathutils.bvhtree import BVHTree
 
 ROOT = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else os.getcwd()
 OUT = os.path.join(ROOT, 'Assets', 'Content', 'Models')
@@ -101,13 +102,82 @@ def build(name, parts, sockets=(), post=None):
     if post: post(root)
     export(root)
 
+# Every model passes through here, so one change upgrades them all: small bevels that catch the light, then shading
+# baked into vertex colours (material colour * this, in the TideWall/Surface shader; the Part colours stay as they are).
+BEVEL_MAX_FACES, BAKE_MAX_VERTS = 1500, 8000
+HEMI = [Vector(d).normalized() for d in ((0, 0, 1), (.7, 0, .7), (-.7, 0, .7), (0, .7, .7), (0, -.7, .7), (.9, .4, .2), (-.9, -.4, .2), (.4, -.9, .2), (-.4, .9, .2))]
+
+def bevel(o):
+    me = o.data
+    if len(me.polygons) > BEVEL_MAX_FACES or not me.polygons: return
+    dims = sorted(d for d in o.dimensions if d > 1e-4)
+    if not dims: return
+    bm = bmesh.new(); bm.from_mesh(me)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+    edges = [e for e in bm.edges if len(e.link_faces) == 2 and e.calc_face_angle(0) > math.radians(35)]
+    if edges:
+        made = bmesh.ops.bevel(bm, geom=edges, offset=min(.03, dims[0] * .07), segments=1, profile=.5, affect='EDGES', clamp_overlap=True)['faces']
+        # A new face takes the colour of an original neighbour (corner faces, of a new one already settled)
+        todo, done = set(made), None
+        while todo and todo != done:
+            done = set(todo)
+            for f in list(todo):
+                near = [g for e in f.edges for g in e.link_faces if g is not f and g not in todo]
+                if near: f.material_index = near[0].material_index; todo.discard(f)
+    bm.to_mesh(me); bm.free()
+
+def bake(root, meshes):
+    """Ambient occlusion (short rays against the whole model, so crossing parts darken each other), darker toward the
+    ground, and a slight random tone per face: the hand-painted low-poly look."""
+    bpy.context.view_layer.update()
+    verts, tris = [], []
+    for o in meshes:
+        n = len(verts)
+        verts += [o.matrix_world @ v.co for v in o.data.vertices]
+        tris += [[i + n for i in p.vertices] for p in o.data.polygons]
+    if not verts: return
+    tree = BVHTree.FromPolygons(verts, tris, epsilon=1e-5)
+    lo = Vector([min(c) for c in zip(*verts)])
+    hi = Vector([max(c) for c in zip(*verts)])
+    span = max((hi - lo).length, .01)
+    reach = min(max(span * .22, .08), 1.6)
+    use_rays = len(verts) <= BAKE_MAX_VERTS
+    rng = random.Random(root.name)
+    for o in meshes:
+        me = o.data
+        attr = me.color_attributes.new('Shade', 'FLOAT_COLOR', 'CORNER')
+        rot = o.matrix_world.to_3x3()
+        for poly in me.polygons:
+            tone = rng.uniform(.95, 1.03)
+            nrm = (rot @ poly.normal).normalized()
+            for li in poly.loop_indices:
+                co = o.matrix_world @ me.vertices[me.loops[li].vertex_index].co
+                # pulled slightly toward the face's middle so a corner doesn't start inside its neighbour
+                mid = o.matrix_world @ poly.center
+                start = co.lerp(mid, .08) + nrm * min(.01, span * .002)
+                open_ = 1.0
+                if use_rays:
+                    tangent = nrm.to_track_quat('Z', 'Y').to_matrix()
+                    hits = sum(tree.ray_cast(start, tangent @ d, reach)[0] is not None for d in HEMI)
+                    open_ = 1 - .68 * hits / len(HEMI)
+                h = (co.z - lo.z) / max(hi.z - lo.z, .001)
+                v = min(1, open_ * (.8 + .2 * min(1, h * 1.6)) * tone)
+                attr.data[li].color = (v, v, v, 1)
+        me.color_attributes.active_color = attr
+
+def finish(root):
+    meshes = [c for c in root.children_recursive if c.type == 'MESH']
+    for o in meshes: bevel(o)
+    bake(root, meshes)
+
 def export(root):
+    finish(root)
     bpy.ops.object.select_all(action='DESELECT')
     root.select_set(True)
     for c in root.children_recursive: c.select_set(True)
     bpy.ops.export_scene.fbx(filepath=os.path.join(OUT, root.name + '.fbx'), use_selection=True,
         object_types={'EMPTY', 'MESH'}, apply_scale_options='FBX_SCALE_ALL', axis_forward='-Z', axis_up='Y',
-        bake_space_transform=True, mesh_smooth_type='FACE', add_leaf_bones=False, path_mode='COPY', embed_textures=True)
+        bake_space_transform=True, mesh_smooth_type='FACE', add_leaf_bones=False, path_mode='COPY', embed_textures=True, colors_type='LINEAR')
     clear()
 
 def clear():

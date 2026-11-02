@@ -139,7 +139,7 @@ namespace TideWall.EditorTools
 
         static void Materials()
         {
-            Mat("Lit", "Universal Render Pipeline/Lit", false, false);
+            Mat("Lit", "TideWall/Surface", false, false);
             Mat("LitTransparent", "Universal Render Pipeline/Lit", true, false);
             Mat("Unlit", "Universal Render Pipeline/Unlit", false, false);
             Mat("Particle", "Universal Render Pipeline/Particles/Unlit", true, false);
@@ -152,6 +152,7 @@ namespace TideWall.EditorTools
             string path = $"Assets/Content/Materials/{name}.mat";
             var m = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (m == null) { m = new Material(Shader.Find(shader)); AssetDatabase.CreateAsset(m, path); }
+            else if (m.shader.name != shader) { m.shader = Shader.Find(shader); EditorUtility.SetDirty(m); }
             if (transparent)
             {
                 m.SetFloat("_Surface", 1);
@@ -291,6 +292,14 @@ namespace TideWall.EditorTools
             mi.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
             mi.useFileScale = true;
             mi.isReadable = false;
+        }
+
+        /// <summary>Models' opaque materials use TideWall/Surface, which shows the shading baked into vertex colours.</summary>
+        void OnPostprocessMaterial(Material m)
+        {
+            if (!assetPath.StartsWith("Assets/Content/Models") || m.GetFloat("_Surface") > .5f) return;
+            var surface = Shader.Find("TideWall/Surface");
+            if (surface != null) m.shader = surface;
         }
     }
 }

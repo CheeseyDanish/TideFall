@@ -23,6 +23,9 @@ It's the 3D, co-op follow-up to Tidewall 2D (the browser game on the website), k
 ## Melee first
 The run's **first 3 waves are melee only**: guns stay holstered (`gunsUnlockWave = 4`), and the trigger swings your melee weapon instead. Learn the creatures up close first. The HUD says when guns come out.
 
+## Look
+Low-poly with flat colours, given form by bevelled edges, baked shading (dark where parts meet and toward the ground, a slight tone per face), faint surface grain, and ambient light that's cooler from the sky with a warm bounce off the ground.
+
 ## Views
 - **First person** (the default). The camera is at your eyes; you see your gun bottom-right (and your melee weapon sweeping across when you swing), and a small crosshair in your colour. Shots go to whatever is under the crosshair. Mouse or right stick looks around; the left stick / WASD moves relative to where you look.
 - **Third person**. The camera sits over your right shoulder and looks where you look, with the same mouse / right-stick look and centre crosshair as first person; you see your sailor, their gun (and its attachments) and what's around you. Movement is relative to where you look. The camera pulls in when a wall or the ground gets between it and your sailor. (It replaced the original top-down view.)
