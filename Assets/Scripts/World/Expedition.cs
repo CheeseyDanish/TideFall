@@ -204,6 +204,8 @@ namespace TideWall
         }
 
         // ------------------------------------------------------------------ Level
+        public override PhaseDefinition HoldLook => Stage.look;
+
         public override Vector3 Goal(Vector3 from, float radius, out GoalKind kind)
         {
             // Out here the creatures hunt: the nearest sailor within sight, or they hold their ground
@@ -289,6 +291,7 @@ namespace TideWall
 
         public static string SceneFor(Campaign campaign, SaveData save)
         {
+            if (save.part == Lighthouse.PartId) return Lighthouse.SceneName;
             var part = campaign.Part(save.part) ?? campaign.parts.Find(p => p.kind == PartKind.Assault);
             return part.stages[Mathf.Clamp(save.stage, 0, part.stages.Count - 1)].scene;
         }

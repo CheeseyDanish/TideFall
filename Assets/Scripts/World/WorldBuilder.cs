@@ -196,7 +196,7 @@ namespace TideWall
             go.AddComponent<MeshCollider>().sharedMesh = mesh;
         }
 
-        static GameObject Prop(Transform parent, string model, Vector3 pos, float yaw, Vector3? solid = null)
+        public static GameObject Prop(Transform parent, string model, Vector3 pos, float yaw, Vector3? solid = null)
         {
             var mi = ModelFactory.Spawn(model, parent, pos);
             mi.root.transform.rotation = Quaternion.Euler(0, yaw, 0);

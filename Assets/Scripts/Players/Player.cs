@@ -57,7 +57,7 @@ namespace TideWall
         public float MaxHp => Simulated ? (db.playerMaxHp + gm.Team.PlayerHpBonus + StatBonus(StatKind.MaxHp)) * gm.Cards.PlayerMaxHp : netMaxHp;
         public bool IsDowned { get; private set; }
         public bool IsOut { get; private set; }          // bled out: back at the next phase
-        public bool IsTargetable => Simulated && !IsDowned && !IsOut && gm.State == GameState.Playing;
+        public bool IsTargetable => Simulated && !IsDowned && !IsOut && Perch <= 0 && gm.State == GameState.Playing;
         public float BleedLeft { get; private set; }
         public float ReviveProgress { get; private set; }
         public bool Ready { get; set; }
@@ -107,7 +107,7 @@ namespace TideWall
         public float SwingProgress => swingT > 0 && Melee != null ? 1 - swingT / Mathf.Max(.01f, Melee.SwingTime) : -1;
         /// <summary>Guns are holstered for the run's first waves: Fire swings the melee weapon instead.</summary>
         /// <summary>The first waves of Part I are melee only. Part II's sailors come armed.</summary>
-        public bool GunsLocked => !gm.Assault && gm.Waves.RunWave < db.gunsUnlockWave;
+        public bool GunsLocked => gm.World != null && gm.Waves.RunWave < db.gunsUnlockWave;
         /// <summary>Build mode: the defence being placed (null = not building).</summary>
         public StructureDef Building { get; private set; }
         public float BuildYaw { get; private set; }
@@ -130,7 +130,7 @@ namespace TideWall
         public bool UsesMouse => Controls != null && Controls.UsesMouse;
         public string DeviceName => Controls != null ? Controls.DeviceName : "Online";
         public bool Connected => Controls != null ? Controls.Connected : Remote == null || Remote.Connected;
-        public Vector3 EyePos => transform.position + Vector3.up * EyeHeight;
+        public Vector3 EyePos => transform.position + Vector3.up * (EyeHeight + Perch);
         public float EyeHeight => IsDowned || IsOut ? .45f : 1.62f * (Statuses.Has(StatusType.Giant) ? 1.45f : Statuses.Has(StatusType.Tiny) ? .6f : 1);
         public Quaternion LookRotation => Quaternion.Euler(Pitch, Yaw, 0);
 

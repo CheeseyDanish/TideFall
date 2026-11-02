@@ -26,7 +26,7 @@ namespace TideWall
             if (to.magnitude > 9) to = to.normalized * 9;
             if (to.magnitude < 2) to = AimDir * 2.5f;
             var p = transform.position + to;
-            return new Vector3(p.x, Arena.GroundY(p.z), p.z);
+            return new Vector3(p.x, Arena.GroundAt(p), p.z);
         }
 
         void UpdateBuild(float dt)

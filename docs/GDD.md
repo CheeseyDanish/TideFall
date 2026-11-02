@@ -198,6 +198,16 @@ A limb coming off rarely ends it. Lost claws and arms halve its damage, legs slo
 
 Behind a breach, creatures go for the powerplant and anyone in town. Bosses arrive on nights where `day % bossEveryDays == 0`.
 
+## The Last Light (endless mode, main menu)
+A lighthouse on a hill of sand in the open sea, with creatures coming from every side. 1 to 4 players, offline or online; no saves.
+
+- **The tide:** the sea really climbs the hill, tide by tide (`lastLight.risePerTide`). Below the waterline you wade slowly, creatures stay wet (shock is stronger, fire weaker), jellyfish sting harder and sharks can reach you.
+- **The rhythm:** slack water (shop, fishing, the try-pot), then a flood of creatures, then slack again. Every 5th tide is a **boss**.
+- **Salvage:** after each boss the sea pulls far back for 55 s, uncovering wrecks with sea chests (sand dollars, plus a pearl, a free attachment or oil), some guarded by crabs. A horn warns you, then the sea comes home and takes what's left.
+- **The lamp:** it sweeps the water, drying creatures, then burning and slowing them. **Interact at the lamp room door** to climb up: you aim the beam (much stronger), can shoot from up there, and can't be reached; but it burns oil over four times as fast and creatures attack the tower below.
+- **Oil:** fish, sea chests, and corpses thrown in the **try-pot**. With no oil in a fight you have 25 s to find some, or **the light goes out and the run ends**. It also ends if the lighthouse falls, or everyone's down.
+- **The Keeper's Log:** tides and bosses bring lamp oil home, which buys permanent upgrades for this mode only (stone, reservoir, lens, purse, tide tables). Part I's losses stay final.
+
 ## Players
 - **The sailor is animated**: legs stride with your speed, the gun arm aims where you look, the other arm swings the melee weapon in its style, both arms go up to carry, the head follows your gaze, you lean into a dash and crawl when down.
 - **Health 100** (+ Sea Legs, + Vigor). At 0 you're **down**: you crawl and bleed out over 30 s. A teammate holding Interact next to you for 2 s revives you at 40%. Bleed out and you're back at the start of the next phase.
@@ -210,6 +220,12 @@ Every shot kicks: the view snaps up and settles (heavier guns kick harder), the 
 
 ### The wall under attack
 Each of the 20 sections has its own HP, and a creature hits the one in front of it. Damage shows on the stone in stages: **cracks** (below 70%), **holes and a broken merlon** (below 40%), then **gaping holes with a heap at its foot** (below 15%), with a burst of debris at each stage, and at 0 it collapses. The HUD has a **strip with one cell per section** under the powerplant bar: green to red, flashing white as it's hit, dark when it's down.
+
+### Menus with a mouse
+Every menu works three ways at once: **hover** chooses, **click** picks and **right-click** goes back (including shop tabs, tidal cards and casino tables); arrows or the d-pad and Interact do the same. While a menu is open the mouse points rather than turns your view, and WASD and the left stick still walk (R6a). The click that closes a menu doesn't fire your gun.
+
+### Fishing
+Patches of bubbles appear on Part I's shore while the shop's open, and at the waterline in The Last Light. **Interact** casts; wait for the bite and strike with **Interact** (too soon or too late and it's gone). Then **hold Fire to raise the green zone, let go to sink**, and keep it on the fish until the meter fills. Back or walking off gives up. Nine catches, in `GameDatabase.fish`: money, lamp oil, healing, a pearl, a boot, a soda can, and one that isn't a fish.
 
 ### Inventory (Inventory button: I / d-pad up; also in the pause menu)
 You own any number of guns but **carry three** (`gunSlots`). Buying or taking a fourth swaps it with the gun in your hands; that one goes to your **stash**, and you can bring it back free from the Inventory. **Swap** cycles the three, and each slot has its own button (1, 2, 3 / d-pad left, d-pad right, left stick press). Swapping takes a moment (`swapSeconds`): the new gun comes up from below the view. The HUD lists the three, with the one in your hands picked out. The Inventory shows what you carry, your stash, each gun's five slots and its skin, and your melee weapons' skins. Saved with the run.
@@ -373,6 +389,7 @@ Defaults (every one except the sticks and mouse look can be rebound in **Setting
 | Switch view | R3 | V |
 | **Stats & mods / tidal card vote** | Select / Back | Tab / C |
 | **Inventory** | D-pad up | I |
+| **Fishing** | Interact casts and strikes, trigger reels | E casts and strikes, left mouse reels |
 | **Aim down sights** (hold) | Left trigger | Right mouse |
 | **Gun slots 1, 2, 3** | D-pad left, d-pad right, left stick press | 1, 2, 3 |
 | **Build defences** | D-pad down | B |

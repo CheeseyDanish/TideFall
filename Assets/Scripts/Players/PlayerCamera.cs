@@ -112,7 +112,7 @@ namespace TideWall
 
             // Third person: over the right shoulder. Sized with the sailor (giant, tiny, downed).
             float size = st.Has(StatusType.Giant) ? 1.45f : st.Has(StatusType.Tiny) ? .6f : 1;
-            var pivot = player.transform.position + player.RenderOffset + Vector3.up * (player.IsDowned ? .8f : PivotHeight * size);
+            var pivot = player.transform.position + player.RenderOffset + Vector3.up * ((player.IsDowned ? .8f : PivotHeight * size) + player.Perch);
             var want = pivot + look * (Shoulder * Mathf.Max(.8f, size) * (1 - .4f * player.AimAmount));   // sights up: in over the shoulder
             smoothPos = Clear(pivot, want);
             transform.SetPositionAndRotation(smoothPos, look * Quaternion.Euler(0, 0, roll));

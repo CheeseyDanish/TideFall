@@ -110,7 +110,7 @@ namespace TideWall
         public void LiftCorpse()
         {
             var b = ModelFactory.Bounds(Model.root);
-            float ground = Arena.GroundY(transform.position.z);
+            float ground = Arena.GroundAt(transform.position);
             float lift = ground + .02f - b.min.y;
             if (lift > 0) Model.root.transform.position += Vector3.up * lift;
         }

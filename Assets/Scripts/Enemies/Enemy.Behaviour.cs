@@ -146,6 +146,7 @@ namespace TideWall
                 var goal = gm.Level.Goal(transform.position, Radius, out var kind);
                 bool there = MoveToward(goal, Speed * speedScale, dt, .05f);
                 if (kind == GoalKind.Plant) { if (there || gm.World.plant.InReach(transform.position, Def.attackRange)) TryAttackPlant(dt); }
+                else if (kind == GoalKind.Objective) { if (there || gm.Level.AtObjective(transform.position, Def.attackRange + Radius) ) TryAttackObjective(dt); }
                 else if (kind == GoalKind.Wall && (there || AtWall())) { if (!WantsToClimb(dt)) TryAttackWall(dt); }
             }
         }
@@ -153,7 +154,7 @@ namespace TideWall
         /// <summary>Damage whatever defence is nearest: the powerplant if we're at it, otherwise the wall.</summary>
         void HitDefences(float amount)
         {
-            if (gm.World == null) return;   // Part II: there's no wall or powerplant out here
+            if (gm.World == null) { gm.Level.DamageObjective(amount * Def.wallDamage, transform.position); return; }   // (Part II: nothing to hit out here)
             amount *= Def.wallDamage;
             if (gm.World.plant.InReach(transform.position, Mathf.Max(2, Def.attackRange))) gm.World.plant.Damage(amount, transform.position);
             else if (!Arena.Inside(transform.position)) gm.Wall.Damage(amount, transform.position);
@@ -182,6 +183,13 @@ namespace TideWall
             windupTarget = p;
             windupT = Mathf.Max(.01f, Def.windup);
             Sfx.Play("growl", Mathf.Clamp(.25f + Radius * .15f, .25f, .7f), .15f);
+        }
+
+        void TryAttackObjective(float dt)
+        {
+            if (!AttackReady(dt)) return;
+            Lunge();
+            gm.Level.DamageObjective(Damage * Def.wallDamage, transform.position);
         }
 
         void TryAttackWall(float dt)
@@ -233,7 +241,7 @@ namespace TideWall
             float d = FlatDist(target);
             swelling = d < 4;
             puff = Mathf.MoveTowards(puff, swelling ? 1 - d / 4 * .6f : 0, dt * 3);   // puffs up as it closes in
-            bool atDefences = gm.World != null && (gm.World.plant.InReach(transform.position, 1.5f) || !Arena.Inside(transform.position) && transform.position.z <= Arena.WallFront + Radius + .2f);
+            bool atDefences = gm.Level.AtObjective(transform.position, 1.5f) || gm.World != null && (gm.World.plant.InReach(transform.position, 1.5f) || !Arena.Inside(transform.position) && transform.position.z <= Arena.WallFront + Radius + .2f);
             if (MoveToward(target, Speed, dt, Radius * .6f + .3f) && (p != null || (gm.World != null && d < .5f) || atDefences))
             {
                 Combat.Explode(transform.position + Vector3.up * .5f, 3f, Damage, Element.None, null, hurtsPlayers: true, exclude: this);
@@ -250,7 +258,7 @@ namespace TideWall
             if (inWater && !beached)
             {
                 // Swim with the dorsal fin above the surface.
-                float y = Mathf.Max(Arena.GroundY(transform.position.z), Arena.WaterLevel - .62f);
+                float y = Mathf.Max(Arena.GroundAt(transform.position), Arena.WaterLevel - .62f);
                 transform.position = new Vector3(transform.position.x, Mathf.Lerp(transform.position.y, y, dt * 3), transform.position.z);
                 if (p != null)
                 {
@@ -258,7 +266,7 @@ namespace TideWall
                 }
                 else
                 {
-                    var shore = new Vector3(transform.position.x, 0, Arena.ShoreZ - 1);
+                    var shore = Arena.Island ? gm.Level.Goal(transform.position, Radius, out _) : new Vector3(transform.position.x, 0, Arena.ShoreZ - 1);
                     if (MoveToward(shore, Speed * .6f, dt, .5f)) beached = true;
                 }
                 if (Random.value < dt * 4) Fx.Splash(transform.position + transform.forward * .8f + Vector3.up * .6f, 1);
@@ -268,7 +276,7 @@ namespace TideWall
                 // Beached: a shark on the sand flops toward the wall, slowly and furiously.
                 beached = true;
                 flop = true;
-                transform.position = new Vector3(transform.position.x, Arena.GroundY(transform.position.z), transform.position.z);
+                transform.position = new Vector3(transform.position.x, Arena.GroundAt(transform.position), transform.position.z);
                 Walker(dt, .25f);
             }
         }
@@ -337,7 +345,7 @@ namespace TideWall
             Vector3 target = p != null ? p.transform.position : gm.Level.Goal(transform.position, Radius, out _);
             MoveToward(target, Speed, dt, Radius * .5f);
             var pos = transform.position;
-            pos.y = Mathf.Max(Arena.GroundY(pos.z), Arena.InWater(pos) ? -.6f : 0) + .4f + Mathf.Sin(animT * 2) * .15f;
+            pos.y = Mathf.Max(Arena.GroundAt(pos), Arena.InWater(pos) ? Arena.WaterLevel - .6f : 0) + .4f + Mathf.Sin(animT * 2) * .15f;
             transform.position = pos;
             if (!AttackReady(dt)) return;
             bool stung = false;
@@ -440,7 +448,7 @@ namespace TideWall
                 Face(d, dt);
                 if (d.magnitude < .9f)
                 {
-                    if (p != null) p.TakeDamage(Damage, this, Def.displayName); else if (gm.World != null) gm.World.plant.Damage(Damage, pos);
+                    if (p != null) p.TakeDamage(Damage, this, Def.displayName); else gm.Level.DamageObjective(Damage, pos);
                     diveState = 2;
                 }
             }
@@ -521,7 +529,7 @@ namespace TideWall
             if (b != null) { Wet = 1; ShowBoard(true); return; }
             ShowBoard(false);
             var p = transform.position;
-            if (Def.behaviour != EnemyBehaviour.Shark && Def.behaviour != EnemyBehaviour.Jelly) p.y = Arena.GroundY(p.z);
+            if (Def.behaviour != EnemyBehaviour.Shark && Def.behaviour != EnemyBehaviour.Jelly) p.y = Arena.GroundAt(p);
             transform.position = p;
             lastPos = p;
             knock += Vector3.back * 3;   // the wave throws it forward
@@ -612,10 +620,17 @@ namespace TideWall
                     if (d.magnitude < minD && d.sqrMagnitude > .0001f) { p = st.transform.position + d.normalized * minD + Vector3.up * p.y; blockedBy = st; }
                 }
                 if (Def.behaviour != EnemyBehaviour.Jelly && !(Def.behaviour == EnemyBehaviour.Shark && !beached) && lungeT <= 0 && tumble <= 0)
-                    p.y = Arena.GroundY(p.z);
-                if (grounded) p.y = Mathf.MoveTowards(transform.position.y, Arena.GroundY(p.z), 9 * Time.deltaTime);
+                    p.y = Arena.GroundAt(p);
+                if (grounded) p.y = Mathf.MoveTowards(transform.position.y, Arena.GroundAt(p), 9 * Time.deltaTime);
             }
-            p.x = Mathf.Clamp(p.x, -60, 60);
+            if (Arena.Island)
+            {
+                // The Last Light: nothing walks through the lighthouse
+                var fromTower = new Vector3(p.x, 0, p.z);
+                float towerR = gm.DB.lastLight.towerRadius + Radius * .4f;
+                if (!flying && fromTower.magnitude < towerR && fromTower.sqrMagnitude > .0001f) { var q = fromTower.normalized * towerR; p.x = q.x; p.z = q.z; }
+            }
+            else p.x = Mathf.Clamp(p.x, -60, 60);
             transform.position = p;
         }
     }

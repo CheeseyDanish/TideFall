@@ -34,6 +34,8 @@ the epigraphs and endings may hint, never explain.
 | Shop and card layouts' help lines ("D-pad choose · [A] buy…") | `Assets/Scripts/UI/MenuViews.cs` |
 | The casino: game names, rules pages, table text, results, the crab's shouts (`CrabLines`), the lobby | `Assets/Scripts/Casino/Casino.cs`, `Slots.cs` (symbol names, results, High Tide), `SlotMachineProp.cs`, `Blackjack.cs`, `Roulette.cs`, `VideoPoker.cs`, `Fathoms.cs` (`Rules`, `Table()`) |
 | Weapon skins: names and descriptions | `GameDatabase.asset` → `skins` (defaults in `GameDatabase.cs`) |
+| Fish names and lines | `GameDatabase.asset` → `fish` |
+| The Last Light's upgrades, banners | `GameDatabase.asset` → `lastLight.upgrades`; `World/Lighthouse.cs` |
 | The Inventory's menus | `UI/InventoryMenus.cs` |
 | Gun attachments: names and descriptions | `GameDatabase.asset` → `attachments` (defaults in `GameDatabase.cs`); the shop tab's effect line in `Menus.cs` (`AttachmentEffects`) |
 | The debug menu (every row and description) and the stats overlay | `Assets/Scripts/Debug/DebugMenu.cs`, `DebugTools.cs` |

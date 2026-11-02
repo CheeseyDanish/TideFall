@@ -62,6 +62,20 @@ namespace TideWall
         public Vector3? Anchor;
         public float AnchorRange = 6.5f;
 
+        /// <summary>The first row showing when a list scrolls. It only moves when the selection leaves the window, so
+        /// rows stay put under the mouse.</summary>
+        public int First;
+        /// <summary>Hit tests and online pointer messages: a tab is this plus its index.</summary>
+        public const int TabBase = 1000;
+        public int Window(int rows)
+        {
+            if (Selected < First) First = Selected;
+            if (Selected >= First + rows) First = Selected - rows + 1;
+            First = Mathf.Clamp(First, 0, Mathf.Max(0, Items.Count - rows));
+            if (First > 0 && First < Items.Count && Selected == First && Items[First - 1].Header) First--;   // keep a section's heading with it
+            return First;
+        }
+
         public MenuItem Current => Selected >= 0 && Selected < Items.Count && !Items[Selected].Header ? Items[Selected] : null;
 
         public void Move(int dir)

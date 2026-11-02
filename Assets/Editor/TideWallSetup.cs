@@ -223,6 +223,7 @@ namespace TideWall.EditorTools
             if (Object.FindAnyObjectByType<World>() == null) WorldBaker.Rebuild();
             // Part II's stages, one scene each, the first time
             if (ExpeditionBaker.ScenePaths().Exists(path => !File.Exists(path))) ExpeditionBaker.Rebuild();
+            if (!File.Exists(LighthouseBaker.ScenePath)) LighthouseBaker.Rebuild();
         }
 
         static void NewScene()
@@ -261,6 +262,7 @@ namespace TideWall.EditorTools
         {
             var scenes = new List<EditorBuildSettingsScene> { new(ScenePath, true) };
             foreach (var path in ExpeditionBaker.ScenePaths()) if (File.Exists(path)) scenes.Add(new EditorBuildSettingsScene(path, true));
+            if (File.Exists(LighthouseBaker.ScenePath)) scenes.Add(new EditorBuildSettingsScene(LighthouseBaker.ScenePath, true));
             EditorBuildSettings.scenes = scenes.ToArray();
         }
 

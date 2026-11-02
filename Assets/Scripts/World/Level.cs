@@ -11,7 +11,7 @@ using UnityEngine;
 namespace TideWall
 {
     /// <summary>Where a creature is heading when no player is close enough to fight.</summary>
-    public enum GoalKind { Wall, Breach, Plant, Hunt, Home }
+    public enum GoalKind { Wall, Breach, Plant, Hunt, Home, Objective }
 
     public abstract class Level : MonoBehaviour
     {
@@ -48,6 +48,21 @@ namespace TideWall
 
         /// <summary>0..1 for the bar under the phase line.</summary>
         public abstract float StatusFraction();
+
+        /// <summary>A fixed look for the whole level instead of the day's phases (Part II, The Last Light); null = phases.</summary>
+        public virtual PhaseDefinition HoldLook => null;
+        /// <summary>The HUD's top line, or null for the day and phase.</summary>
+        public virtual string Heading() => null;
+        /// <summary>The game-over panel's line about how far you got, or null for the days.</summary>
+        public virtual string ReachedLine(Player p) => null;
+        /// <summary>Fold a finished run into the record (null: the caller does it the usual way).</summary>
+        public virtual Legacy RecordRun(int level, int kills) => null;
+        /// <summary>What creatures attack when they aren't after a sailor (Part I: the powerplant; Part II: nothing).</summary>
+        public virtual void DamageObjective(float amount, Vector3 where) { }
+        public virtual bool AtObjective(Vector3 pos, float reach) => false;
+        /// <summary>A corpse went to the fishmonger, or a fish was landed: anything extra this level does about it.</summary>
+        public virtual void OnCorpseSold(int value) { }
+        public virtual void OnFishCaught(FishDef fish) { }
 
         /// <summary>Online: anything about the level the host's snapshots carry beyond the shared state.</summary>
         public virtual void WriteNet(BinaryWriter w) { }

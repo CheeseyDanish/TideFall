@@ -105,7 +105,7 @@ namespace TideWall
             {
                 var p = transform.position;
                 p.z -= speed * dt;
-                p.y = Arena.WaterLevel - .2f + Mathf.Max(0, Arena.GroundY(p.z) - Arena.WaterLevel);   // rides up the sand under a King Tide
+                p.y = Arena.WaterLevel - .2f + Mathf.Max(0, Arena.GroundAt(p) - Arena.WaterLevel);   // rides up the sand under a King Tide
                 transform.position = p;
                 Swell = Mathf.Lerp(1.4f, 2.0f, Mathf.InverseLerp(releaseZ + 40, releaseZ, p.z));   // it rears up near the shore
                 model.root.transform.localScale = new Vector3(Width, Swell / 1.4f * 1.5f, 1.3f);

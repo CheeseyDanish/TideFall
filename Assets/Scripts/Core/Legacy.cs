@@ -16,6 +16,9 @@ namespace TideWall
         [Tooltip("The Crest was laid down: the sea is calm")] public bool spiral;
         [Tooltip("Runs played when the Crest was laid down (the keep wall's tally stops there)")] public int runsAtPeace;
         [Tooltip("Weapon skins unlocked with golden pearls")] public System.Collections.Generic.List<string> skins = new();
+        [Tooltip("The Last Light: lamp oil to spend, the deepest tide, how many runs")] public int lampOil, bestTide, lightRuns;
+        public System.Collections.Generic.List<UpgradeLevel> keeper = new();
+        [Tooltip("Every kind of fish ever landed")] public System.Collections.Generic.List<string> fishLog = new();
         const string File = "legacy.json";
 
         public int ShardCount { get { int n = 0; for (int s = shards; s != 0; s >>= 1) n += s & 1; return n; } }
@@ -66,6 +69,50 @@ namespace TideWall
             l.shards |= 1 << stage;
             l.Save();
             return l.ShardCount;
+        }
+
+        public int KeeperLevel(string id) { var u = keeper.Find(k => k.id == id); return u != null ? u.level : 0; }
+
+        /// <summary>The total bonus of this kind from the Keeper's Log.</summary>
+        public float KeeperBonus(LastLightDef def, KeeperUpgradeKind kind)
+        {
+            float b = 0;
+            foreach (var u in def.upgrades) if (u.kind == kind) b += KeeperLevel(u.id) * u.amount;
+            return b;
+        }
+
+        /// <summary>A Last Light run ended.</summary>
+        public static Legacy RecordLight(int tide, int level, int kills, int oil)
+        {
+            var l = Load();
+            l.runs++;
+            l.lightRuns++;
+            l.bestTide = Mathf.Max(l.bestTide, tide);
+            l.bestLevel = Mathf.Max(l.bestLevel, level);
+            l.kills += kills;
+            l.lampOil += oil;
+            l.Save();
+            return l;
+        }
+
+        /// <summary>Spend lamp oil on a Keeper's Log upgrade. False if there isn't enough.</summary>
+        public static bool BuyKeeper(string id, int price)
+        {
+            var l = Load();
+            if (l.lampOil < price) return false;
+            l.lampOil -= price;
+            var u = l.keeper.Find(k => k.id == id);
+            if (u == null) l.keeper.Add(new UpgradeLevel { id = id, level = 1 }); else u.level++;
+            l.Save();
+            return true;
+        }
+
+        public static void LogFish(string id)
+        {
+            var l = Load();
+            if (l.fishLog.Contains(id)) return;
+            l.fishLog.Add(id);
+            l.Save();
         }
 
         /// <summary>A skin was bought: it's unlocked for good.</summary>

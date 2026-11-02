@@ -54,6 +54,25 @@ namespace TideWall
 
         public void Hide() => root.gameObject.SetActive(false);
 
+        /// <summary>Which item (or tab, as TabBase + index) is under this screen point; -1 for neither.</summary>
+        public int Hit(Menu m, Vector2 screen, Camera cam)
+        {
+            if (m.Tabs != null)
+            {
+                int link = TMP_TextUtilities.FindIntersectingLink(tabs, screen, cam);
+                if (link >= 0 && int.TryParse(tabs.textInfo.linkInfo[link].GetLinkID(), out int tab)) return Menu.TabBase + tab;
+            }
+            for (int i = 0; i < tiles.Count; i++)
+            {
+                int index = scroll * Cols + i;
+                if (index < m.Items.Count && RectTransformUtility.RectangleContainsScreenPoint(tiles[i].bg.rectTransform, screen, cam)) return index;
+            }
+            return -1;
+        }
+
+        /// <summary>Tests: the middle of an item's card on screen.</summary>
+        public Vector2 ScreenOf(int index, Camera cam) => RectTransformUtility.WorldToScreenPoint(cam, tiles[Mathf.Clamp(index - scroll * Cols, 0, tiles.Count - 1)].bg.rectTransform.TransformPoint(tiles[0].bg.rectTransform.rect.center));
+
         public void Show(Menu m, Player p, GameManager gm)
         {
             root.gameObject.SetActive(true);
@@ -62,7 +81,7 @@ namespace TideWall
             {
                 var sb = new System.Text.StringBuilder();
                 for (int i = 0; i < m.Tabs.Length; i++)
-                    sb.Append(i == m.Tab ? $"<color=#fde68a><b>[ {m.Tabs[i]} ]</b></color>  " : $"<color=#94a3b8>{m.Tabs[i]}</color>  ");
+                    sb.Append(i == m.Tab ? $"<link=\"{i}\"><color=#fde68a><b>[ {m.Tabs[i]} ]</b></color></link>  " : $"<link=\"{i}\"><color=#94a3b8>{m.Tabs[i]}</color></link>  ");
                 tabs.text = sb.ToString();
             }
             else tabs.text = "";
@@ -81,6 +100,9 @@ namespace TideWall
                 bool sel = index == m.Selected;
                 bool blocked = it.Blocked?.Invoke() != null;
                 t.border.color = sel ? new Color(1, .85f, .3f, 1) : new Color(1, .85f, .3f, 0);
+                // The chosen card leans toward you
+                t.bg.rectTransform.localScale = Vector3.Lerp(t.bg.rectTransform.localScale, Vector3.one * (sel ? 1.035f : 1), 1 - Mathf.Exp(-Time.unscaledDeltaTime * 22));
+                if (sel) t.bg.transform.SetAsLastSibling();
                 t.bg.color = it.Equipped ? new Color(.12f, .28f, .2f, .95f) : sel ? new Color(.18f, .23f, .4f, .97f) : new Color(.12f, .16f, .28f, .95f);
                 var sprite = Icons.For(it.Icon);
                 t.icon.sprite = sprite;
@@ -93,7 +115,8 @@ namespace TideWall
             var cur = m.Current;
             string why = cur?.Blocked?.Invoke();
             detail.text = cur == null ? "" : cur.Detail + (why != null && !cur.Equipped ? $"\n<color=#fca5a5>{why}</color>" : "");
-            help.text = $"{(p.UsesMouse ? "Arrows / wheel" : "D-pad")} choose · {p.Glyph(Btn.Interact)} {(cur?.Open != null && cur.OnPick == null ? "open" : "buy")} · " +
+            string pickWord = m.Tabs == null ? "pick" : cur?.Open != null && cur.OnPick == null ? "open" : "buy";
+            help.text = $"{(p.UsesMouse ? "Hover / arrows" : "D-pad")} choose · {(p.UsesMouse ? "click or " : "")}{p.Glyph(Btn.Interact)} {pickWord} · " +
                         (m.Tabs != null ? $"{p.Glyph(Btn.Swap)} / {p.Glyph(Btn.Reload)} tabs · " : "") + $"{p.Glyph(Btn.Back)} close · you can keep walking";
         }
     }
@@ -126,6 +149,13 @@ namespace TideWall
         }
 
         public void Hide() => root.gameObject.SetActive(false);
+
+        public int Hit(Menu m, Vector2 screen, Camera cam)
+        {
+            for (int i = 0; i < cards.Count && i < m.Items.Count; i++)
+                if (RectTransformUtility.RectangleContainsScreenPoint(cards[i].rt, screen, cam)) return i;
+            return -1;
+        }
 
         public void Show(Menu m, Player p, GameManager gm)
         {
@@ -247,11 +277,17 @@ namespace TideWall
             help.text = $"{(p.UsesMouse ? "Up/down" : "D-pad")} choose{adj} · {p.Glyph(Btn.Interact)} pick{quick} · {p.Glyph(Btn.Back)} {(m.Parent != null ? "back" : "leave")}";
         }
 
+        public int Hit(Menu m, Vector2 screen, Camera cam)
+        {
+            int line = TMP_TextUtilities.FindIntersectingLine(actions, screen, cam);
+            return line < 0 ? -1 : m.First + line;
+        }
+
         /// <summary>The actions as rows; the selected one sits on a soft gold band.</summary>
         static string Rows(Menu m, int rows)
         {
             var sb = new System.Text.StringBuilder();
-            int first = Mathf.Clamp(m.Selected - rows / 2, 0, Mathf.Max(0, m.Items.Count - rows));
+            int first = m.Window(rows);
             for (int i = first; i < Mathf.Min(m.Items.Count, first + rows); i++)
             {
                 var it = m.Items[i];

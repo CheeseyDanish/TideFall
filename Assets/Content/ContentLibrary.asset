@@ -115,8 +115,30 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: 75fb67cc73fbe714eb89d47fd6f22e09, type: 3}
   - name: ExitGate
     prefab: {fileID: 919132149155446097, guid: 438dcfbdd372d9741941c4ca7606ac0b, type: 3}
+  - name: FishBoot
+    prefab: {fileID: 919132149155446097, guid: 83166359e56a77e41b93eb23a74c05b2, type: 3}
+  - name: FishCan
+    prefab: {fileID: 919132149155446097, guid: 63b0f06950d025a428c8f5a0d8d6740e, type: 3}
+  - name: FishGold
+    prefab: {fileID: 919132149155446097, guid: 0c692ca0f14b979489050b194c75f058, type: 3}
+  - name: FishingRod
+    prefab: {fileID: 919132149155446097, guid: 70cc62ac9381a854bbdd0c77c998a36c, type: 3}
+  - name: FishMackerel
+    prefab: {fileID: 919132149155446097, guid: 10312d1291d123d40b04d8af6404a94e, type: 3}
+  - name: FishMimic
+    prefab: {fileID: 919132149155446097, guid: 008e96755346e13409420850a22fe135, type: 3}
   - name: FishmongerCart
     prefab: {fileID: 919132149155446097, guid: 7947b88818a439a468ab4c5713d3290c, type: 3}
+  - name: FishOil
+    prefab: {fileID: 919132149155446097, guid: 813a00eabb9ad5a4dbd453b07f1a56bc, type: 3}
+  - name: FishSardine
+    prefab: {fileID: 919132149155446097, guid: 2834c308a8e97d24f81a34c3526be329, type: 3}
+  - name: FishSpot
+    prefab: {fileID: 919132149155446097, guid: 665c9d41bc7b3474cb4023d3892abefa, type: 3}
+  - name: FishSun
+    prefab: {fileID: 919132149155446097, guid: 9d2eee6880456a240b69bff5c3172aa3, type: 3}
+  - name: FishSword
+    prefab: {fileID: 919132149155446097, guid: 1bce042c0664e464c8357763581b2fb9, type: 3}
   - name: FlareGun
     prefab: {fileID: 919132149155446097, guid: fc936ab925f1297409e9b1f9cfe55f66, type: 3}
   - name: Fries
@@ -149,6 +171,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: b98c2cae6aa0aef4d9e801ce02377366, type: 3}
   - name: KelpSnare
     prefab: {fileID: 919132149155446097, guid: f088332ad5eb98c4aa1674f23b4dfc10, type: 3}
+  - name: LampBeam
+    prefab: {fileID: 919132149155446097, guid: 960438d88c6242349bce9d4f2ad93b92, type: 3}
   - name: Lighthouse
     prefab: {fileID: 919132149155446097, guid: 85a08384c14822c4785a446af9d7e708, type: 3}
   - name: Lobster
@@ -185,6 +209,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: eecab96b3bec6ec4abebf402aba88f22, type: 3}
   - name: Sailor
     prefab: {fileID: 919132149155446097, guid: 7741acd1dbe043846957f83fb26d7fbe, type: 3}
+  - name: SalvageCrate
+    prefab: {fileID: 919132149155446097, guid: 1b5860caaa078a24a914856d8fd88d21, type: 3}
   - name: Sandcastle
     prefab: {fileID: 919132149155446097, guid: 48d379b774e01444a949cecc370172d9, type: 3}
   - name: SandDollar

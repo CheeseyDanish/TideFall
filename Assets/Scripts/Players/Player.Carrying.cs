@@ -11,6 +11,8 @@ namespace TideWall
         // ------------------------------------------------------------------ interaction & carrying
         void UpdateInteract(float dt)
         {
+            fishPause -= dt;
+            if (Perch > 0 || fishing != null || fishPause > 0) { Focus = null; return; }
             Focus = LookedAt() ?? Interactable.Nearest(this);
             var downedMate = DownedTeammateNearby();
             if (downedMate != null && Held(Btn.Interact))
@@ -57,7 +59,7 @@ namespace TideWall
             if (Focus != null) return "{btn} " + Focus.Prompt(this);
             if (Carrying.Count > 0) return "{btn} Drop";
             var ph = gm.Phases.Current;
-            if (ph != null && ph.endWhenAllReady) return $"Ring the bell when you're ready · {gm.Players.ReadyCount}/{gm.Players.Count} ready";
+            if (ph != null && ph.endWhenAllReady && gm.Level.HoldLook == null) return $"Ring the bell when you're ready · {gm.Players.ReadyCount}/{gm.Players.Count} ready";
             return "";
         }
 
@@ -92,7 +94,7 @@ namespace TideWall
             c.transform.SetParent(null, true);
             SetLayer(c.transform, 0);
             var p = transform.position + AimDir * .9f;
-            c.transform.position = new Vector3(p.x, Arena.GroundY(p.z), p.z);
+            c.transform.position = new Vector3(p.x, Arena.GroundAt(p), p.z);
             LayoutCarried();
         }
 

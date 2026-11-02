@@ -38,6 +38,7 @@ namespace TideWall
         /// </summary>
         Vector3 StepMove(Vector2 move, bool dash, float yaw, float dt)
         {
+            if (Perch > 0) return Vector3.zero;   // up at the lamp
             if (IsOut || dt <= 0) return Vector3.zero;
             if (Noclip(move, dash, yaw, dt)) return Vector3.zero;
             if (Statuses.Has(StatusType.ReverseControls)) move = -move;
@@ -81,6 +82,12 @@ namespace TideWall
             if (Controls != null && LocalMenu == null && !Rebinder.Busy)
             {
                 c.nav = Controls.Nav();
+                if (Controls.UsesMouse && ShownMenu != null)
+                {
+                    // The host runs this menu: tell it what the mouse is on. A right-click is its Back
+                    c.hoverPlus1 = (short)(PointerHit() + 1);
+                    if (Controls.Pressed(Btn.Sight)) c.pressed |= 1 << (int)Btn.Back;
+                }
                 if (canMove) c.move = Controls.Move.ReadValue<Vector2>();
                 foreach (Btn b in System.Enum.GetValues(typeof(Btn)))
                 {
@@ -155,8 +162,14 @@ namespace TideWall
             cc.Move((vel + Vector3.up * yVel) * dt);
             // Never sink below the sand/seabed (CharacterController + MeshCollider ground also handles this)
             var p = transform.position;
-            float g = Arena.GroundY(p.z);
+            float g = Arena.GroundAt(p);
             if (p.y < g - .05f) { p.y = g; transform.position = p; yVel = 0; }
+            if (Arena.Island)
+            {
+                // The Last Light: out past the wrecks the sea's too deep to wade
+                var flat = new Vector3(p.x, 0, p.z);
+                if (flat.magnitude > Arena.IslandBound) { flat = flat.normalized * Arena.IslandBound; cc.enabled = false; transform.position = new Vector3(flat.x, transform.position.y, flat.z); cc.enabled = true; }
+            }
         }
 
         /// <summary>Debug noclip (this machine's players): fly where you look, through anything; Dash goes fast. True while flying.</summary>

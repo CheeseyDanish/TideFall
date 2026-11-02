@@ -17,16 +17,17 @@ namespace TideWall
 
         public override void Interact(Player p)
         {
-            if (!GameManager.I.Phases.ShopOpen) { Sfx.Play("deny"); GameManager.I.World.fishmonger?.Say("Come back in the morning!"); return; }
+            if (!GameManager.I.Phases.ShopOpen) { Sfx.Play("deny"); GameManager.I.World?.fishmonger?.Say("Come back in the morning!"); return; }
             int sold = 0;
             for (int i = p.Carrying.Count - 1; i >= 0; i--)
                 if (p.Carrying[i] is Corpse c) { p.Carrying.RemoveAt(i); Sell(c); sold++; }
-            if (sold > 0) GameManager.I.World.fishmonger?.Say(sold > 2 ? "What a haul!" : null);
+            if (sold > 0) GameManager.I.World?.fishmonger?.Say(sold > 2 ? "What a haul!" : null);
         }
 
         public static void Sell(Corpse c)
         {
             GameManager.I.AddSandDollars(c.Value, c.transform.position, "sold " + c.Def.displayName);
+            GameManager.I.Level.OnCorpseSold(c.Value);
             Fx.Splash(c.transform.position, 6);
             Destroy(c.gameObject);
         }

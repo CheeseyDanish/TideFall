@@ -75,6 +75,18 @@ namespace TideWall
             if (pick != null) Sever(pick, d);
         }
 
+        /// <summary>The lamp's beam: dries it, then burns it, and slows it down (The Last Light).</summary>
+        public void Scorch(float dry, float damage, float slow, Player source)
+        {
+            if (Dead) return;
+            Wet = Mathf.Max(0, Wet - dry);
+            Snare(slow, .35f);
+            if (Wet > .3f) { if (Random.value < .3f) Fx.Smoke(bounds.center, 1, .3f, new Color(.95f, .95f, 1f, .5f)); return; }   // steam
+            Hp -= damage;
+            if (Random.value < .5f) Fx.Fire(bounds.center, 1, Radius * .5f);
+            if (Hp <= 0) Die(new DamageInfo { source = source });
+        }
+
         // ------------------------------------------------------------------ Hermit Crab: into the shell
         void Tuck()
         {

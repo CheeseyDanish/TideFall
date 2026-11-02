@@ -21,10 +21,43 @@ namespace TideWall
             if (Kind == PlayerKind.LocalProxy) LocalMenu = null; else OpenedMenu = null;
         }
 
+        Vector2 lastPointer;
+        /// <summary>Tests: a pointer and a click (a test window has no focus, so a mouse's events never reach it).</summary>
+        public Vector2? DebugPointer;
+        public bool DebugClick;
+        bool clickGuard;   // the click that closed a menu mustn't also fire the gun
+
+        /// <summary>What the mouse is on, if it moved or clicked this frame (so the arrow keys stay in charge otherwise). -1: nothing.
+        /// An online player's machine works this out and sends it (the menu runs on the host).</summary>
+        int PointerHit()
+        {
+            if (Remote != null) return Remote.Hover;
+            if (Controls == null || !Controls.UsesMouse || Hud == null) return -1;
+            var at = DebugPointer ?? Controls.Point.ReadValue<Vector2>();
+            bool moved = (at - lastPointer).sqrMagnitude > 1;
+            lastPointer = at;
+            return moved || Pressed(Btn.Fire) || DebugClick ? Hud.MenuHit(at) : -1;
+        }
+
         void UpdateMenu(float dt)
         {
             var menu = ShownMenu;
             if (menu == null || Rebinder.Busy) return;
+            // The mouse: hovering chooses, a click picks, a right-click goes back
+            int hit = PointerHit();
+            if (hit >= 0 && hit < menu.Items.Count && hit != menu.Selected && !menu.Items[hit].Header) { menu.Selected = hit; Sfx.Play("ui", .25f); }
+            bool click = hit >= 0 && (Pressed(Btn.Fire) || DebugClick);
+            DebugClick = false;
+            if (click) clickGuard = true;
+            if (click && hit >= Menu.TabBase && menu.OnTab != null)
+            {
+                int d = hit - Menu.TabBase - menu.Tab;
+                if (d != 0 && menu.Tabs != null && hit - Menu.TabBase < menu.Tabs.Length && menu.OnTab(d) is { } tabbed) { ReplaceMenu(tabbed); Sfx.Play("ui"); }
+                return;
+            }
+            bool overItem = click && hit < menu.Items.Count && !menu.Items[hit].Header;
+            bool pick = Pressed(Btn.Interact) || overItem;
+            bool back = Pressed(Btn.Back) || (Controls != null && Controls.UsesMouse && Pressed(Btn.Sight));
             var nav = NavInput();
             menuRepeat -= dt;
             int dir = nav.y > .5f ? -1 : nav.y < -.5f ? 1 : 0;
@@ -33,7 +66,7 @@ namespace TideWall
             if (dir != 0 && (freshV || menuRepeat <= 0))
             {
                 if (menu.Columns > 0) menu.MoveGrid(0, dir); else menu.Move(dir);
-                menuRepeat = freshV ? .35f : .1f;
+                menuRepeat = freshV ? .28f : .07f;
                 Sfx.Play("ui", .5f);
             }
             if (side != 0 && (freshH || menuRepeat <= 0))
@@ -57,13 +90,13 @@ namespace TideWall
                 Refresh(menu);
                 return;
             }
-            if (Pressed(Btn.Back))
+            if (back)
             {
                 var parent = menu.Parent?.Invoke();
                 if (parent != null) ReplaceMenu(parent); else CloseMenu();
                 return;
             }
-            if (Pressed(Btn.Interact))
+            if (pick)
             {
                 var item = menu.Current;
                 if (item == null) return;
@@ -82,7 +115,7 @@ namespace TideWall
         {
             if (ShownMenu != menu) return;
             var rebuilt = menu.Rebuild?.Invoke();
-            if (rebuilt != null) { rebuilt.Selected = Mathf.Clamp(menu.Selected, 0, rebuilt.Items.Count - 1); ReplaceMenu(rebuilt); }
+            if (rebuilt != null) { rebuilt.Selected = Mathf.Clamp(menu.Selected, 0, rebuilt.Items.Count - 1); rebuilt.First = menu.First; ReplaceMenu(rebuilt); }
         }
 
         void ReplaceMenu(Menu m)

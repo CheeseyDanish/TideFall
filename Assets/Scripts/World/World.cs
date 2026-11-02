@@ -30,6 +30,7 @@ namespace TideWall
 
         public override void OnPhaseStart(PhaseDefinition p, int extraGasCans)
         {
+            PlaceFishing(p);
             var db = GameManager.I.DB;
             if (p.spawnFood)
             {
@@ -80,6 +81,20 @@ namespace TideWall
 
         /// <summary>Where a creature at `from` should head when it isn't chasing a player:
         /// through the nearest breach if there is one (and on to the powerplant), else to the wall in front of it.</summary>
+        public override void DamageObjective(float amount, Vector3 where) => plant.Damage(amount, where);
+
+        readonly System.Collections.Generic.List<FishingSpot> fishingSpots = new();
+
+        /// <summary>Fish bite in the shallows while the shop's open.</summary>
+        void PlaceFishing(PhaseDefinition p)
+        {
+            foreach (var s in fishingSpots) if (s != null) Destroy(s.gameObject);
+            fishingSpots.Clear();
+            if (!p.shopOpen || Net.IsClient) return;
+            for (int i = 0; i < GameManager.I.DB.shoreFishingSpots; i++)
+                fishingSpots.Add(FishingSpot.Spawn(new Vector3(Random.Range(-Arena.WallHalfLength + 6, Arena.WallHalfLength - 6), 0, Arena.ShoreZ + 4)));
+        }
+
         public override Vector3 Goal(Vector3 from, float radius, out GoalKind kind)
         {
             if (Arena.Inside(from)) { kind = GoalKind.Plant; return plant.Approach(from, radius); }

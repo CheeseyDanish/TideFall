@@ -41,7 +41,7 @@ namespace TideWall
 
     public static class NetProtocol
     {
-        public const int Version = 10;
+        public const int Version = 11;
         public const int DefaultPort = 7777;
         public const int DiscoveryPort = 47777;
         public const string DiscoveryTag = "TIDEWALL2";
@@ -61,6 +61,8 @@ namespace TideWall
         public float dt;
         public Vector2 move, nav;
         public ushort held, pressed;
+        /// <summary>The mouse over a host-run menu: its hit plus one (0 = nothing to report).</summary>
+        public short hoverPlus1;
         public float yaw, pitch;
         public bool firstPerson;
 
@@ -83,14 +85,14 @@ namespace TideWall
             w.Write(seq); w.Write((ushort)Mathf.RoundToInt(Mathf.Clamp(dt, 0, MaxDt) * 10000));
             w.Write((sbyte)Mathf.RoundToInt(Mathf.Clamp(move.x, -1, 1) * 127)); w.Write((sbyte)Mathf.RoundToInt(Mathf.Clamp(move.y, -1, 1) * 127));
             w.Write((sbyte)Mathf.RoundToInt(Mathf.Clamp(nav.x, -1, 1) * 127)); w.Write((sbyte)Mathf.RoundToInt(Mathf.Clamp(nav.y, -1, 1) * 127));
-            w.Write(held); w.Write(pressed); w.Write(yaw); w.Write(pitch); w.Write(firstPerson);
+            w.Write(held); w.Write(pressed); w.Write(hoverPlus1); w.Write(yaw); w.Write(pitch); w.Write(firstPerson);
         }
 
         public static NetCommand Read(BinaryReader r) => new()
         {
             seq = r.ReadUInt32(), dt = r.ReadUInt16() / 10000f,
             move = new Vector2(r.ReadSByte() / 127f, r.ReadSByte() / 127f), nav = new Vector2(r.ReadSByte() / 127f, r.ReadSByte() / 127f),
-            held = r.ReadUInt16(), pressed = r.ReadUInt16(), yaw = r.ReadSingle(), pitch = r.ReadSingle(), firstPerson = r.ReadBoolean(),
+            held = r.ReadUInt16(), pressed = r.ReadUInt16(), hoverPlus1 = r.ReadInt16(), yaw = r.ReadSingle(), pitch = r.ReadSingle(), firstPerson = r.ReadBoolean(),
         };
     }
 
@@ -157,7 +159,8 @@ namespace TideWall
         public readonly List<(StatusType, float)> statuses = new();
         /// <summary>The reload minigame to draw at the reticle (null: none), the Perfect bonus, the kill combo.</summary>
         public ReloadGame reloadGame;
-        public float perfect, comboLeft;
+        public float perfect, comboLeft, perch;
+        public FishView fish;
         public int combo;
 
         public static NetPlayerState From(Player p)
@@ -171,7 +174,7 @@ namespace TideWall
                 gun = p.Gun.id, melee = p.Melee.id, attach = p.AttachmentList(p.Gun.id),
                 loadout = string.Join(",", p.Loadout), gunSkin = p.SkinOn(p.Gun.id)?.id ?? "", meleeSkin = p.SkinOn(p.Melee.id)?.id ?? "",
                 level = p.Level, xp = p.Xp, xpNext = p.XpNext, statPoints = p.StatPoints, pendingMods = p.PendingMods, speedBonus = p.SpeedBonus,
-                reloadGame = p.ReloadView, perfect = p.PerfectBonus, combo = p.Combo, comboLeft = p.ComboLeft,
+                perch = p.Perch, fish = p.Fish, reloadGame = p.ReloadView, perfect = p.PerfectBonus, combo = p.Combo, comboLeft = p.ComboLeft,
             };
             foreach (var kv in p.Statuses.Active) s.statuses.Add((kv.Key, kv.Value));
             return s;
@@ -191,6 +194,8 @@ namespace TideWall
             w.Write(reloadGame != null);
             reloadGame?.Write(w);
             w.Write(perfect); w.Write((short)combo); w.Write(comboLeft);
+            w.Write(perch); w.Write((byte)fish.stage);
+            if (fish.stage != FishStage.None) { w.Write(fish.fish); w.Write(fish.zone); w.Write(fish.zoneSize); w.Write(fish.progress); w.Write(fish.at); }
         }
 
         public static NetPlayerState Read(BinaryReader r)
@@ -211,6 +216,8 @@ namespace TideWall
             for (int i = 0; i < n; i++) s.statuses.Add(((StatusType)r.ReadByte(), r.ReadSingle()));
             if (r.ReadBoolean()) s.reloadGame = ReloadGame.Read(r);
             s.perfect = r.ReadSingle(); s.combo = r.ReadInt16(); s.comboLeft = r.ReadSingle();
+            s.perch = r.ReadSingle(); s.fish.stage = (FishStage)r.ReadByte();
+            if (s.fish.stage != FishStage.None) { s.fish.fish = r.ReadSingle(); s.fish.zone = r.ReadSingle(); s.fish.zoneSize = r.ReadSingle(); s.fish.progress = r.ReadSingle(); s.fish.at = r.ReadVector3(); }
             return s;
         }
     }

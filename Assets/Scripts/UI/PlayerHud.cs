@@ -77,10 +77,10 @@ namespace TideWall
             statusText.rectTransform.pivot = tl;
 
             // Soft backings, so the HUD stays readable over anything in the world
-            var shade = new Color(.03f, .05f, .1f, .34f);
-            Ui.Image(c, "ShadeTop", new Vector2(.5f, 1), Vector2.zero, new Vector2(520, 100), shade);
+            var shade = new Color(.03f, .05f, .1f, .2f);
+            Ui.Image(c, "ShadeTop", new Vector2(.5f, 1), Vector2.zero, new Vector2(470, 76), shade);
             Ui.Image(c, "ShadeCoins", new Vector2(1, 1), Vector2.zero, new Vector2(184, 52), shade);
-            Ui.Image(c, "ShadeGuns", new Vector2(0, 0), Vector2.zero, new Vector2(400, 108), shade);
+            Ui.Image(c, "ShadeGuns", new Vector2(0, 0), Vector2.zero, new Vector2(350, 76), shade);
 
             // Top-centre: phase, waves, wall
             var tc = new Vector2(.5f, 1);
@@ -157,6 +157,47 @@ namespace TideWall
             if (crit) Sfx.Play("crit", .7f, .05f);
         }
         float hitBig = 1;
+
+        // ------------------------------------------------------------------ the fishing minigame, right of the crosshair
+        Image fishTrack, fishZone, fishMark, fishMeter;
+        TMP_Text fishHint;
+
+        void UpdateFishing()
+        {
+            var f = p.Fish;
+            bool on = f.stage != FishStage.None;
+            if (fishTrack == null)
+            {
+                if (!on) return;
+                var c = transform.GetComponentInChildren<Canvas>().transform;
+                const float H = 220;
+                fishTrack = Ui.Image(c, "FishTrack", new Vector2(.5f, .5f), new Vector2(150, 0), new Vector2(30, H), new Color(.03f, .1f, .2f, .75f));
+                fishZone = Ui.Image(fishTrack.transform, "Zone", new Vector2(.5f, 0), Vector2.zero, new Vector2(30, 40), new Color(.4f, 1f, .55f, .75f));
+                fishMark = Ui.Image(fishTrack.transform, "Fish", new Vector2(.5f, 0), Vector2.zero, new Vector2(22, 10), new Color(1f, .85f, .3f));
+                var m = Ui.Image(c, "FishMeterBack", new Vector2(.5f, .5f), new Vector2(175, 0), new Vector2(10, H), new Color(0, 0, 0, .6f));
+                fishMeter = Ui.Image(m.transform, "Meter", new Vector2(.5f, 0), Vector2.zero, new Vector2(10, H), new Color(.5f, .9f, 1f));
+                fishMeter.rectTransform.pivot = new Vector2(.5f, 0);
+                fishHint = Ui.Text(c, "FishHint", new Vector2(.5f, .5f), new Vector2(0, -150), new Vector2(620, 30), 18, TextAnchor.MiddleCenter, Color.white);
+            }
+            bool reeling = f.stage == FishStage.Reeling;
+            fishTrack.gameObject.SetActive(on && reeling);
+            fishMeter.transform.parent.gameObject.SetActive(on && reeling);
+            fishHint.gameObject.SetActive(on);
+            if (!on) return;
+            const float Track = 220;
+            string want = f.stage switch
+            {
+                FishStage.Bite => $"<color=#fde68a><b>BITE!</b> {p.Glyph(Btn.Interact)}</color>",
+                FishStage.Reeling => $"Hold {p.Glyph(Btn.Fire)} to rise, let go to sink. Keep the green on the fish",
+                _ => $"Wait for it…  {p.Glyph(Btn.Back)} gives up",
+            };
+            Ui.Set(fishHint, want);
+            if (!reeling) return;
+            fishZone.rectTransform.sizeDelta = new Vector2(30, f.zoneSize * Track);
+            fishZone.rectTransform.anchoredPosition = new Vector2(0, Mathf.Clamp(f.zone - f.zoneSize / 2, 0, 1 - f.zoneSize) * Track);
+            fishMark.rectTransform.anchoredPosition = new Vector2(0, f.fish * Track - 5);
+            fishMeter.rectTransform.sizeDelta = new Vector2(10, Mathf.Clamp01(f.progress) * Track);
+        }
 
         Image[] wallCells;
         GameObject scope;
@@ -288,7 +329,9 @@ namespace TideWall
                     ? $"Tidal card vote: {gm.Cards.Votes.Count}/{gm.Players.Count} voted · {draftLeft}s"
                     : $"TIDAL CARD VOTE · {draftLeft}s · {p.Glyph(Btn.Stats)} to vote";
 
-            if (gm.Assault && gm.State != GameState.MainMenu)
+            var heading = gm.State != GameState.MainMenu ? gm.Level.Heading() : null;
+            if (heading != null) { if (phaseLine.Changed(heading.GetHashCode())) phaseText.text = heading; }
+            else if (gm.Assault && gm.State != GameState.MainMenu)
             {
                 var ex = gm.Expedition;
                 if (phaseLine.Changed(System.HashCode.Combine(ex.StageIndex, gm.EnemiesLeft)))
@@ -313,6 +356,7 @@ namespace TideWall
             statusT -= dt;
             if (statusT <= 0) { statusT = .2f; Ui.Set(wallText, gm.Level.StatusLine()); }
             UpdateWallStrip();
+            UpdateFishing();
             UpdateScope();
 
             bool reloading = p.ReloadProgress >= 0;
@@ -341,7 +385,7 @@ namespace TideWall
             float spread = 14 + p.FireHeat * 16;
             crossH.rectTransform.sizeDelta = new Vector2(spread, 2); crossV.rectTransform.sizeDelta = new Vector2(2, spread);
             bool cardsOpen = p.ShownMenu != null && p.ShownMenu.Layout == MenuLayout.Cards;
-            Ui.Set(previewText, cardsOpen ? "" : gm.Waves.Preview);
+            Ui.Set(previewText, cardsOpen || gm.Level.HoldLook != null ? "" : gm.Waves.Preview);
             if (cardsOpen) { voteText.text = ""; voteLine = default; SetAlpha(bannerTitle, 0); SetAlpha(bannerSub, 0); }   // the cards have the screen
             bool cross = !p.IsOut && p.ShownMenu == null && gm.State == GameState.Playing;
             crossH.enabled = crossV.enabled = cross;
@@ -381,7 +425,7 @@ namespace TideWall
                 string retry = Net.IsClient ? "Waiting for the host to start a new run" : $"{p.Glyph(Btn.Interact)} New run";
                 var rec = gm.RunRecord;
                 string best = rec != null ? $"\n<size=16>Runs: {rec.runs} · best day {rec.bestDay} · best level {rec.bestLevel}</size>" : "";
-                string reached = gm.Assault ? $"The expedition reached {gm.Expedition.Stage.title}" : $"You held out until day {gm.Phases.Day}";
+                string reached = gm.Level.ReachedLine(p) ?? (gm.Assault ? $"The expedition reached {gm.Expedition.Stage.title}" : $"You held out until day {gm.Phases.Day}");
                 return $"<size=44><b>RUN OVER</b></size>\n{gm.GameOverReason}\n{reached} (level {p.Level}).{best}\n\n" +
                        $"<size=20>{retry} · {p.Glyph(Btn.Back)} {(Net.IsClient ? "Leave" : "Main menu")}</size>";
             }
@@ -407,6 +451,26 @@ namespace TideWall
             }
         }
 
+        /// <summary>What's under this screen point in the menu that's showing: an item, a tab (Menu.TabBase + index), or -1.</summary>
+        public int MenuHit(Vector2 screen)
+        {
+            var m = p.ShownMenu;
+            var cam = p.Cam != null ? p.Cam.Camera : null;
+            if (m == null || cam == null) return -1;
+            switch (m.Layout)
+            {
+                case MenuLayout.Grid: return grid.Hit(m, screen, cam);
+                case MenuLayout.Cards: return cardsView.Hit(m, screen, cam);
+                case MenuLayout.Table: return table.Hit(m, screen, cam);
+                default:
+                    int line = TMP_TextUtilities.FindIntersectingLine(menuBody, screen, cam);
+                    return line < 0 ? -1 : m.First + line;
+            }
+        }
+
+        /// <summary>Tests: where a shop card is on screen.</summary>
+        public Vector2 GridScreenOf(int index) => grid.ScreenOf(index, p.Cam.Camera);
+
         void UpdateMenu()
         {
             var m = p.ShownMenu;
@@ -420,16 +484,16 @@ namespace TideWall
             var cur = m.Current;
             string why = cur?.Blocked?.Invoke();
             menuDetail.text = cur == null ? "" : m.System && why != null ? $"<color=#fca5a5>{why}</color>" : cur.Detail;
-            string nav = p.UsesMouse ? "Arrows / wheel" : "D-pad";
+            string nav = p.UsesMouse ? "Hover / arrows" : "D-pad";
             string adj = cur?.OnAdjust != null ? " · left/right change" : "";
-            menuHelp.text = $"{nav} choose{adj} · {p.Glyph(Btn.Interact)} pick · {p.Glyph(Btn.Back)} {(m.Parent != null ? "back" : "close")}";
+            menuHelp.text = $"{nav} choose{adj} · {(p.UsesMouse ? "click or " : "")}{p.Glyph(Btn.Interact)} pick · {(p.UsesMouse ? "right-click or " : "")}{p.Glyph(Btn.Back)} {(m.Parent != null ? "back" : "close")}";
         }
 
         /// <summary>A menu as rich text rows (also used by the main menu): headers, the selection, values on the right.</summary>
         public static string Render(Menu m, int rows, int labelWidth = 34)
         {
             var sb = new StringBuilder();
-            int first = Mathf.Clamp(m.Selected - rows / 2, 0, Mathf.Max(0, m.Items.Count - rows));
+            int first = m.Window(rows);
             for (int i = first; i < Mathf.Min(m.Items.Count, first + rows); i++)
             {
                 var it = m.Items[i];
@@ -439,7 +503,8 @@ namespace TideWall
                 string label = it.Label.Length > labelWidth ? it.Label.Substring(0, labelWidth) : it.Label;
                 string colour = blocked ? "#94a3b8" : sel ? "#fde68a" : "#ffffff";
                 // <pos> is a TextMeshPro tab stop: the values line up in a column whatever the labels' widths
-                sb.Append($"<color={colour}>{(sel ? "► " : "   ")}{label}<pos=58%>{it.Right}</color>\n");
+                string row = $"<color={colour}>{(sel ? "► " : "   ")}{label}<pos=58%>{it.Right}</color>";
+                sb.Append(sel ? $"<mark=#fde68a1c>{row}      </mark>\n" : row + "\n");
             }
             return sb.ToString();
         }

@@ -2232,6 +2232,235 @@ MonoBehaviour:
     smoothness: 0.25
     pearls: 10
     kills: 4000
+  fish:
+  - id: sardine
+    displayName: Sardine
+    description: Small, silver, everywhere.
+    model: FishSardine
+    weight: 5
+    difficulty: 0.1
+    sandDollars: 6
+    pearls: 0
+    oil: 3
+    heal: 0
+    creature: 
+    minWave: 0
+  - id: mackerel
+    displayName: Mackerel
+    description: A decent fight, and a good price.
+    model: FishMackerel
+    weight: 4
+    difficulty: 0.3
+    sandDollars: 14
+    pearls: 0
+    oil: 6
+    heal: 0
+    creature: 
+    minWave: 0
+  - id: oilfish
+    displayName: Oilfish
+    description: So greasy it nearly lights itself. Lots of lamp oil.
+    model: FishOil
+    weight: 2.4
+    difficulty: 0.45
+    sandDollars: 10
+    pearls: 0
+    oil: 30
+    heal: 0
+    creature: 
+    minWave: 0
+  - id: sunfish
+    displayName: Sunfish
+    description: Warm to hold. It heals you just to look at.
+    model: FishSun
+    weight: 2
+    difficulty: 0.4
+    sandDollars: 12
+    pearls: 0
+    oil: 5
+    heal: 35
+    creature: 
+    minWave: 0
+  - id: boot
+    displayName: An Old Boot
+    description: Still has a foot in it. You don't look.
+    model: FishBoot
+    weight: 2
+    difficulty: 0.05
+    sandDollars: 1
+    pearls: 0
+    oil: 0
+    heal: 0
+    creature: 
+    minWave: 0
+  - id: sodacan
+    displayName: A Soda Can
+    description: Unopened. You drink it. It's fine.
+    model: FishCan
+    weight: 1.2
+    difficulty: 0.05
+    sandDollars: 2
+    pearls: 0
+    oil: 0
+    heal: 10
+    creature: 
+    minWave: 0
+  - id: swordfish
+    displayName: Swordfish
+    description: Fights like it means it. Worth a fortune.
+    model: FishSword
+    weight: 1
+    difficulty: 0.75
+    sandDollars: 60
+    pearls: 0
+    oil: 12
+    heal: 0
+    creature: 
+    minWave: 0
+  - id: mimic
+    displayName: That's Not a Fish
+    description: It's got claws, and it's cross.
+    model: FishMimic
+    weight: 1
+    difficulty: 0.5
+    sandDollars: 8
+    pearls: 0
+    oil: 0
+    heal: 0
+    creature: crab
+    minWave: 0
+  - id: goldangler
+    displayName: Golden Anglerfish
+    description: There's a pearl where its lure should be.
+    model: FishGold
+    weight: 0.4
+    difficulty: 1
+    sandDollars: 40
+    pearls: 1
+    oil: 15
+    heal: 0
+    creature: 
+    minWave: 0
+  fishBiteWindow: 0.9
+  shoreFishingSpots: 3
+  lastLight:
+    towerHp: 900
+    towerRadius: 3.4
+    startSandDollars: 150
+    startWater: 0.25
+    maxWater: 2.7
+    risePerTide: 0.16
+    riseRate: 0.1
+    firstSlackSeconds: 25
+    slackSeconds: 22
+    floodSeconds: 85
+    tidesPerDay: 3
+    spawnRadius: 60
+    spawnGap: 2.4
+    budgetBase: 8
+    budgetPerTide: 4
+    bossEvery: 5
+    bosses:
+    - glizzy
+    - tidemother
+    oilTank: 100
+    oilBurnSweep: 0.55
+    oilBurnManned: 2.4
+    darkSeconds: 25
+    sweepSpeed: 22
+    sweepPitch: 16
+    coneSweep: 7
+    coneManned: 11
+    beamRange: 58
+    beamDry: 0.8
+    beamBurn: 7
+    mannedPower: 2.5
+    beamSlow: 0.35
+    oilPerCorpseValue: 0.6
+    fishingSpots: 4
+    lowTideWater: -2.6
+    lowTideRate: 0.8
+    lowTideSeconds: 55
+    lowTideWarning: 12
+    salvageOil: 25
+    salvageCrates: 7
+    salvageGuards: 2
+    salvageRadius: {x: 44, y: 60}
+    salvageSandDollars: {x: 40, y: 120}
+    salvagePearlChance: 0.15
+    salvagePartChance: 0.35
+    oilPerTide: 4
+    oilPerBoss: 25
+    upgrades:
+    - id: towerhp
+      displayName: Dressed Stone
+      description: +20% lighthouse strength per level.
+      kind: 0
+      price: 15
+      maxLevel: 5
+      priceGrowth: 1.6
+      amount: 0.2
+    - id: oiltank
+      displayName: Bigger Reservoir
+      description: +25% oil in the lamp per level.
+      kind: 1
+      price: 15
+      maxLevel: 5
+      priceGrowth: 1.6
+      amount: 0.25
+    - id: lens
+      displayName: Ground Lens
+      description: +25% beam damage per level.
+      kind: 2
+      price: 25
+      maxLevel: 5
+      priceGrowth: 1.6
+      amount: 0.25
+    - id: purse
+      displayName: Keeper's Purse
+      description: Start with 100 more sand dollars per level.
+      kind: 3
+      price: 10
+      maxLevel: 5
+      priceGrowth: 1.6
+      amount: 100
+    - id: seawall
+      displayName: Tide Tables
+      description: The sea rises 12% more slowly per level.
+      kind: 4
+      price: 30
+      maxLevel: 4
+      priceGrowth: 1.9
+      amount: 0.12
+    look:
+      id: lastlight
+      displayName: Dusk
+      subtitle: 
+      durationSeconds: 0
+      endWhenAllReady: 0
+      endWhenWavesCleared: 0
+      advancesDay: 0
+      saveOnStart: 0
+      shopOpen: 1
+      waves: 0
+      budgetMultiplier: 1
+      enemyPool: []
+      bossEveryDays: 0
+      bossId: glizzy
+      spawnFood: 0
+      spawnGasCans: 0
+      tidalDraft: 0
+      corpseThieves: 0
+      skyColor: {r: 0.5, g: 0.42, b: 0.62, a: 1}
+      sunColor: {r: 1, g: 0.84, b: 0.68, a: 1}
+      sunIntensity: 1.05
+      sunPitch: 22
+      sunYaw: 60
+      ambientColor: {r: 0.48, g: 0.46, b: 0.54, a: 1}
+      fogColor: {r: 0.58, g: 0.5, b: 0.62, a: 1}
+      fogDensity: 0.004
+      torchesLit: 1
+      lanterns: 1
   cards:
   - id: redtide
     displayName: Red Tide

@@ -70,12 +70,17 @@ namespace TideWall
         void UpdateCombat(float dt)
         {
             CombatTimers(dt);
+            if (clickGuard && !Held(Btn.Fire)) clickGuard = false;
+            if (clickGuard) fireBuffer = 0;
             if (grabbedBy != null)
             {
                 // Mash to break free
                 if (Pressed(Btn.Melee) || Pressed(Btn.Interact) || Pressed(Btn.Fire)) grabbedBy.Struggle();
+                fishing = null;
                 return;
             }
+            if (UpdateFishing(dt)) return;
+            UpdatePerch();
             if (!GunsLocked && Pressed(Btn.Swap)) CycleGun();
             if (!GunsLocked && Pressed(Btn.Slot1)) SelectSlot(0);
             if (!GunsLocked && Pressed(Btn.Slot2)) SelectSlot(1);
@@ -106,7 +111,7 @@ namespace TideWall
                     Toast($"Guns unlock at wave {db.gunsUnlockWave}: melee only until then!", new Color(1, .8f, .5f));
                 }
             }
-            else if ((Held(Btn.Fire) || fireBuffer > 0) && fireCd <= 0 && reload == null)
+            else if (!clickGuard && (Held(Btn.Fire) || fireBuffer > 0) && fireCd <= 0 && reload == null)
             {
                 if (Ammo <= 0) { if (Pressed(Btn.Fire)) Sfx.Play("click", .8f); StartReload(); }
                 else Shoot();

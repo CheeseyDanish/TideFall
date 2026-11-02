@@ -54,7 +54,7 @@ namespace TideWall
             m.Header("TOOLS");
             m.Add("Players & money", ">", "Sand dollars, pearls, levels, weapons, healing, teleporting, a test player.", open: () => Players(p));
             m.Add("Creatures", ">", "Spawn any creature where you aim; kill them all.", open: () => Creatures(p));
-            if (!gm.Assault)
+            if (gm.World != null)
             {
                 m.Add("Waves & days", ">", "Next phase, any day, clear the wave, a tidal card draft.", open: () => Waves(p));
                 m.Add("Wall & powerplant", ">", "Repair or break them.", open: () => Wall(p));
@@ -156,7 +156,7 @@ namespace TideWall
                     for (int i = 0; i < n; i++)
                     {
                         var at = p.AimPoint + (n > 1 ? new Vector3(UnityEngine.Random.Range(-2f, 2f), 0, UnityEngine.Random.Range(-2f, 2f)) : Vector3.zero);
-                        at.y = Mathf.Max(at.y, Arena.GroundY(at.z));
+                        at.y = Mathf.Max(at.y, Arena.GroundAt(at));
                         gm.Waves.SpawnExtra(d, at);
                     }
                 });

@@ -26,6 +26,9 @@ namespace TideWall
             verts = (Vector3[])baseVerts.Clone();
         }
 
+        /// <summary>The Last Light's shore is a moving circle: no straight foam line.</summary>
+        public void DropFoam() { if (foam) Util.Destroy(foam.gameObject); foam = null; }
+
         public static Water Build(Transform parent, Rect area, float step)
         {
             var go = new GameObject("Sea");
@@ -66,12 +69,13 @@ namespace TideWall
         void Update()
         {
             if (mesh == null) Awake();
+            if (Arena.Island) transform.position = new Vector3(0, Arena.WaterLevel, 0);
             float t = Time.time;
             var breakers = Breaker.All;
             for (int i = 0; i < verts.Length; i++)
             {
                 var b = baseVerts[i];
-                float y = Mathf.Sin(b.z * .35f - t * 1.6f) * .12f + Mathf.Sin(b.x * .22f + t * .9f) * .07f;
+                float y = (Mathf.Sin(b.z * .35f - t * 1.6f) * .12f + Mathf.Sin(b.x * .22f + t * .9f) * .07f) * (Arena.Island ? .35f : 1);   // (a gentle hill: big waves would chew the shoreline)
                 for (int k = 0; k < breakers.Count; k++)
                 {
                     var br = breakers[k];

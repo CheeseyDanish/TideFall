@@ -244,6 +244,70 @@ namespace TideWall
         [Tooltip("All-time kills that unlock it for free (0 = pearls only)")] public int kills;
     }
 
+    /// <summary>Something on the end of a fishing line.</summary>
+    [Serializable]
+    public class FishDef
+    {
+        public string id, displayName, description, model;
+        [Tooltip("How often it bites compared with others")] public float weight = 1;
+        [Tooltip("0 easy .. 1 wild")] [Range(0, 1)] public float difficulty = .3f;
+        public int sandDollars, pearls;
+        [Tooltip("Lamp oil it renders down to (The Last Light)")] public float oil;
+        public float heal;
+        [Tooltip("A creature comes up with it (id)")] public string creature;
+        [Tooltip("Doesn't bite before this wave of the run")] public int minWave;
+    }
+
+    public enum KeeperUpgradeKind { TowerHp, OilTank, LampPower, Purse, SlowTide }
+
+    /// <summary>A permanent upgrade for The Last Light, bought with lamp oil in the Keeper's Log.</summary>
+    [Serializable]
+    public class KeeperUpgradeDef
+    {
+        public string id, displayName, description;
+        public KeeperUpgradeKind kind;
+        public int price = 20, maxLevel = 5;
+        public float priceGrowth = 1.6f;
+        [Tooltip("Per level: a fraction for most, sand dollars for Purse")] public float amount = .15f;
+        public int PriceAt(int level) => Mathf.RoundToInt(price * Mathf.Pow(priceGrowth, level));
+    }
+
+    /// <summary>The Last Light's numbers.</summary>
+    [Serializable]
+    public class LastLightDef
+    {
+        [Header("The lighthouse")]
+        public float towerHp = 900, towerRadius = 3.4f;
+        public int startSandDollars = 150;
+        [Header("The tide (metres of water; the hill's top is at 3)")]
+        public float startWater = .25f, maxWater = 2.7f, risePerTide = .16f, riseRate = .1f;
+        public float firstSlackSeconds = 25, slackSeconds = 22, floodSeconds = 85;
+        [Tooltip("Tougher by one day every this many tides")] public int tidesPerDay = 3;
+        [Header("Creatures")]
+        public float spawnRadius = 60, spawnGap = 2.4f, budgetBase = 8, budgetPerTide = 4;
+        [Tooltip("A boss every this many tides")] public int bossEvery = 5;
+        public List<string> bosses = new() { "glizzy", "tidemother" };
+        [Header("The lamp")]
+        public float oilTank = 100, oilBurnSweep = .55f, oilBurnManned = 2.4f, darkSeconds = 25;
+        public float sweepSpeed = 22, sweepPitch = 16, coneSweep = 7, coneManned = 11, beamRange = 58;
+        [Tooltip("Wetness dried per second in the beam")] public float beamDry = .8f;
+        [Tooltip("Damage per second")] public float beamBurn = 7;
+        [Tooltip("A sailor at the lamp makes it this much stronger")] public float mannedPower = 2.5f;
+        [Range(0, 1)] public float beamSlow = .35f;
+        public float oilPerCorpseValue = .6f;
+        [Header("Fishing")]
+        public int fishingSpots = 4;
+        [Header("Salvage (after each boss)")]
+        public float lowTideWater = -2.6f, lowTideRate = .8f, lowTideSeconds = 55, lowTideWarning = 12, salvageOil = 25;
+        public int salvageCrates = 7, salvageGuards = 2;
+        public Vector2 salvageRadius = new(44, 60), salvageSandDollars = new(40, 120);
+        [Range(0, 1)] public float salvagePearlChance = .15f, salvagePartChance = .35f;
+        [Header("Lamp oil brought home")]
+        public int oilPerTide = 4, oilPerBoss = 25;
+        public List<KeeperUpgradeDef> upgrades = new();
+        [Tooltip("The sky and light")] public PhaseDefinition look = new();
+    }
+
     /// <summary>A weapon mod, offered every few levels. Applies to the gun or melee weapon it was taken on.</summary>
     [Serializable]
     public class ModDef
@@ -307,6 +371,10 @@ namespace TideWall
         public List<ModDef> mods = new();
         public List<AttachmentDef> attachments = new();
         public List<SkinDef> skins = new();
+        public List<FishDef> fish = new();
+        [Tooltip("Seconds to strike once a fish bites")] public float fishBiteWindow = .9f;
+        [Tooltip("Patches of bubbles on Part I's shore while the shop's open")] public int shoreFishingSpots = 3;
+        public LastLightDef lastLight = new();
         public List<TidalCardDef> cards = new();
         public List<StructureDef> structures = new();
         public List<ReloadDef> reloads = new();
@@ -695,6 +763,37 @@ namespace TideWall
                         description = "Black as the bottom of the sea, with something glowing in the cracks." },
                 new() { id = "vent", displayName = "Lava Vent", pattern = SkinPattern.Veins, colorA = C(.06f, .05f, .05f), colorB = C(.6f, .15f, .02f), colorC = C(.03f, .03f, .03f), glow = new Color(3f, .8f, .1f), patternScale = 8, pulse = 4, metallic = .1f, smoothness = .25f, kills = 4000, pearls = 10,
                         description = "Cooled rock from a seabed vent. Not completely cooled." },
+            };
+
+            fish = new List<FishDef>
+            {
+                new() { id = "sardine", displayName = "Sardine", description = "Small, silver, everywhere.", model = "FishSardine", weight = 5, difficulty = .1f, sandDollars = 6, oil = 3 },
+                new() { id = "mackerel", displayName = "Mackerel", description = "A decent fight, and a good price.", model = "FishMackerel", weight = 4, difficulty = .3f, sandDollars = 14, oil = 6 },
+                new() { id = "oilfish", displayName = "Oilfish", description = "So greasy it nearly lights itself. Lots of lamp oil.", model = "FishOil", weight = 2.4f, difficulty = .45f, sandDollars = 10, oil = 30 },
+                new() { id = "sunfish", displayName = "Sunfish", description = "Warm to hold. It heals you just to look at.", model = "FishSun", weight = 2, difficulty = .4f, sandDollars = 12, oil = 5, heal = 35 },
+                new() { id = "boot", displayName = "An Old Boot", description = "Still has a foot in it. You don't look.", model = "FishBoot", weight = 2, difficulty = .05f, sandDollars = 1 },
+                new() { id = "sodacan", displayName = "A Soda Can", description = "Unopened. You drink it. It's fine.", model = "FishCan", weight = 1.2f, difficulty = .05f, sandDollars = 2, heal = 10 },
+                new() { id = "swordfish", displayName = "Swordfish", description = "Fights like it means it. Worth a fortune.", model = "FishSword", weight = 1, difficulty = .75f, sandDollars = 60, oil = 12 },
+                new() { id = "mimic", displayName = "That's Not a Fish", description = "It's got claws, and it's cross.", model = "FishMimic", weight = 1, difficulty = .5f, sandDollars = 8, creature = "crab" },
+                new() { id = "goldangler", displayName = "Golden Anglerfish", description = "There's a pearl where its lure should be.", model = "FishGold", weight = .4f, difficulty = 1, sandDollars = 40, oil = 15, pearls = 1 },
+            };
+
+            lastLight = new LastLightDef
+            {
+                upgrades = new List<KeeperUpgradeDef>
+                {
+                    new() { id = "towerhp", displayName = "Dressed Stone", kind = KeeperUpgradeKind.TowerHp, price = 15, amount = .2f, description = "+20% lighthouse strength per level." },
+                    new() { id = "oiltank", displayName = "Bigger Reservoir", kind = KeeperUpgradeKind.OilTank, price = 15, amount = .25f, description = "+25% oil in the lamp per level." },
+                    new() { id = "lens", displayName = "Ground Lens", kind = KeeperUpgradeKind.LampPower, price = 25, amount = .25f, description = "+25% beam damage per level." },
+                    new() { id = "purse", displayName = "Keeper's Purse", kind = KeeperUpgradeKind.Purse, price = 10, amount = 100, description = "Start with 100 more sand dollars per level." },
+                    new() { id = "seawall", displayName = "Tide Tables", kind = KeeperUpgradeKind.SlowTide, price = 30, maxLevel = 4, priceGrowth = 1.9f, amount = .12f, description = "The sea rises 12% more slowly per level." },
+                },
+                look = new PhaseDefinition
+                {
+                    id = "lastlight", displayName = "Dusk", shopOpen = true, torchesLit = true, lanterns = true,
+                    skyColor = new Color(.5f, .42f, .62f), sunColor = new Color(1f, .84f, .68f), sunIntensity = 1.05f, sunPitch = 22, sunYaw = 60,
+                    ambientColor = new Color(.48f, .46f, .54f), fogColor = new Color(.58f, .5f, .62f), fogDensity = .004f,
+                },
             };
 
             // The 2D game's reload minigames (its RELOADS table). {r} is the player's reload button.

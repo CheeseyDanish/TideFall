@@ -27,6 +27,8 @@ namespace TideWall
             ApplyNetAttachments(s.gun, s.attach);
             if (Melee == null || Melee.id != s.melee) GiveMelee(s.melee);
             ApplyNetInventory(s.loadout, s.gunSkin, s.meleeSkin);
+            Perch = s.perch;
+            netFish = s.fish;
             Statuses.ClearAll();
             foreach (var (type, left) in s.statuses) Statuses.Add(type, left);
             Kills = s.kills;
@@ -93,7 +95,9 @@ namespace TideWall
         {
             Controls?.Dispose();
             if (reticle) Destroy(reticle.gameObject);
-            if (laser) { Destroy(laser.gameObject); Destroy(laserDot.gameObject); }
+            if (laser) Destroy(laser.gameObject);
+            if (laserDot) Destroy(laserDot.gameObject);
+            if (fishLine) Destroy(fishLine.gameObject);
             if (Cam) Destroy(Cam.gameObject);
             if (Hud) Destroy(Hud.gameObject);
             if (gm != null && gm.Level != null) gm.Level.lanterns.Remove(lantern);

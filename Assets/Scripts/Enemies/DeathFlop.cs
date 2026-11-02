@@ -18,7 +18,7 @@ namespace TideWall
             f.enemy = e; f.corpse = c; f.to = to; f.push = push; f.falls = falls;
             f.from = e.Model.root.transform.localRotation;
             f.startY = e.transform.position.y;
-            f.groundY = Arena.GroundY(e.transform.position.z);
+            f.groundY = Arena.GroundAt(e.transform.position);
             f.seconds = Mathf.Clamp(.34f + e.Radius * .12f, .38f, .8f);
             f.hop = Mathf.Clamp(.65f - e.Radius * .12f, .2f, .6f);
         }

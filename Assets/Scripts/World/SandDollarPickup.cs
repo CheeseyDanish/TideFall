@@ -94,7 +94,7 @@ namespace TideWall
                 var to = killer.transform.position + Vector3.up * .9f - p;
                 vel = Vector3.Lerp(vel, to.normalized * db.lootFlySpeed, dt * 4);
                 p += vel * dt;
-                p.y = Mathf.Max(p.y, Arena.GroundY(p.z) + .3f);
+                p.y = Mathf.Max(p.y, Arena.GroundAt(p) + .3f);
                 if (Random.value < dt * 20) Fx.Sparkle(p, Pearl);
             }
             else
@@ -103,7 +103,7 @@ namespace TideWall
                 {
                     vel += Physics.gravity * dt;
                     p += vel * dt;
-                    float g = Arena.GroundY(p.z) + .05f;
+                    float g = Arena.GroundAt(p) + .05f;
                     if (p.y <= g) { p.y = g; landed = true; vel = Vector3.zero; }
                 }
                 // Slide to the nearest player in reach

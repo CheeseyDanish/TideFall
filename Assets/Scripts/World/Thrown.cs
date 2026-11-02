@@ -19,7 +19,7 @@ namespace TideWall
             var p = transform.position + velocity * dt;
             spin += 540 * dt;
             transform.rotation = Quaternion.Euler(spin, transform.eulerAngles.y, 0);
-            float ground = Arena.GroundY(p.z);
+            float ground = Arena.GroundAt(p);
             if (p.y <= ground)
             {
                 p.y = ground;

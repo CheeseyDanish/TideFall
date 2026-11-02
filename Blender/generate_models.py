@@ -1351,3 +1351,49 @@ build('ViewArm', [
     ('Body', 'box', (.13, .55, .14), (.03, .34, -.27), 'coat', None, (-34, 0, 4)),
     ('Body', 'box', (.15, .07, .16), (.012, .1, -.13), 'white', None, (-34, 0, 4)),
 ])
+
+# The Last Light: the lamp's beam (apex at the origin, shining -Y: the game stretches it), sea chests, fishing
+build('LampBeam', [('Body', 'cone', (1, 1, 1), (0, -.5, 0), 'white', None, (-90, 0, 0), 20)])
+build('SalvageCrate', [
+    ('Body', 'box', (1.1, .7, .55), (0, 0, .28), 'woodD'),
+    ('Body', 'cyl', (.7, 1.1, .5), (0, 0, .55), 'wood', None, (0, 90, 0), 10),
+    *[('Body', 'box', (.09, .74, .6), (x, 0, .3), 'gold') for x in (-.4, .4)],
+    ('Body', 'box', (.16, .05, .2), (0, -.37, .5), 'gold'),
+    *[('Body', 'ball', (.14, .14, .1), (x, y, .08), 'barn') for x, y in ((.55, .3), (-.5, -.3), (.2, .36))],
+])
+build('FishSpot', [
+    ('Body', 'tor', (2.4, 2.4, .2), (0, 0, 0), 'ice', None, None, 16),
+    ('Body', 'tor', (1.2, 1.2, .2), (0, 0, 0), 'white', None, None, 12),
+    ('Body', 'ball', (.2, .2, .22), (0, 0, .1), 'red'),
+    ('Body', 'ball', (.2, .2, .1), (0, 0, .2), 'white'),
+])
+COL.update({'cork': (.72, .55, .35)})
+build('FishingRod', [
+    ('Body', 'cyl', (.05, .05, .32), (0, .04, 0), 'cork', None, (90, 0, 0), 8),
+    ('Body', 'cyl', (.03, .03, 1.5), (0, -.85, 0), 'woodD', None, (90, 0, 0), 6),
+    ('Body', 'tor', (.14, .14, .3), (.05, -.08, -.03), 'gold', None, (0, 90, 0), 8),
+], sockets=[('Tip', (0, -1.6, 0))])
+def fish(name, body, belly, length=.5, height=.2, fin=None, eye_col='white'):
+    fin = fin or body
+    build(name, [
+        ('Body', 'ball', (height * .7, length, height), (0, 0, 0), body),
+        ('Body', 'ball', (height * .55, length * .8, height * .5), (0, 0, -height * .24), belly),
+        ('Body', 'cone', (.03, height * .9, height * .9), (0, length * .6, 0), fin, None, (-90, 0, 0), 4),
+        ('Body', 'cone', (.03, length * .35, height * .55), (0, 0, height * .55), fin, None, None, 4),
+        ('Body', 'ball', (.05, .05, .05), (-height * .32, -length * .32, height * .1), eye_col),
+        ('Body', 'ball', (.05, .05, .05), (height * .32, -length * .32, height * .1), eye_col),
+    ])
+fish('FishSardine', 'steel', 'white', .36, .13)
+fish('FishMackerel', 'teal', 'belly', .55, .2, 'navy')
+fish('FishOil', 'greyD', 'yellow', .6, .28, 'black', 'yellow')
+fish('FishSun', 'orange', 'yellow', .4, .42, 'orange2')
+fish('FishGold', 'gold', 'yellow', .55, .36, 'gold', 'glow')
+build('FishSword', [
+    ('Body', 'ball', (.2, .85, .3), (0, 0, 0), 'navy'), ('Body', 'ball', (.16, .7, .15), (0, 0, -.07), 'belly'),
+    ('Body', 'cone', (.05, .05, .7), (0, -.75, .02), 'steel', None, (90, 0, 0), 5),
+    ('Body', 'cone', (.03, .3, .5), (0, -.05, .32), 'navy', None, None, 4), ('Body', 'cone', (.03, .3, .4), (0, .52, 0), 'navy', None, (-90, 0, 0), 4),
+])
+build('FishBoot', [('Body', 'box', (.2, .24, .38), (0, .06, .19), 'brown'), ('Body', 'box', (.2, .44, .14), (0, -.05, .05), 'woodD'), ('Body', 'box', (.21, .25, .03), (0, .06, .33), 'greyD')])
+build('FishCan', [('Body', 'cyl', (.16, .16, .32), (0, 0, .16), 'red', None, None, 10), ('Body', 'cyl', (.165, .165, .03), (0, 0, .32), 'steel', None, None, 10), ('Body', 'box', (.17, .02, .1), (0, -.08, .17), 'white')])
+build('FishMimic', [('Body', 'ball', (.4, .55, .2), (0, 0, 0), 'orange'), ('Body', 'cone', (.03, .2, .2), (0, .32, 0), 'orange2', None, (-90, 0, 0), 4),
+                    *eye('Body', -.1, -.2, .1, None, .06), *eye('Body', .1, -.2, .1, None, .06), ('Body', 'ball', (.14, .18, .08), (-.24, -.2, 0), 'crabD'), ('Body', 'ball', (.14, .18, .08), (.24, -.2, 0), 'crabD')])

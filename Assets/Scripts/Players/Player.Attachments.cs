@@ -117,7 +117,7 @@ namespace TideWall
 
         // ------------------------------------------------------------------ aiming down the sights, and the laser
         /// <summary>Holding the sights up (never with a menu open, arms full, or mid-reload).</summary>
-        public bool Aiming => !IsDowned && !IsOut && ShownMenu == null && Building == null && !GunsLocked && CarryCount == 0 && ReloadProgress < 0 && Held(Btn.Sight);
+        public bool Aiming => Fish.stage == FishStage.None && !IsDowned && !IsOut && ShownMenu == null && Building == null && !GunsLocked && CarryCount == 0 && ReloadProgress < 0 && Held(Btn.Sight);
         /// <summary>0 → 1 as the sights come up.</summary>
         public float AimAmount { get; private set; }
         /// <summary>The view's FOV multiplier right now (a scope zooms further than iron sights). Also slows the look.</summary>
@@ -145,6 +145,7 @@ namespace TideWall
         {
             AimAmount = Mathf.MoveTowards(AimAmount, Aiming ? 1 : 0, Time.unscaledDeltaTime * 7);
             UpdateLaser();
+            UpdateFishLine();
         }
 
         /// <summary>A fitted laser draws a thin beam from the gun to the point under the crosshair, and a dot where it lands.

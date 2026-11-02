@@ -43,6 +43,7 @@ namespace TideWall
         public Expedition Expedition => Level as Expedition;
         /// <summary>Part II: attacking on the seabed rather than defending the wall.</summary>
         public bool Assault => Level is Expedition;
+        public Lighthouse Lighthouse => Level as Lighthouse;
         public Wall Wall => World != null ? World.wall : null;
         public PowerPlant Plant => World != null ? World.plant : null;
         /// <summary>The scene with the main menu (Part I's town).</summary>
@@ -99,7 +100,9 @@ namespace TideWall
                 Debug.LogError("TideWall: this scene has no level. Building Part I's for now; open the TideWall scene or use TideWall → Rebuild World In Scene.");
                 Level = WorldBuilder.Build(null);
             }
-            Arena.Seabed = Assault;
+            Arena.Seabed = Assault || Lighthouse != null;
+            Arena.Island = Lighthouse != null;
+            Arena.WaterLevel = 0;
             Level.Init(DB);
             Phases = gameObject.AddComponent<PhaseManager>();
             Waves = gameObject.AddComponent<WaveDirector>();
@@ -113,6 +116,7 @@ namespace TideWall
             if (Net.IsClient) { BeginClient(); return; }
             var req = Pending; Pending = null;
             // A Part II stage opened on its own (the editor, tests): an unsaved expedition starting here
+            if (req == null && Lighthouse != null) req = new RunRequest();
             if (req == null && Assault) req = new RunRequest { save = Expedition.NewSave(this, 0, Expedition.StageIndex) };
             if (req == null) return;
             StartRun(req.save, req.slot);
@@ -141,6 +145,7 @@ namespace TideWall
             Loaded = save;
             State = GameState.Playing;
             Menu?.Hide();
+            if (Lighthouse != null) { Lighthouse.Begin(); return; }
             if (Assault)
             {
                 // Part II: the team, its money and its upgrades come with the save from the last stage
@@ -246,7 +251,7 @@ namespace TideWall
             if (SaveSlot > 0) SaveSystem.Delete(SaveSlot);
             int level = 0, kills = 0;
             foreach (var p in Players.All) { level = Mathf.Max(level, p.Level); kills += p.Kills; }
-            RunRecord = Assault ? Legacy.RecordExpedition(Expedition.StageIndex, level, kills) : Legacy.Record(Phases.Day, level, kills);
+            RunRecord = Level.RecordRun(level, kills) ?? (Assault ? Legacy.RecordExpedition(Expedition.StageIndex, level, kills) : Legacy.Record(Phases.Day, level, kills));
             if (Net.IsHost) Net.Host.SendGameOver(reason);
         }
 
@@ -261,7 +266,7 @@ namespace TideWall
         public void NewRun()
         {
             if (Net.IsClient) return;   // the host decides
-            var req = new RunRequest { slot = SaveSlot, save = null };
+            var req = new RunRequest { slot = SaveSlot, save = null };   // (The Last Light simply starts over in its scene)
             foreach (var p in Players.All) if (p.Controls != null) req.devices.Add(p.Controls.Devices);
             // Part II starts over from its first stage
             string scene = SceneManager.GetActiveScene().name;

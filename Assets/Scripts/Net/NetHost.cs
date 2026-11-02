@@ -391,7 +391,7 @@ namespace TideWall
             if (beaconT <= 0)
             {
                 beaconT = 1;
-                string where = gm.Assault ? gm.Expedition.Stage.title : $"Day {gm.Phases.Day}";
+                string where = gm.Lighthouse != null ? "The Last Light" : gm.Assault ? gm.Expedition.Stage.title : $"Day {gm.Phases.Day}";
                 NetDiscovery.Beacon(Nick, Port, JoinCode ?? "", $"{where} · {gm.Players.Count}/{PlayerManager.MaxPlayers} players{(HasPassword ? " · password" : "")}");
             }
             snapT -= Time.unscaledDeltaTime;

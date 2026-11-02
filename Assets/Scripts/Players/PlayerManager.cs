@@ -179,7 +179,7 @@ namespace TideWall
                 Level.SetupCameraSky(overview, gm.Phases.SkyColor);
                 overview.transform.SetPositionAndRotation(new Vector3(0, 42, -20), Quaternion.Euler(58, 0, 0));
                 var ph = gm.Phases.Current;
-                string heading = gm.Assault ? $"Part {gm.Expedition.Part.numeral} · {gm.Expedition.Stage.title}" : ph != null ? $"Day {gm.Phases.Day} · {ph.displayName}" : null;
+                string heading = gm.State != GameState.MainMenu && gm.Level.Heading() is { } h ? h : gm.Assault ? $"Part {gm.Expedition.Part.numeral} · {gm.Expedition.Stage.title}" : ph != null ? $"Day {gm.Phases.Day} · {ph.displayName}" : null;
                 string status = heading == null ? "" : $"<size=30><b>{heading}</b></size>\n{gm.Level.StatusLine()} · {gm.SandDollars} sand dollars\n";
                 info.text = views == 0
                     ? status + (pendingJoins.Count > 0 ? "Joining…" : Net.IsClient && !Net.Client.Connected ? "Connecting…" : "<b>Press any button or key to join</b>")
@@ -214,7 +214,7 @@ namespace TideWall
         {
             if (All.Count == 0 || Net.IsClient || gm.State != GameState.Playing) return;
             foreach (var p in All) if (!p.IsDowned && !p.IsOut) return;
-            gm.GameOver(gm.Assault ? "Everyone went down on the seabed." : "Everyone went down on the beach.");
+            gm.GameOver(gm.Lighthouse != null ? "Everyone went down on the sandbar." : gm.Assault ? "Everyone went down on the seabed." : "Everyone went down on the beach.");
         }
 
         /// <summary>Client: forget join requests the host refused.</summary>

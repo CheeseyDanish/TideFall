@@ -30,7 +30,7 @@ namespace TideWall
 
         void Start()
         {
-            if (gm.Assault) { Hold(gm.Expedition.Stage.look); return; }
+            if (gm.Level.HoldLook != null) { Hold(gm.Level.HoldLook); return; }
             // Lobby: show the first phase's look behind the title.
             if (gm.Cycle.phases.Count > 0) { from = Current = gm.Cycle.phases[0]; ApplyLook(1); }
         }

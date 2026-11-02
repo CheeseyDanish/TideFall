@@ -411,7 +411,14 @@ namespace TideWall
                 Debug.Log($"TIDEWALL_JOIN_CODE {Net.Host.JoinCode}");
             }
             else if (Net.StartHost(NetProtocol.DefaultPort, "Host Bot", DemoPassword, out var error) == null) { Debug.LogError($"TIDEWALL_HOST_FAILED {error}"); Application.Quit(1); yield break; }
-            if (hostStage >= 0)
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-tidewall-host-light") >= 0)
+            {
+                StoryCard.Disabled = true;
+                GameManager.Load(Lighthouse.SceneName, new RunRequest { save = new SaveData { slot = 0, part = Lighthouse.PartId } });
+                yield return new WaitForSecondsRealtime(1.5f);
+                gm = GameManager.I;
+            }
+            else if (hostStage >= 0)
             {
                 // A Part II stage: go there (clients that join later load it on connecting)
                 var part = gm.Campaign.parts.Find(x => x.kind == PartKind.Assault);

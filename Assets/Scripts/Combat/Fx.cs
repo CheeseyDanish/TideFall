@@ -124,6 +124,9 @@ namespace TideWall
             for (int i = 0; i < n; i++)
                 Emit(glow ? sparks : gore, p, (dir + R(.45f)) * speed * Random.Range(.5f, 1.1f), c, Random.Range(.04f, .11f) * (glow ? .7f : 1), Random.Range(.2f, .45f));
         }
+        /// <summary>A bubble rising at a fishing spot (local only).</summary>
+        public static void BubblesLocal(Vector3 p) => Emit(bubbles, p, new Vector3(0, .5f, 0), new Color(.85f, .97f, 1, .8f), Random.Range(.08f, .18f), Random.Range(.5f, .9f));
+
         /// <summary>A puff of sand under a running creature (local only: every machine makes its own, from how it moves).</summary>
         public static void Dust(Vector3 p, float size)
         {

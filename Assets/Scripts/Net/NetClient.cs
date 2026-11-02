@@ -322,6 +322,8 @@ namespace TideWall
                         go = Structure.SpawnProxy(gm.DB.structures[s.def], s.id, s.pos, s.rot).gameObject;
                         break;
                     case NetKind.SandDollar: go = SandDollarPickup.SpawnProxy(s.id, s.def, s.pos).gameObject; break;
+                    case NetKind.FishSpot: go = FishingSpot.SpawnProxy(s.id, s.pos).gameObject; break;
+                    case NetKind.Salvage: go = SalvageCrate.SpawnProxy(s.id, s.pos).gameObject; break;
                     default: return;
                 }
                 entities[s.id] = go;

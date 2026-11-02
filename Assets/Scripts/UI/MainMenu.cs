@@ -159,6 +159,7 @@ namespace TideWall
                   open: () => Slots("PART I · THE WALL", true, (save, slot) => StartOffline(null, slot)));
             m.Add("Part II · The Undertow", ">", "The sea steps back for one night. March out across the seabed, five stages deep, before the tide comes home. Saves between stages.",
                   open: () => Slots("PART II · THE UNDERTOW", true, (save, slot) => StartOffline(Expedition.NewSave(gm, slot, 0), slot)));
+            m.Add("The Last Light", ">", "Endless. Keep a lighthouse burning on a sandbar as the sea rises, fish for lamp oil, and loot the wrecks after each boss.", open: LastLightPage);
             if (latest != null)
                 m.Add("Other runs", ">", "Continue a run from another slot.", open: () => Slots("CONTINUE A RUN", false, (save, slot) => StartOffline(save, slot)));
             m.Add("Host online game", ">", "Play with friends on other computers. You host; they join with your address (or find you on the same network).", open: HostMenu);
@@ -229,12 +230,25 @@ namespace TideWall
             Open(m);
         }
 
+        Menu LastLightPage()
+        {
+            var log = Legacy.Load();
+            var m = new Menu { Title = "THE LAST LIGHT", Parent = Root, Rebuild = LastLightPage };
+            m.Add("Light the lamp", null, "Start a run. Runs don't save: how far can the light last?", pick: () => StartOffline(new SaveData { slot = 0, part = Lighthouse.PartId }, 0));
+            m.Add("Keeper's Log", $"{log.lampOil} oil", "Spend the lamp oil you bring home on permanent upgrades for this mode.", open: () => LastLightMenus.KeepersLog(LastLightPage));
+            m.Header("");
+            m.Header($"<size=13>Runs: {log.lightRuns} · deepest tide: {log.bestTide} · fish found: {log.fishLog.Count} of {gm.DB.fish.Count}</size>");
+            m.FirstSelectable();
+            return m;
+        }
+
         Menu HostMenu()
         {
             var s = Settings.Current;
             var m = new Menu { Title = "HOST ONLINE GAME", Parent = Root, Rebuild = HostMenu };
             Action<SaveData, int> go = (save, slot) => { if (hostWithCode) StartRelayHost(save, slot); else StartHost(save, slot); };
             m.Add("Host Part I", ">", "Saves to a slot like a normal run.", open: () => Slots("HOST PART I", true, go));
+            m.Add("Host The Last Light", ">", "The sandbar, together. It doesn't save: every run starts fresh.", pick: () => go(new SaveData { slot = 0, part = Lighthouse.PartId }, 0));
             m.Add("Host Part II", ">", "The Undertow, together. Saves between stages.", open: () => Slots("HOST PART II", true, (save, slot) => go(Expedition.NewSave(gm, slot, 0), slot)));
             if (SaveSystem.Latest() != null)
                 m.Add("Host a saved run", ">", "Continue a run with friends.", open: () => Slots("HOST A SAVED RUN", false, go));

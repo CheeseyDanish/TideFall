@@ -33,6 +33,9 @@ namespace TideWall
         readonly Queue<NetCommand> queue = new();
         float budget;
         ushort held, pending, now;
+        int pendingHover = -1;
+        /// <summary>What their mouse is on in a host-run menu this frame (-1: nothing to report).</summary>
+        public int Hover { get; private set; } = -1;
 
         public bool Held(Btn b) => (held & (1 << (int)b)) != 0;
         public bool Pressed(Btn b) => (now & (1 << (int)b)) != 0;
@@ -73,12 +76,13 @@ namespace TideWall
             Move = c.move; Nav = c.nav; Yaw = c.yaw; Pitch = c.pitch; FirstPerson = c.firstPerson;
             held = c.held;
             pending |= c.pressed;
+            if (c.hoverPlus1 > 0) pendingHover = c.hoverPlus1 - 1;
             if (budget >= c.dt - .0001f) { budget = Mathf.Max(0, budget - c.dt); canMove = true; }
             return true;
         }
 
         /// <summary>Start of the host frame: presses that arrived since the last frame become "pressed this frame".</summary>
-        public void BeginFrame() { now = pending; pending = 0; }
+        public void BeginFrame() { now = pending; pending = 0; Hover = pendingHover; pendingHover = -1; }
         public void EndFrame() => now = 0;
 
         static bool Finite(float f) => !float.IsNaN(f) && !float.IsInfinity(f);

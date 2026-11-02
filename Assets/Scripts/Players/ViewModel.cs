@@ -25,6 +25,22 @@ namespace TideWall
         static readonly Vector3 GunRest = new(.3f, -.27f, .6f);
         static readonly Vector3 SightRest = new(0, -.165f, .46f);   // centred, the sights just under the crosshair
         Model gunArm, meleeArm;
+        Transform rodRoot, rodTip;
+        /// <summary>The end of the fishing rod in view.</summary>
+        public Vector3 RodTip => rodTip != null ? rodTip.position : transform.position;
+
+        void EnsureRod()
+        {
+            if (rodRoot != null) return;
+            rodRoot = new GameObject("Rod").transform;
+            rodRoot.SetParent(transform, false);
+            var rod = ModelFactory.Spawn("FishingRod", rodRoot, Vector3.zero, .55f);
+            Prepare(rod);
+            var arm = ModelFactory.Spawn("ViewArm", rodRoot, new Vector3(0, -.05f, -.02f), .55f);
+            ModelFactory.Recolor(arm, "coat", p.Color);
+            Prepare(arm);
+            rodTip = rod.Sockets.TryGetValue("Tip", out var tip) ? tip : rodRoot;
+        }
         public bool HasMuzzle => gunRoot != null && gunRoot.gameObject.activeInHierarchy && flash != null;
         public Vector3 Muzzle => flash.position;
 
@@ -127,7 +143,21 @@ namespace TideWall
             bool show = p.FirstPerson && !p.IsDowned && !p.IsOut;
             bool locked = p.GunsLocked;
             float sp = p.SwingProgress;
-            gunRoot.gameObject.SetActive(show && p.CarryCount == 0 && !locked && !p.ScopedIn);
+            var fish = p.Fish;
+            bool fishing = fish.stage != FishStage.None;
+            gunRoot.gameObject.SetActive(show && p.CarryCount == 0 && !locked && !p.ScopedIn && !fishing);
+            if (fishing || rodRoot != null)
+            {
+                EnsureRod();
+                rodRoot.gameObject.SetActive(show && fishing);
+                if (fishing)
+                {
+                    // Up and out; it jumps when a fish bites, and strains on the reel
+                    float strain = fish.stage == FishStage.Reeling ? Mathf.Sin(Time.time * 24) * .012f : fish.stage == FishStage.Bite ? Mathf.Sin(Time.time * 40) * .03f : 0;
+                    rodRoot.localPosition = new Vector3(.32f, -.3f + strain, .55f);
+                    rodRoot.localRotation = Quaternion.Euler(-38 + strain * 200, -4, 0);
+                }
+            }
             meleeRoot.gameObject.SetActive(show && p.CarryCount == 0 && (sp >= 0 || locked));
             if (!show) { lastAmmo = p.Ammo; return; }
 

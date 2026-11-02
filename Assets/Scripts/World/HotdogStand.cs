@@ -11,7 +11,7 @@ namespace TideWall
         public override void Interact(Player p)
         {
             p.OpenMenu(Menus.Hotdogs(p, transform.position));
-            GameManager.I.World.chef?.Say();
+            GameManager.I.World?.chef?.Say();
         }
     }
 }
