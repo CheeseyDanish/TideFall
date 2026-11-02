@@ -24,7 +24,8 @@ Built with **Unity 6.5 (URP)**. Every model was generated in **Blender** from a 
 - **The Nuclear Sand Powerplant** behind a wall of 20 breachable sections. Creatures go for breaches and the core.
 - **Waves you can see**: creatures surf in on breakers that swell the sea and break on the shore. Every creature moves its own way (crabs scuttle sideways, puffers puff up into spiky balls…).
 - **First or third person, per player.** Your gun and melee weapon in view (or your sailor over the shoulder), a crosshair, mouse or stick look. Switch views any time; split screen can mix them.
-- **Gun attachments and ammo.** Every gun takes one attachment (Brass Sight, Spyglass Scope, Barnacle Brake, Long Barrel, Drum Magazine, Quick-Draw Clip, Sharkskin Grip, Driftwood Stock), fitted to the gun you can see, and one ammo modifier (Incendiary, Eel-Shock, Harpoon-Tip, Blasting Caps, Hollow Points). Incendiary rounds with a sharkskin grip? Yes.
+- **Inventory, attachments and skins.** Carry three guns (the rest wait in your stash). Every gun has five slots: scope, barrel, laser sight, stock and ammo. A part you've bought fits any of your guns. Aim down the sights to zoom. Twelve weapon skins, unlocked for good with all-time kills or golden pearls.
+- **Fights with weight.** Creatures rear back before they strike, so a dash dodges the blow; hit them hard enough and they stagger. Hits rock them, melee hangs on impact, and deaths tumble onto the sand.
 - **Split-screen drop-in co-op.** Press any button on a controller (Xbox, PlayStation, Switch Pro, generic gamepads, HID joysticks) or any key to join, up to 4 players.
 - **Online multiplayer.** Host from the main menu; friends on your network find you in a list, others join by address. Each machine can have several players too.
 - **Saves.** Three slots, autosave every morning, save from the pause menu, "try again" from your last morning.

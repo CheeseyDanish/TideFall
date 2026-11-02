@@ -23,6 +23,7 @@ namespace TideWall
                 float slow = s.aimAssist && EnemyUnderCrosshair() ? .55f : 1;               // aim assist: slow down over targets
                 d = new Vector2(st.x * 190, st.y * 120) * s.stickSensitivity * slow * dt;
             }
+            d *= AimZoom;   // zoomed in, the look slows to match
             if (Statuses.Has(StatusType.ReverseControls)) d = -d;
             Yaw = Mathf.Repeat(Yaw + d.x, 360);
             Pitch = Mathf.Clamp(Pitch - d.y * (s.invertY ? -1 : 1), -80, 80);

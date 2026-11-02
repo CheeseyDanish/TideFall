@@ -114,7 +114,7 @@ namespace TideWall.EditorTools
             lib.database = AssetDatabase.LoadAssetAtPath<GameDatabase>("Assets/Content/Data/GameDatabase.asset");
             lib.phases = AssetDatabase.LoadAssetAtPath<PhaseCycle>("Assets/Content/Data/PhaseCycle.asset");
             Material M(string n) => AssetDatabase.LoadAssetAtPath<Material>($"Assets/Content/Materials/{n}.mat");
-            lib.lit = M("Lit"); lib.litTransparent = M("LitTransparent"); lib.unlit = M("Unlit");
+            lib.skin = M("Skin"); lib.lit = M("Lit"); lib.litTransparent = M("LitTransparent"); lib.unlit = M("Unlit");
             lib.particle = M("Particle"); lib.particleAdditive = M("ParticleAdditive"); lib.sky = M("Sky");
             lib.models = new List<ContentLibrary.NamedModel>();
             foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { "Assets/Content/Models" }))
@@ -140,6 +140,7 @@ namespace TideWall.EditorTools
         static void Materials()
         {
             Mat("Lit", "TideWall/Surface", false, false);
+            Mat("Skin", "TideWall/Skin", false, false);
             Mat("LitTransparent", "Universal Render Pipeline/Lit", true, false);
             Mat("Unlit", "Universal Render Pipeline/Unlit", false, false);
             Mat("Particle", "Universal Render Pipeline/Particles/Unlit", true, false);

@@ -54,6 +54,17 @@ namespace TideWall
             Make("combo", .18f, t => Mathf.Sin(t * 2 * Mathf.PI * (600 + t * 2400)) * Env(t, .08f) * .3f);
             Make("gulp", .3f, t => Mathf.Sin(t * 2 * Mathf.PI * (300 + 600 * t)) * Env(t, .1f) * .4f);
 
+            // Combat feel
+            Make("smg", .1f, t => Noise() * Env(t, .02f) * .7f + Mathf.Sin(t * 2 * Mathf.PI * 140) * Env(t, .025f) * .55f);
+            Make("rifle", .5f, t => Noise() * Env(t, .05f) + Mathf.Sin(t * 2 * Mathf.PI * (75 - t * 60)) * Env(t, .14f) * .9f);
+            Make("torch", .12f, t => Noise() * Mathf.Min(1, t * 60) * Env(t, .05f) * .4f);
+            Make("crit", .16f, t => (Mathf.Sin(t * 2 * Mathf.PI * 1900) + .5f * Mathf.Sin(t * 2 * Mathf.PI * 3100)) * Env(t, .04f, .001f) * .35f);
+            Make("clink", .12f, t => (Mathf.Sin(t * 2 * Mathf.PI * 2600) + Noise() * .4f) * Env(t, .025f, .001f) * .3f);
+            Make("click", .05f, t => Noise() * Env(t, .006f, .001f) * .7f);
+            Make("swap", .16f, t => Noise() * (Env(t, .012f) + (t > .09f ? Env(t - .09f, .012f) : 0)) * .55f);
+            Make("thud", .24f, t => (Mathf.Sin(t * 2 * Mathf.PI * (95 - t * 160)) * 1.1f + Noise() * .25f) * Env(t, .07f, .002f) * .75f);
+            Make("growl", .34f, t => (Mathf.Repeat(t * (70 + 16 * Mathf.Sin(t * 40)), 1) * 2 - 1) * Mathf.Min(1, t * 14) * Mathf.Exp(-t * 4) * .4f);
+
             // Surf: smoothed noise swelling every few seconds. Loops seamlessly (the swell is a whole number of cycles).
             float smooth = 0;
             Make("surf", 8f, t =>

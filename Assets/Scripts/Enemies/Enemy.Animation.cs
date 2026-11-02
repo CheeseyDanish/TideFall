@@ -17,6 +17,7 @@ namespace TideWall
                 mpb.Clear();
                 mpb.SetFloat("_Smoothness", .25f + .65f * Wet);
                 if (flashT > 0) mpb.SetColor("_BaseColor", Color.white);
+                else if (windupT > 0 && Mathf.Repeat(windupT * 9, 1) < .4f) mpb.SetColor("_BaseColor", new Color(1, .45f, .35f));   // about to strike
                 if (burnT > 0) mpb.SetColor("_BaseColor", new Color(.35f, .2f, .15f));
                 r.SetPropertyBlock(mpb);
             }
@@ -71,6 +72,51 @@ namespace TideWall
                 }
                 l.transform.localRotation = Quaternion.Slerp(l.transform.localRotation, l.BaseRotation * r, dt * 12);
             }
+            AnimateParts(s, gait, dt);
+            Footfall(gait, dt);
+        }
+
+        /// <summary>The jointed bits that can't be shot off (Part_* in the model): legs ripple in sequence, flippers paddle,
+        /// body and tail segments ripple along like a wave, jaws gape as it winds up and snap as it strikes.</summary>
+        void AnimateParts(float s, float gait, float dt)
+        {
+            float wound = windupT > 0 ? 1 : 0, biting = swingT > 0 ? 1 : 0;
+            foreach (var part in parts)
+            {
+                if (part.t == null) continue;
+                Quaternion r = Quaternion.identity;
+                switch (part.kind)
+                {
+                    case "Leg":
+                        float stride = Mathf.Sin(s * 1.7f + part.index * 1.9f + (part.side > 0 ? Mathf.PI : 0));
+                        r = Quaternion.Euler(stride * 24 * gait, Mathf.Cos(s * 1.7f + part.index * 1.9f) * 12 * gait, part.side * Mathf.Max(0, stride) * 14 * gait);
+                        break;
+                    case "Fli":
+                        r = Quaternion.Euler(Mathf.Sin(animT * (2.5f + gait * 4) + part.index) * 30 * Mathf.Max(.3f, gait), 0, part.side * Mathf.Sin(animT * 2.2f) * 10);
+                        break;
+                    case "Seg":
+                        float amp = Def.behaviour == EnemyBehaviour.Leaper ? 26 : 8;
+                        r = Quaternion.Euler(0, Mathf.Sin(animT * (Def.behaviour == EnemyBehaviour.Leaper ? 9 : 3) - part.index * 1.1f) * amp * (part.index + 1) * .45f, 0);
+                        break;
+                    case "Jaw":
+                        r = Quaternion.Euler(wound * 28 - biting * 4 + Mathf.Sin(animT * 2) * 3, 0, 0);
+                        break;
+                    case "Ant":
+                        r = Quaternion.Euler(Mathf.Sin(animT * 3 + part.side) * 10, 0, part.side * Mathf.Sin(animT * 1.7f) * 12);
+                        break;
+                }
+                part.t.localRotation = Quaternion.Slerp(part.t.localRotation, part.rest * r, dt * 16);
+            }
+        }
+
+        /// <summary>Things running on the sand kick some of it up (made locally on every machine, from how it moves).</summary>
+        void Footfall(float gait, float dt)
+        {
+            if (gait < .4f || ride != null || Def.behaviour is EnemyBehaviour.Flyer or EnemyBehaviour.Jelly || Arena.InWater(transform.position)) return;
+            dustT -= dt * gait;
+            if (dustT > 0) return;
+            dustT = Random.Range(.16f, .34f);
+            Fx.Dust(transform.position + transform.right * Random.Range(-Radius, Radius) * .6f, Mathf.Clamp(Radius * 1.3f, .6f, 2.5f));
         }
 
         /// <summary>The whole body: each kind moves its own way. Behaviours only set the ingredients (hop, puff, flop, roll).</summary>
@@ -164,7 +210,38 @@ namespace TideWall
                 euler.z += Mathf.Sin(animT * 4.5f) * 14;
                 euler.x += Mathf.Sin(animT * 2.1f) * 6 - 6;
             }
-            if (flinch > 0) { euler.x -= flinch / .18f * 14; pos += Random.insideUnitSphere * .04f * flinch / .18f; }   // recoils from a hit
+            if (flinch > 0)
+            {
+                // Rocks away from the hit, swelling slightly on the impact
+                float f = flinch / .18f;
+                euler.x += hitLean.z * 18 * f; euler.z -= hitLean.x * 18 * f;
+                pos += hitLean * .1f * f + Random.insideUnitSphere * .025f * f;
+                scale *= 1 + .1f * f;
+            }
+            if (windupT > 0)
+            {
+                // Rears back, coiled, trembling slightly: dash now
+                float coil = 1 - Mathf.Clamp01(windupT / Mathf.Max(.01f, Def.windup));
+                coil = 1 - (1 - coil) * (1 - coil);
+                euler.x -= 18 * coil;
+                pos.z -= .16f * coil * Mathf.Max(1, Radius);
+                pos.y += .05f * coil;
+                pos.x += Mathf.Sin(animT * 60) * .012f * coil;
+                scale.y *= 1 + .1f * coil;
+            }
+            else if (swingT > 0)
+            {
+                // ... and throws itself forward
+                float strike = Mathf.Sin(Mathf.Clamp01(swingT / .25f) * Mathf.PI);
+                euler.x += 20 * strike;
+                pos.z += .3f * strike * Mathf.Max(1, Radius);
+            }
+            // Leans into its turns
+            float yawNow = transform.eulerAngles.y;
+            float turn = Mathf.DeltaAngle(lastYaw, yawNow) / Mathf.Max(dt, .0001f);
+            lastYaw = yawNow;
+            leanZ = Mathf.Lerp(leanZ, Mathf.Clamp(-turn * .05f, -14, 14), Mathf.Clamp01(dt * 8));
+            euler.z += leanZ;
             root.localPosition = Vector3.Lerp(root.localPosition, pos, dt * 14);
             root.localRotation = Quaternion.Slerp(root.localRotation, Quaternion.Euler(euler), dt * 14);
             root.localScale = Vector3.Scale(Vector3.one * Def.scale, scale);

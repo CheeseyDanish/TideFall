@@ -123,29 +123,29 @@ namespace TideWall
                         {
                             Label = gun.displayName, Icon = gun.model, Detail = gun.description, Owned = owned, Equipped = equipped,
                             Info = $"{gun.damage:0}{(gun.pellets > 1 ? "×" + gun.pellets : "")} dmg · {gun.fireRate:0.#}/s · {gun.magazine} rounds",
-                            Right = equipped ? "Equipped" : owned ? "Equip" : $"{gun.price} SD",
+                            Right = equipped ? "Equipped" : p.Carries(gun.id) ? "Carried" : owned ? "Stash: carry" : $"{gun.price} SD",
                             Blocked = () => equipped ? "Already equipped" : null,
                             OnPick = () => { if (owned || gm.TrySpend(gun.price)) { p.GiveGun(gun.id); Sfx.Play("reload"); } },
                         });
                     }
                     break;
                 case ShopTab.Attachments:
-                    // For the gun in your hands: one attachment and one ammo; a new one replaces what's in its slot
+                    // For the gun in your hands: five slots, a new part replaces what's in its slot. Once bought, a part fits any gun free
                     m.Title = p.Gun.displayName.ToUpperInvariant();
                     foreach (var at in gm.DB.attachments)
                     {
                         var a = at;
-                        bool fitted = p.HasAttachment(p.Gun.id, a.id);
+                        bool fitted = p.HasAttachment(p.Gun.id, a.id), bought = p.OwnsPart(a.id);
                         var current = p.AttachmentIn(p.Gun.id, a.slot);
                         m.Items.Add(new MenuItem
                         {
                             Label = a.displayName, Icon = a.model,
                             Detail = $"For your {p.Gun.displayName}: {a.description}" + (current != null && !fitted ? $" Replaces your {current.displayName}." : ""),
-                            Owned = fitted,
-                            Info = $"{(a.slot == AttachmentSlot.Ammo ? "Ammo" : $"Attachment · {a.mount}")}\n{AttachmentEffects(a)}",
-                            Right = fitted ? "Fitted" : $"{a.price} SD",
-                            Blocked = () => fitted ? "Already fitted to this gun" : gm.SandDollars < a.price ? "Not enough sand dollars" : null,
-                            OnPick = () => { if (gm.TrySpend(a.price)) p.FitAttachment(a); },
+                            Owned = fitted || bought,
+                            Info = $"{(a.slot == AttachmentSlot.Laser ? "Laser sight" : a.slot.ToString())}\n{AttachmentEffects(a)}",
+                            Right = fitted ? "Fitted" : bought ? "Fit (owned)" : $"{a.price} SD",
+                            Blocked = () => fitted ? "Already fitted to this gun" : !bought && gm.SandDollars < a.price ? "Not enough sand dollars" : null,
+                            OnPick = () => { if (bought || gm.TrySpend(a.price)) p.FitAttachment(a); },
                         });
                     }
                     break;
@@ -199,6 +199,7 @@ namespace TideWall
             }
             Add(a.damage, "dmg"); Add(a.range, "range"); Add(a.fireRate, "fire rate"); Add(a.magazine, "mag");
             Add(a.reload, "reload time"); Add(a.spread, "spread"); Add(a.recoil, "kick");
+            if (a.zoom < 1) parts.Add($"{1 / a.zoom:0.#}x zoom");
             if (a.setElement) parts.Add(a.element == Element.Fire ? "fire" : a.element == Element.Shock ? "shock" : a.element.ToString());
             if (a.pierce > 0) parts.Add($"+{a.pierce} pierce");
             if (a.splash > 0) parts.Add($"{a.splash:0.#} m blast");
@@ -284,6 +285,7 @@ namespace TideWall
             m.Add("Resume", pick: p.CloseMenu);
             m.Add(p.PrefersFirstPerson ? "Switch to third person" : "Switch to first person", Glyph(p, Btn.View), "You can also switch any time with the View button.",
                   pick: () => { p.CloseMenu(); p.SwitchView(); });
+            m.Add("Inventory", Glyph(p, Btn.Inventory), "Your guns, their attachments and skins.", open: () => InventoryMenus.Main(p), blocked: () => p.Kind == PlayerKind.LocalProxy ? $"Use {p.Glyph(Btn.Inventory)} while playing online" : null);
             m.Add("Stats & mods", p.StatPoints > 0 || p.PendingMods > 0 ? "!" : ">", "Spend stat points, choose weapon mods, respec.",
                   pick: () => { if (p.Kind == PlayerKind.LocalProxy) p.RequestStats(); else p.OpenMenu(Stats(p)); });
             m.Add("Settings", ">", "Audio, game and controls.", open: () => Settings(() => Pause(p), p));

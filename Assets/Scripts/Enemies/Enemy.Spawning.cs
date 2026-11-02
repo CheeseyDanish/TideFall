@@ -66,6 +66,20 @@ namespace TideWall
             }
             if (def.behaviour == EnemyBehaviour.Flyer) { flyHeight = Random.Range(4f, 6f); Wet = 0; }
             lungeCd = Random.Range(1f, 3f);
+            paceMult = Random.Range(.9f, 1.12f);
+            weavePhase = Random.value * 6.28f;
+            flankSide = Random.value < .5f ? -1 : 1;
+            lastYaw = transform.eulerAngles.y;
+            foreach (var t in Model.root.GetComponentsInChildren<Transform>(true))
+            {
+                if (!t.name.StartsWith("Part_")) continue;
+                string n = t.name.Substring(5);
+                string kind = n.Length >= 3 ? n.Substring(0, 3) : n;
+                int side = n.EndsWith("L") ? -1 : n.EndsWith("R") ? 1 : 0;
+                int index = 0;
+                foreach (char c in n) if (char.IsDigit(c)) index = c - '0';
+                parts.Add(new JointedPart { t = t, rest = t.localRotation, kind = kind, side = side, index = index });
+            }
             specialT = Random.Range(3f, 6f);
             summonT = 10;
             lastPos = transform.position;

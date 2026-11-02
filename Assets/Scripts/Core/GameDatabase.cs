@@ -106,6 +106,9 @@ namespace TideWall
         [Tooltip("How often it's picked compared with others (1 = normal, 0.15 = rare)")] public float spawnWeight = 1;
         [Tooltip("Golden pearls it drops when killed")] public int pearls;
         public int Xp => xp > 0 ? xp : 10 + 12 * cost;
+        [Header("Feel")]
+        [Tooltip("Seconds it rears back before an attack lands: the time you have to dash clear")] public float windup = .3f;
+        [Tooltip("Staggers when this share of its max HP is dealt in quick succession")] public float poise = .3f;
         [Tooltip("Carries the Mark (the inner half of the Spiral) on its back: the sea's own (docs/STORY.md)")] public bool mark;
         public List<LimbDef> limbs = new();
     }
@@ -118,6 +121,7 @@ namespace TideWall
         public float damage = 20, fireRate = 3, spreadDegrees = 2, range = 30, reload = 1.4f, knockback, splash;
         public int pellets = 1, magazine = 6, pierce;
         public Element element;
+        [Tooltip("The sound of a shot")] public string sound = "shot";
         [Tooltip("Kick per shot, in degrees (camera and view model)")] public float recoil = 3;
         [Tooltip("Which reload minigame this gun uses")] public ReloadStyle reloadStyle;
         [Tooltip("Set by weapon mods: share of damage healed, extra limb damage")] public float lifesteal, limbBonus;
@@ -180,15 +184,15 @@ namespace TideWall
         public int maxPoints = 10;
     }
 
-    /// <summary>A gun's two slots: one attachment (a part fitted to the gun) and one ammo modifier.</summary>
-    public enum AttachmentSlot { Attachment, Ammo }
+    /// <summary>A gun's five attachment slots.</summary>
+    public enum AttachmentSlot { Scope, Barrel, Laser, Stock, Ammo }
 
     /// <summary>Where an attachment's model sits on the gun (ammo has none).</summary>
-    public enum AttachmentMount { None, Sight, Barrel, Magazine, Grip }
+    public enum AttachmentMount { None, Sight, Barrel, Magazine, Grip, Laser }
 
-    /// <summary>A gun attachment or ammo modifier, bought in the shop's Attachments tab for the gun in your hands. Each
-    /// gun has one attachment slot and one ammo slot; a new one replaces what's in its slot. Its numbers apply on top
-    /// of the gun's (and its mods).</summary>
+    /// <summary>A gun attachment, bought once in the shop's Attachments tab and then fitted free to any gun from the
+    /// Inventory. Each gun has one of each slot; a new one replaces what's there. Its numbers apply on top of the gun's
+    /// (and its mods).</summary>
     [Serializable]
     public class AttachmentDef
     {
@@ -202,9 +206,29 @@ namespace TideWall
         [Header("Additions (ammo)")]
         public int pierce;
         public float splash, knockback;
+        [Tooltip("Scopes: the view's FOV multiplier when aiming down the sights")] public float zoom = 1;
+        [Tooltip("Lasers: the beam's colour")] public Color laserColor = Color.red;
         [Tooltip("Extra damage to limbs (0.5 = +50%)")] public float limbBonus;
         [Tooltip("The rounds carry this element (fire burns dry creatures; shock hits wet ones hard)")] public bool setElement;
         public Element element;
+    }
+
+    /// <summary>How a skin's pattern is drawn (numbers match TideWall/Skin's Pattern function).</summary>
+    public enum SkinPattern { Factory, Solid, Camo, Stripes, Spots, Veins, Waves, Hazard, Scales, Pearl }
+
+    /// <summary>A weapon's look, set per weapon from the Inventory. Purely cosmetic. Unlocked for good (the Legacy record)
+    /// by all-time kills, or sooner with golden pearls; a skin with neither is free.</summary>
+    [Serializable]
+    public class SkinDef
+    {
+        public const string Factory = "factory";
+        public string id, displayName, description;
+        public SkinPattern pattern;
+        [Tooltip("Main and pattern colours; C is the trim (wood, gold and black parts)")] public Color colorA = Color.grey, colorB = Color.black, colorC = Color.black;
+        [Tooltip("Veins: the emissive colour")] public Color glow = Color.black;
+        public float patternScale = 10, pulse, metallic = .3f, smoothness = .4f;
+        [Tooltip("Golden pearls to unlock it")] public int pearls;
+        [Tooltip("All-time kills that unlock it for free (0 = pearls only)")] public int kills;
     }
 
     /// <summary>A weapon mod, offered every few levels. Applies to the gun or melee weapon it was taken on.</summary>
@@ -269,6 +293,7 @@ namespace TideWall
         public List<StatDef> stats = new();
         public List<ModDef> mods = new();
         public List<AttachmentDef> attachments = new();
+        public List<SkinDef> skins = new();
         public List<TidalCardDef> cards = new();
         public List<StructureDef> structures = new();
         public List<ReloadDef> reloads = new();
@@ -280,6 +305,12 @@ namespace TideWall
         public float dashSpeed = 14, dashSeconds = .18f, dashCooldown = .8f;
         public float bleedOutSeconds = 30, reviveSeconds = 2f, reviveHpFraction = .4f;
         public string startGun = "revolver", startMelee = "spade";
+        [Header("Inventory and aiming")]
+        [Tooltip("How many guns a sailor carries; the rest wait in the stash")] public int gunSlots = 3;
+        [Tooltip("Seconds before you can fire after swapping guns")] public float swapSeconds = .3f;
+        [Tooltip("Spread multiplier while aiming down the sights")] public float aimSpread = .5f;
+        [Tooltip("The view's FOV multiplier when aiming with no scope fitted")] public float aimZoom = .85f;
+        [Tooltip("How long a landed melee swing hangs in the air (seconds; heavy weapons double it)")] public float meleeHitStop = .05f;
         public int startSandDollars = 40;
         [Tooltip("Guns can't be fired before this wave of the run: the first waves are melee only")] public int gunsUnlockWave = 4;
         [Tooltip("Damage bonus after a Perfect reload, until the magazine is empty")] public float perfectReloadBonus = .25f;
@@ -347,6 +378,7 @@ namespace TideWall
         public StatDef Stat(string id) => stats.Find(s => s.id == id);
         public ModDef Mod(string id) => mods.Find(m => m.id == id);
         public AttachmentDef Attachment(string id) => attachments.Find(a => a.id == id);
+        public SkinDef Skin(string id) => skins.Find(s => s.id == id);
         public TidalCardDef Card(string id) => cards.Find(c => c.id == id);
         public StructureDef Structure(string id) => structures.Find(c => c.id == id);
         public int XpForLevel(int level) => Mathf.RoundToInt(xpBase * Mathf.Pow(Mathf.Max(1, level), xpGrowth));
@@ -411,6 +443,12 @@ namespace TideWall
                         attackRate = .45f, attackRange = 3.6f, armor = 5, aggroRange = 60, bounty = 400, corpseValue = 600, cost = 0, minDay = 99, pearls = 10, mark = true,
                         limbs = { L("ClawL", LimbEffect.WeakenAttack, .2f), L("ClawR", LimbEffect.WeakenAttack, .2f), L("Eye", LimbEffect.Slow, .15f, 2f) } },
             };
+
+            foreach (var e in enemies)
+            {
+                e.windup = e.id switch { "crab" => .22f, "hermit" => .25f, "drowner" => .42f, "turtle" => .55f, "lobster" => .6f, "shark" => .28f, "glizzy" => .65f, "tidemother" => .75f, _ => .3f };
+                e.poise = e.id switch { "crab" or "gull" or "puffer" => .45f, "turtle" or "lobster" or "croc" => .2f, "glizzy" or "tidemother" => 2f, _ => .3f };
+            }
 
             guns = new List<GunDef>
             {
@@ -518,23 +556,35 @@ namespace TideWall
             };
             attachments = new List<AttachmentDef>
             {
-                new() { id = "brasssight", displayName = "Brass Sight", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Sight, price = 120, model = "AttSight", spread = .55f,
+                new() { id = "brasssight", displayName = "Brass Sight", slot = AttachmentSlot.Scope, mount = AttachmentMount.Sight, price = 120, zoom = .75f, model = "AttSight", spread = .55f,
                         description = "A ring-and-post sight off a ship's cannon. Shots go where you point: 45% less spread." },
-                new() { id = "spyglass", displayName = "Spyglass Scope", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Sight, price = 260, model = "AttScope", spread = .4f, range = 1.6f, damage = 1.1f, fireRate = .9f,
+                new() { id = "spyglass", displayName = "Spyglass Scope", slot = AttachmentSlot.Scope, mount = AttachmentMount.Sight, price = 260, zoom = .45f, model = "AttScope", spread = .4f, range = 1.6f, damage = 1.1f, fireRate = .9f,
                         description = "A captain's spyglass, strapped on. Far reach and tight shots (+60% range, +10% damage, 60% less spread), a little slower to fire." },
-                new() { id = "brake", displayName = "Barnacle Brake", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Barrel, price = 140, model = "AttBrake", recoil = .5f, spread = .85f,
+                new() { id = "brake", displayName = "Barnacle Brake", slot = AttachmentSlot.Barrel, mount = AttachmentMount.Barrel, price = 140, model = "AttBrake", recoil = .5f, spread = .85f,
                         description = "A muzzle brake crusted with barnacles. Half the kick, and a little tighter." },
-                new() { id = "longbarrel", displayName = "Long Barrel", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Barrel, price = 220, model = "AttBarrel", damage = 1.2f, range = 1.3f, recoil = 1.15f,
+                new() { id = "longbarrel", displayName = "Long Barrel", slot = AttachmentSlot.Barrel, mount = AttachmentMount.Barrel, price = 220, model = "AttBarrel", damage = 1.2f, range = 1.3f, recoil = 1.15f,
                         description = "A longer barrel from the harbour armoury. +20% damage and +30% range; kicks a bit harder." },
-                new() { id = "drum", displayName = "Drum Magazine", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Magazine, price = 180, model = "AttDrum", magazine = 1.6f, reload = 1.15f,
+                new() { id = "drum", displayName = "Drum Magazine", slot = AttachmentSlot.Ammo, mount = AttachmentMount.Magazine, price = 180, model = "AttDrum", magazine = 1.6f, reload = 1.15f,
                         description = "A fat drum of rounds: +60% magazine, but it's slower to reload." },
-                new() { id = "quickclip", displayName = "Quick-Draw Clip", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Magazine, price = 160, model = "AttClip", reload = .65f,
+                new() { id = "quickclip", displayName = "Quick-Draw Clip", slot = AttachmentSlot.Ammo, mount = AttachmentMount.Magazine, price = 160, model = "AttClip", reload = .65f,
                         description = "Rounds pre-loaded on a brass clip. Reloads 35% faster." },
-                new() { id = "sharkgrip", displayName = "Sharkskin Grip", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Grip, price = 150, model = "AttGrip", fireRate = 1.15f, recoil = .85f,
+                new() { id = "sharkgrip", displayName = "Sharkskin Grip", slot = AttachmentSlot.Stock, mount = AttachmentMount.Grip, price = 150, model = "AttGrip", fireRate = 1.15f, recoil = .85f,
                         description = "Rough sharkskin that never slips, wet or dry. +15% fire rate, a little less kick." },
-                new() { id = "driftstock", displayName = "Driftwood Stock", slot = AttachmentSlot.Attachment, mount = AttachmentMount.Grip, price = 130, model = "AttStock", recoil = .6f, spread = .8f,
+                new() { id = "driftstock", displayName = "Driftwood Stock", slot = AttachmentSlot.Stock, mount = AttachmentMount.Grip, price = 130, model = "AttStock", recoil = .6f, spread = .8f,
                         description = "A stock carved from driftwood, braced on the shoulder. 40% less kick, 20% less spread." },
-                // Ammo: one modifier per gun, whatever its attachment
+                new() { id = "seaglass", displayName = "Sea-Glass Reflex", slot = AttachmentSlot.Scope, mount = AttachmentMount.Sight, price = 170, model = "AttReflex", zoom = .65f, spread = .7f, fireRate = 1.05f,
+                        description = "A shard of sea glass in a brass frame. A quick, clear picture: a little zoom and a slightly faster trigger." },
+                new() { id = "coralchoke", displayName = "Coral Choke", slot = AttachmentSlot.Barrel, mount = AttachmentMount.Barrel, price = 190, model = "AttChoke", spread = .55f, knockback = 2, range = 1.1f,
+                        description = "A throat of hard coral that bunches every shot. Far tighter, and hits shove harder." },
+                new() { id = "whalebone", displayName = "Whalebone Stock", slot = AttachmentSlot.Stock, mount = AttachmentMount.Grip, price = 170, model = "AttWhalebone", reload = .8f, recoil = .75f,
+                        description = "Light, springy and old. Reloads 20% faster, a quarter less kick." },
+                new() { id = "harbourlaser", displayName = "Harbour Beam", slot = AttachmentSlot.Laser, mount = AttachmentMount.Laser, price = 150, model = "AttLaserRed", spread = .7f, laserColor = new Color(1f, .15f, .1f, .9f),
+                        description = "A red beam from a harbour signal lamp. Shows exactly where you're aiming: 30% less spread." },
+                new() { id = "glowfishlaser", displayName = "Glowfish Beam", slot = AttachmentSlot.Laser, mount = AttachmentMount.Laser, price = 190, model = "AttLaserGreen", spread = .85f, recoil = .8f, laserColor = new Color(.25f, 1f, .45f, .9f),
+                        description = "A green beam, steady as a glowfish. Less spread and 20% less kick." },
+                new() { id = "anglerlaser", displayName = "Angler Lure", slot = AttachmentSlot.Laser, mount = AttachmentMount.Laser, price = 240, model = "AttLaserBlue", spread = .9f, limbBonus = .3f, laserColor = new Color(.3f, .7f, 1f, .9f),
+                        description = "A blue lure on a stalk, and creatures can't help but look. +30% damage to limbs." },
+                // Ammo: what feeds the gun. One per gun, whatever else is on it
                 new() { id = "incendiary", displayName = "Incendiary Rounds", slot = AttachmentSlot.Ammo, price = 200, model = "AmmoFire", setElement = true, element = Element.Fire, damage = .95f,
                         description = "Rounds packed with lamp oil. Sets dry creatures alight; wet ones only steam." },
                 new() { id = "shock", displayName = "Eel-Shock Rounds", slot = AttachmentSlot.Ammo, price = 220, model = "AmmoShock", setElement = true, element = Element.Shock,
@@ -545,6 +595,37 @@ namespace TideWall
                         description = "Rounds that burst on impact, hurting everything close by. A touch weaker and slower." },
                 new() { id = "hollow", displayName = "Hollow Points", slot = AttachmentSlot.Ammo, price = 160, model = "AmmoHollow", limbBonus = .5f,
                         description = "Mushrooming rounds: +50% damage to limbs. Shoot their claws off." },
+            };
+
+            foreach (var g in guns)
+                g.sound = g.id switch { "smg" => "smg", "scattergun" => "shotgun", "harpoon" => "harpoon", "longrifle" => "rifle", "flare" => "flare", "eelcaster" => "zap", "blowtorch" => "torch", _ => "shot" };
+
+            Color C(float r, float g, float b) => new(r, g, b);
+            skins = new List<SkinDef>
+            {
+                new() { id = SkinDef.Factory, displayName = "Factory", pattern = SkinPattern.Factory, description = "As it left the armoury." },
+                new() { id = "rust", displayName = "Rusted Hull", pattern = SkinPattern.Camo, colorA = C(.45f, .24f, .13f), colorB = C(.2f, .11f, .08f), colorC = C(.16f, .1f, .08f), patternScale = 14, metallic = .1f, smoothness = .1f,
+                        description = "Left out in the salt for a decade. Still fires." },
+                new() { id = "dunes", displayName = "Dune Camo", pattern = SkinPattern.Camo, colorA = C(.78f, .68f, .46f), colorB = C(.42f, .34f, .2f), colorC = C(.25f, .2f, .13f), patternScale = 11, metallic = 0, smoothness = .15f,
+                        description = "Blends right into the beach, for all the good it does." },
+                new() { id = "tiger", displayName = "Tiger Shark", pattern = SkinPattern.Stripes, colorA = C(.5f, .55f, .58f), colorB = C(.1f, .12f, .15f), colorC = C(.08f, .09f, .1f), patternScale = 9, metallic = .25f, smoothness = .55f, kills = 150, pearls = 2,
+                        description = "Grey and black bars, like the things in the surf." },
+                new() { id = "reef", displayName = "Coral Reef", pattern = SkinPattern.Spots, colorA = C(.95f, .42f, .4f), colorB = C(.98f, .75f, .3f), colorC = C(.2f, .55f, .6f), patternScale = 13, metallic = 0, smoothness = .35f, kills = 300, pearls = 2,
+                        description = "Pink, orange and alive with colour." },
+                new() { id = "scale", displayName = "Dragonscale", pattern = SkinPattern.Scales, colorA = C(.1f, .45f, .35f), colorB = C(.03f, .14f, .13f), colorC = C(.5f, .4f, .15f), patternScale = 17, metallic = .6f, smoothness = .65f, kills = 500, pearls = 3,
+                        description = "Overlapping green scales with a wet shine." },
+                new() { id = "ketchup", displayName = "Ketchup & Mustard", pattern = SkinPattern.Waves, colorA = C(.8f, .1f, .08f), colorB = C(.95f, .78f, .12f), colorC = C(.75f, .5f, .25f), patternScale = 11, metallic = 0, smoothness = .5f, kills = 750, pearls = 3,
+                        description = "Exactly what it looks like. The chef insists." },
+                new() { id = "reactor", displayName = "Nuclear Sand", pattern = SkinPattern.Hazard, colorA = C(.95f, .78f, .1f), colorB = C(.05f, .05f, .05f), colorC = C(.08f, .08f, .08f), patternScale = 12, metallic = .2f, smoothness = .45f, kills = 1000, pearls = 4,
+                        description = "Hazard stripes off a cooling tower door. Probably safe." },
+                new() { id = "gilded", displayName = "Gilded Galleon", pattern = SkinPattern.Solid, colorA = C(1f, .77f, .3f), colorC = C(.3f, .08f, .08f), metallic = 1, smoothness = .8f, kills = 1500, pearls = 5,
+                        description = "Solid gold, from a wreck nobody came back from." },
+                new() { id = "pearl", displayName = "Mother of Pearl", pattern = SkinPattern.Pearl, colorA = C(.95f, .93f, .96f), colorC = C(.8f, .75f, .85f), metallic = .35f, smoothness = .85f, kills = 2000, pearls = 6,
+                        description = "Shifts colour as you turn it." },
+                new() { id = "trench", displayName = "Deep Trench", pattern = SkinPattern.Veins, colorA = C(.03f, .07f, .16f), colorB = C(.05f, .35f, .5f), colorC = C(.02f, .03f, .07f), glow = new Color(.15f, 1.6f, 2f), patternScale = 8, pulse = 2.5f, metallic = .4f, smoothness = .7f, kills = 3000, pearls = 8,
+                        description = "Black as the bottom of the sea, with something glowing in the cracks." },
+                new() { id = "vent", displayName = "Lava Vent", pattern = SkinPattern.Veins, colorA = C(.06f, .05f, .05f), colorB = C(.6f, .15f, .02f), colorC = C(.03f, .03f, .03f), glow = new Color(3f, .8f, .1f), patternScale = 8, pulse = 4, metallic = .1f, smoothness = .25f, kills = 4000, pearls = 10,
+                        description = "Cooled rock from a seabed vent. Not completely cooled." },
             };
 
             // The 2D game's reload minigames (its RELOADS table). {r} is the player's reload button.

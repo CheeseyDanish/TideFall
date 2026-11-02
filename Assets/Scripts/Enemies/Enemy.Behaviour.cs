@@ -32,17 +32,90 @@ namespace TideWall
         {
             var d = target - transform.position; d.y = 0;
             float dist = d.magnitude;
-            if (dist > .01f) Face(d, dt);
-            if (dist <= stopAt) return true;
-            transform.position += d / dist * Mathf.Min(speed * dt, dist - stopAt);
+            if (dist <= stopAt) { moveSpeed = Mathf.MoveTowards(moveSpeed, 0, Accel * dt); if (dist > .01f) Face(d, dt); return true; }
+            // Each kind has its own rhythm and line, fading out on the final approach so it still arrives where it's going
+            float free = Mathf.Clamp01((dist - stopAt) / 3.5f);
+            var way = Quaternion.Euler(0, WeaveAngle() * free, 0) * (d / dist);
+            Face(way, dt);
+            moveSpeed = Mathf.MoveTowards(moveSpeed, speed * paceMult * Mathf.Lerp(1, Cadence(), free), Accel * dt);
+            transform.position += way * Mathf.Min(moveSpeed * dt, dist - stopAt);
             return false;
+        }
+
+        /// <summary>How quickly it gets up to speed: small things dart off, big things take a moment.</summary>
+        float Accel => Mathf.Clamp(9 / Mathf.Max(.5f, Radius), 2.5f, 14);
+
+        /// <summary>Its pace this moment, averaging about 1: crabs scuttle and stop, drowners lurch, jellyfish pulse.</summary>
+        float Cadence()
+        {
+            float t = animT + weavePhase;
+            switch (Def.id)
+            {
+                case "crab": return 1.6f * Mathf.Clamp01(Mathf.Sin(t * 2.4f) * 2 + .6f) * .85f;
+                case "hermit": return 1.8f * Mathf.Clamp01(Mathf.Sin(t * 1.5f) * 3 + .4f) * .75f;
+                case "drowner": return .55f + .9f * Mathf.Abs(Mathf.Sin(t * 1.7f));
+                case "jelly": return .35f + 1.3f * Mathf.Max(0, Mathf.Sin(animT * 3));
+                case "octopus": return .45f + 1.15f * Mathf.Pow(Mathf.Max(0, Mathf.Sin(t * 1.3f)), 2) * 2;
+                case "lobster": return windupTarget == null && NearestPlayer(7, true) != null ? 1.4f : .9f;   // a heavy charge, once it's seen you
+                default: return 1;
+            }
+        }
+
+        /// <summary>How far off the straight line it's heading this moment, in degrees.</summary>
+        float WeaveAngle()
+        {
+            float t = animT + weavePhase;
+            switch (Def.id)
+            {
+                case "crab": return Mathf.Sin(t * 1.3f) * 32;
+                case "hermit": return Mathf.Sin(t * .9f) * 22;
+                case "drowner": return Mathf.Sin(t * .7f) * 12 + Mathf.Sin(t * 1.9f) * 5;
+                case "eel": return Mathf.Sin(t * 5) * 42;
+                case "puffer": return Mathf.Sin(t * .8f) * 14;
+                case "jelly": return Mathf.Sin(t * .5f) * 24;
+                case "octopus": return Mathf.Sin(t * .6f) * 18;
+                case "croc": return Mathf.Sin(t * 1.1f) * 8;
+                case "shark": return Mathf.Sin(t * .9f) * 26;
+                default: return Mathf.Sin(t * .5f) * 4;
+            }
+        }
+
+        /// <summary>Where to run at a player: wide of them while still some way off, so a pack spreads around you instead of queueing.</summary>
+        Vector3 ChasePoint(Player p)
+        {
+            var to = p.transform.position - transform.position; to.y = 0;
+            float wide = Mathf.Clamp01((to.magnitude - 2.5f) / 6) * Mathf.Min(4, 1.5f + Radius);
+            return p.transform.position + Vector3.Cross(Vector3.up, to.normalized) * flankSide * wide;
         }
 
         void Face(Vector3 dir, float dt)
         {
             if (dir.sqrMagnitude < .0001f) return;
             var target = Quaternion.LookRotation(new Vector3(dir.x, 0, dir.z));
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, target, 360 * dt);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, target, Mathf.Clamp(520 / (.6f + Radius), 90, 540) * dt);   // big things turn slowly
+        }
+
+        /// <summary>Rearing back: planted, turning to follow you. Then the blow lands, if you're still in reach.</summary>
+        void UpdateWindup(float dt)
+        {
+            windupT -= dt;
+            if (windupTarget != null) Face(windupTarget.transform.position - transform.position, dt);
+            if (windupT > 0) return;
+            var p = windupTarget;
+            windupTarget = null;
+            Lunge();
+            moveSpeed = 0;
+            if (p == null || !p.IsTargetable) return;
+            if (FlatDist(p.transform.position) <= Def.attackRange * 1.3f + Radius * .7f + .35f)
+            {
+                p.TakeDamage(Damage, this, Def.displayName);
+                Sfx.Play("bite", .6f, .05f);
+            }
+            else
+            {
+                Sfx.Play("swing", .5f, .08f);   // you dodged it
+                Fx.Debris(transform.position + transform.forward * Radius, new Color(.9f, .82f, .6f), 3);
+            }
         }
 
         /// <summary>Chase a player on the beach if one is close, otherwise go for the wall. Attack whatever is in reach.</summary>
@@ -51,7 +124,9 @@ namespace TideWall
             var p = NearestPlayer(Def.aggroRange, true);
             if (p != null)
             {
-                if (MoveToward(p.transform.position, Speed * speedScale, dt, Def.attackRange * .8f + Radius * .5f)) TryAttackPlayer(p, dt);
+                float reach = Def.attackRange * .8f + Radius * .5f;
+                if (FlatDist(p.transform.position) <= reach) { MoveToward(p.transform.position, Speed * speedScale, dt, reach); TryAttackPlayer(p, dt); }
+                else MoveToward(ChasePoint(p), Speed * speedScale, dt, .05f);
             }
             else if (Structure.BaitFor(transform.position) is { } bait)
             {
@@ -101,8 +176,9 @@ namespace TideWall
         void TryAttackPlayer(Player p, float dt)
         {
             if (!AttackReady(dt)) return;
-            Lunge();
-            p.TakeDamage(Damage, this, Def.displayName);
+            windupTarget = p;
+            windupT = Mathf.Max(.01f, Def.windup);
+            Sfx.Play("growl", Mathf.Clamp(.25f + Radius * .15f, .25f, .7f), .15f);
         }
 
         void TryAttackWall(float dt)

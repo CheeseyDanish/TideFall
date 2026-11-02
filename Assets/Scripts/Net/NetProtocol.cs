@@ -41,7 +41,7 @@ namespace TideWall
 
     public static class NetProtocol
     {
-        public const int Version = 9;
+        public const int Version = 10;
         public const int DefaultPort = 7777;
         public const int DiscoveryPort = 47777;
         public const string DiscoveryTag = "TIDEWALL2";
@@ -153,7 +153,7 @@ namespace TideWall
         public int ammo, mag, carryCount, kills;
         public int level = 1, xp, xpNext = 60, statPoints, pendingMods;
         public float speedBonus = 1;
-        public string gun = "", melee = "", attach = "";
+        public string gun = "", melee = "", attach = "", loadout = "", gunSkin = "", meleeSkin = "";
         public readonly List<(StatusType, float)> statuses = new();
         /// <summary>The reload minigame to draw at the reticle (null: none), the Perfect bonus, the kill combo.</summary>
         public ReloadGame reloadGame;
@@ -169,6 +169,7 @@ namespace TideWall
                 swing = Mathf.Max(0, p.SwingT), carryWeight = p.CarryWeight, downed = p.IsDowned, isOut = p.IsOut, ready = p.Ready,
                 firstPerson = p.FirstPerson, ammo = p.Ammo, mag = p.MagSize, carryCount = p.CarryCount, kills = p.Kills,
                 gun = p.Gun.id, melee = p.Melee.id, attach = p.AttachmentList(p.Gun.id),
+                loadout = string.Join(",", p.Loadout), gunSkin = p.SkinOn(p.Gun.id)?.id ?? "", meleeSkin = p.SkinOn(p.Melee.id)?.id ?? "",
                 level = p.Level, xp = p.Xp, xpNext = p.XpNext, statPoints = p.StatPoints, pendingMods = p.PendingMods, speedBonus = p.SpeedBonus,
                 reloadGame = p.ReloadView, perfect = p.PerfectBonus, combo = p.Combo, comboLeft = p.ComboLeft,
             };
@@ -183,7 +184,7 @@ namespace TideWall
             w.Write(hp); w.Write(maxHp); w.Write(bleedLeft); w.Write(revive); w.Write(wet); w.Write(reload); w.Write(swing); w.Write(carryWeight);
             w.Write((byte)((downed ? 1 : 0) | (isOut ? 2 : 0) | (ready ? 4 : 0) | (firstPerson ? 8 : 0)));
             w.Write((short)ammo); w.Write((short)mag); w.Write((byte)carryCount); w.Write(kills);
-            w.Write(gun); w.Write(melee); w.Write(attach);
+            w.Write(gun); w.Write(melee); w.Write(attach); w.Write(loadout); w.Write(gunSkin); w.Write(meleeSkin);
             w.Write((short)level); w.Write(xp); w.Write(xpNext); w.Write((short)statPoints); w.Write((byte)pendingMods); w.Write(speedBonus);
             w.Write((byte)statuses.Count);
             foreach (var (t, left) in statuses) { w.Write((byte)t); w.Write(left); }
@@ -204,7 +205,7 @@ namespace TideWall
             byte f = r.ReadByte();
             s.downed = (f & 1) != 0; s.isOut = (f & 2) != 0; s.ready = (f & 4) != 0; s.firstPerson = (f & 8) != 0;
             s.ammo = r.ReadInt16(); s.mag = r.ReadInt16(); s.carryCount = r.ReadByte(); s.kills = r.ReadInt32();
-            s.gun = r.ReadString(); s.melee = r.ReadString(); s.attach = r.ReadString();
+            s.gun = r.ReadString(); s.melee = r.ReadString(); s.attach = r.ReadString(); s.loadout = r.ReadString(); s.gunSkin = r.ReadString(); s.meleeSkin = r.ReadString();
             s.level = r.ReadInt16(); s.xp = r.ReadInt32(); s.xpNext = r.ReadInt32(); s.statPoints = r.ReadInt16(); s.pendingMods = r.ReadByte(); s.speedBonus = r.ReadSingle();
             int n = r.ReadByte();
             for (int i = 0; i < n; i++) s.statuses.Add(((StatusType)r.ReadByte(), r.ReadSingle()));
@@ -223,7 +224,7 @@ namespace TideWall
         public Vector3 pos, rootPos;
         public Quaternion rot, rootRot;
         public float rootScale, wet;
-        public byte flags;          // enemy: 1 dead, 2 hit flash, 4 burning, 8 grounded, 16 attacking, 32 surfing · gas can: 1 leaking
+        public byte flags;          // enemy: 1 dead, 2 hit flash, 4 burning, 8 grounded, 16 attacking, 32 surfing, 64 winding up · gas can: 1 leaking
         public uint severed;        // bit i = limb i is gone
         public int value;           // corpse value · structure HP
 

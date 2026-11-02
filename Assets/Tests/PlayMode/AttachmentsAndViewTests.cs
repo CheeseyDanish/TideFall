@@ -77,11 +77,15 @@ namespace TideWall.Tests
             Assert.Less(p.EffGun.spreadDegrees, spread, "and tightens the shots");
             Assert.IsNotNull(FindDeep(p.transform, "AttScope"), "it's fitted to the gun in your hands");
 
-            // One attachment per gun: the Sharkskin Grip replaces the scope
+            // One part per slot: a different scope replaces the spyglass, and a grip goes alongside it
+            Menus.Shop(p, Menus.ShopTab.Attachments, p.transform.position).Items.Find(i => i.Label == "Brass Sight").OnPick();
+            Assert.IsFalse(p.HasAttachment(p.Gun.id, "spyglass"), "one scope per gun");
+            Assert.AreEqual(gm.DB.Attachment("brasssight"), p.AttachmentIn(p.Gun.id, AttachmentSlot.Scope));
+            Assert.AreEqual(range, p.EffGun.range, .01f, "the spyglass's reach went with it");
+            Assert.IsTrue(p.OwnsPart("spyglass"), "you keep what you bought");
             Menus.Shop(p, Menus.ShopTab.Attachments, p.transform.position).Items.Find(i => i.Label == "Sharkskin Grip").OnPick();
-            Assert.IsFalse(p.HasAttachment(p.Gun.id, "spyglass"), "one attachment per gun");
-            Assert.AreEqual(gm.DB.Attachment("sharkgrip"), p.AttachmentIn(p.Gun.id, AttachmentSlot.Attachment));
-            Assert.AreEqual(range, p.EffGun.range, .01f, "the scope's reach went with it");
+            Assert.AreEqual(gm.DB.Attachment("sharkgrip"), p.AttachmentIn(p.Gun.id, AttachmentSlot.Stock));
+            Assert.IsTrue(p.HasAttachment(p.Gun.id, "brasssight"), "the stock has its own slot");
             Assert.IsNotNull(FindDeep(p.transform, "AttGrip"));
 
             // ... and one ammo modifier alongside it: incendiary rounds with a sharkskin grip
@@ -112,7 +116,7 @@ namespace TideWall.Tests
             // A drum on another gun comes loaded; that gun starts bare
             p.GiveGun("scattergun");
             yield return null;   // (the old gun model goes at the end of the frame)
-            Assert.IsNull(p.AttachmentIn("scattergun", AttachmentSlot.Attachment));
+            Assert.IsNull(p.AttachmentIn("scattergun", AttachmentSlot.Stock));
             Assert.IsNull(FindDeep(p.transform, "AttGrip"), "the revolver's grip stays on the revolver");
             int mag = p.MagSize;
             Menus.Shop(p, Menus.ShopTab.Attachments, p.transform.position).Items.Find(i => i.Label == "Drum Magazine").OnPick();
@@ -130,10 +134,9 @@ namespace TideWall.Tests
         public void EveryAttachmentHasAModelAndASlot()
         {
             var db = GameDatabase.Load();
-            Assert.GreaterOrEqual(db.attachments.FindAll(a => a.slot == AttachmentSlot.Attachment).Count, 8);
             Assert.GreaterOrEqual(db.attachments.FindAll(a => a.slot == AttachmentSlot.Ammo).Count, 5);
             foreach (AttachmentSlot slot in System.Enum.GetValues(typeof(AttachmentSlot)))
-                Assert.IsTrue(db.attachments.Exists(a => a.slot == slot), $"something for the {slot}");
+                Assert.GreaterOrEqual(db.attachments.FindAll(a => a.slot == slot).Count, 3, $"a choice for the {slot}");
             foreach (var a in db.attachments) Assert.IsNotNull(Content.Model(a.model), $"{a.id}'s model {a.model}");
         }
 

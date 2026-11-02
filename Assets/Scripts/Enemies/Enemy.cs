@@ -49,6 +49,14 @@ namespace TideWall
         Structure blockedBy;
         GameObject board;
         float tumble;
+        // Feel: the wind-up before a blow, the moment a heavy hit holds it, how much punishment it's taken lately, and how
+        // this one moves (no two of a kind walk quite alike)
+        float windupT, stallT, poiseAcc, moveSpeed, paceMult = 1, weavePhase, flankSide = 1, lastYaw, leanZ, dustT;
+        Player windupTarget;
+        Vector3 hitLean;
+        readonly List<JointedPart> parts = new();
+        struct JointedPart { public Transform t; public Quaternion rest; public string kind; public int side, index; }
+        public float Windup => windupT;
         public bool Thief => thief;
         public float ClamOpen => clamOpen;
 
@@ -65,6 +73,7 @@ namespace TideWall
             UpdateStatuses(dt);
             if (Dead) return;
             if (flinch > 0) flinch -= dt;
+            poiseAcc = Mathf.MoveTowards(poiseAcc, 0, dt * .12f);
             if (snaredT > 0) snaredT -= dt;
             if (ride != null)
             {
@@ -95,6 +104,8 @@ namespace TideWall
             }
             if (grabbed != null) UpdateGrab(dt);
             else if (stunT > 0) stunT -= dt;
+            else if (stallT > 0) stallT -= dt;
+            else if (windupT > 0) UpdateWindup(dt);
             else
             {
                 switch (Def.behaviour)

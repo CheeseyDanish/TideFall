@@ -203,27 +203,65 @@ Behind a breach, creatures go for the powerplant and anyone in town. Bosses arri
 ### Gunplay
 Every shot kicks: the view snaps up and settles (heavier guns kick harder), the gun jolts back, a muzzle flash and an ejected shell, the crosshair spreads and recovers. Hits flash the creature, make it flinch, and pop a **damage number** (yellow with "!" on weak points); kills flash a red X with a thunk.
 
-### Gun attachments and ammo (shop → Attachments, for the gun in your hands)
-Each gun has **two slots: one attachment and one ammo modifier**, so incendiary rounds and a sharkskin grip go together, but a scope and a grip don't. Buying a second for a taken slot replaces the first (the shop says what it replaces). They stay on that gun (switching guns doesn't move them), are saved with the run, and the attachment shows on the gun model (and in first person). Tracers take the ammo's colour (orange fire, blue shock).
+### Inventory (Inventory button: I / d-pad up; also in the pause menu)
+You own any number of guns but **carry three** (`gunSlots`). Buying or taking a fourth swaps it with the gun in your hands; that one goes to your **stash**, and you can bring it back free from the Inventory. **Swap** cycles the three, and each slot has its own button (1, 2, 3 / d-pad left, d-pad right, left stick press). Swapping takes a moment (`swapSeconds`): the new gun comes up from below the view. The HUD lists the three, with the one in your hands picked out. The Inventory shows what you carry, your stash, each gun's five slots and its skin, and your melee weapons' skins. Saved with the run.
 
-| Attachment (one per gun) | Mount | Price | Effect |
+### Gun attachments (shop → Attachments, for the gun in your hands; or the Inventory, for any gun)
+Every gun has **five slots: scope, barrel, laser sight, stock and ammo**, one part in each, each with its own model on the gun. A part is **bought once, per sailor, for the run**: after that it fits any of your guns free, and comes off free, from the Inventory. A new part replaces what's in that slot.
+
+| Part | Slot | Price | Effect |
 |---|---|---|---|
-| Brass Sight | sight | 120 | 45% less spread |
-| Spyglass Scope | sight | 260 | +60% range, +10% damage, 60% less spread, 10% slower fire |
+| Brass Sight | scope | 120 | 1.3x zoom, 45% less spread |
+| Sea-Glass Reflex | scope | 170 | 1.5x zoom, 30% less spread, +5% fire rate |
+| Spyglass Scope | scope | 260 | 2.2x zoom, +60% range, +10% damage, 60% less spread, 10% slower fire |
 | Barnacle Brake | barrel | 140 | half the kick, 15% less spread |
+| Coral Choke | barrel | 190 | 45% less spread, +10% range, hits shove harder |
 | Long Barrel | barrel | 220 | +20% damage, +30% range, +15% kick |
-| Drum Magazine | magazine | 180 | +60% magazine (comes loaded), 15% slower reload |
-| Quick-Draw Clip | magazine | 160 | reloads 35% faster |
-| Sharkskin Grip | grip | 150 | +15% fire rate, 15% less kick |
-| Driftwood Stock | grip | 130 | 40% less kick, 20% less spread |
+| Harbour Beam | laser | 150 | red beam, 30% less spread |
+| Glowfish Beam | laser | 190 | green beam, 15% less spread, 20% less kick |
+| Angler Lure | laser | 240 | blue beam, 10% less spread, +30% damage to limbs |
+| Driftwood Stock | stock | 130 | 40% less kick, 20% less spread |
+| Sharkskin Grip | stock | 150 | +15% fire rate, 15% less kick |
+| Whalebone Stock | stock | 170 | reloads 20% faster, 25% less kick |
+| Incendiary Rounds | ammo | 200 | fire: sets dry creatures alight (wet ones steam); 5% less damage |
+| Eel-Shock Rounds | ammo | 220 | shock: hits wet creatures hard |
+| Harpoon-Tip Rounds | ammo | 180 | every shot pierces one more creature, +5% damage |
+| Blasting Caps | ammo | 280 | 1.6 m blast on impact; 15% less damage, 10% slower fire |
+| Hollow Points | ammo | 160 | +50% damage to limbs |
+| Drum Magazine | ammo | 180 | +60% magazine (comes loaded), 15% slower reload |
+| Quick-Draw Clip | ammo | 160 | reloads 35% faster |
 
-| Ammo (one per gun) | Price | Effect |
+A laser draws a beam to the point under your crosshair and a dot where it lands, and everyone can see it.
+
+### Aiming down the sights (hold: right mouse / left trigger)
+The gun comes up to the middle of the view, the view zooms (`aimZoom`, or the fitted scope's `zoom`), the look slows to match, shots tighten (`aimSpread`) and the kick is smaller. Not with a menu open, arms full or mid-reload. In third person the camera moves in over the shoulder.
+
+### Skins
+A skin changes how a weapon looks and nothing else, per weapon, from the Inventory. It draws a pattern over the model with no texture (`TideWall/Skin`), and its preview in the Inventory is the weapon wearing it. Online, everyone sees them. Unlocks **outlive runs** (the Legacy record): some are free, the rest come with **all-time kills**, or sooner for **golden pearls**.
+
+| Skin | Pattern | Kills, or pearls |
 |---|---|---|
-| Incendiary Rounds | 200 | fire: sets dry creatures alight (wet ones steam); 5% less damage |
-| Eel-Shock Rounds | 220 | shock: hits wet creatures hard |
-| Harpoon-Tip Rounds | 180 | every shot pierces one more creature, +5% damage |
-| Blasting Caps | 280 | 1.6 m blast on impact; 15% less damage, 10% slower fire |
-| Hollow Points | 160 | +50% damage to limbs |
+| Factory, Rusted Hull, Dune Camo | none, camo, camo | free |
+| Tiger Shark | stripes | 150, or 2 |
+| Coral Reef | spots | 300, or 2 |
+| Dragonscale | scales | 500, or 3 |
+| Ketchup & Mustard | waves | 750, or 3 |
+| Nuclear Sand | hazard stripes | 1000, or 4 |
+| Gilded Galleon | solid gold | 1500, or 5 |
+| Mother of Pearl | shifts colour with the angle | 2000, or 6 |
+| Deep Trench | glowing veins that pulse | 3000, or 8 |
+| Lava Vent | glowing cracks that pulse | 4000, or 10 |
+
+### How a fight feels
+- **Shots:** a spring kick that overshoots and settles, the barrel wandering slightly, sparks out of the muzzle, a kick of sand where a shot lands. Each gun has its own sound; firing empty clicks.
+- **Hits:** the creature rocks away from the hit and swells for an instant, and a spray leaves the wound both ways. Damage numbers pop. A shell glancing a shot throws sparks and clinks, so you can tell you're hitting armour. A weak point gets a bigger hit marker and a bright ting.
+- **Melee:** a landed swing hangs for a moment (`meleeHitStop`, double for the anchor), the creature stalls, the view kicks, and a streak follows the blade through the strike.
+- **Wind-ups (`EnemyDef.windup`):** a creature attacking a player stops, rears back and flashes red, then throws itself forward. The blow lands only if you're still in reach, so **a dash dodges it**. A crab gives you a fifth of a second; a Clawback, more than half. (Attacks on the wall and the powerplant don't wait.)
+- **Stagger (`EnemyDef.poise`):** take enough of its HP in quick succession and it reels, and its wind-up is cancelled. Losing a limb does the same.
+- **Deaths:** it's thrown along the killing blow, tumbles over and thumps onto the sand, then becomes the corpse.
+
+### How creatures move
+Every creature speeds up and turns at a rate that suits its size, leans into its turns, kicks up sand on land, and differs a little from others of its kind. When chasing, a pack spreads wide of you and closes from the sides instead of queueing. Each kind has its own rhythm: crabs scuttle in zig-zag bursts, hermits dart and stop, drowners lurch, eels slither in wide S curves, jellyfish surge on each pulse, octopuses jet, sharks sweep, and a Clawback charges once it's seen you. All 13 regular creatures have new models with jointed legs, flippers, jaws or rippling segments (`Part_*`).
 
 ### Guns (each player's own; bought with team sand dollars)
 | Gun | Price | Notes | Reload minigame |
@@ -318,14 +356,17 @@ Defaults (every one except the sticks and mouse look can be rebound in **Setting
 | Move | left stick / d-pad | WASD / arrows |
 | Look | right stick | mouse |
 | Shoot / throw | RT | left click |
-| Melee | RB | right click / F |
+| Melee | RB | F |
 | Interact (shop, sell, eat, revive, pick up) | A / Cross | E / Enter |
 | Back (close menu) | B / Circle | Backspace |
 | Reload | X / Square | R |
 | Swap gun (shop: next tab) | Y / Triangle | Q / middle click |
-| Dash | LB / LT | Space / Shift |
+| Dash | LB | Space / Shift |
 | Switch view | R3 | V |
 | **Stats & mods / tidal card vote** | Select / Back | Tab / C |
+| **Inventory** | D-pad up | I |
+| **Aim down sights** (hold) | Left trigger | Right mouse |
+| **Gun slots 1, 2, 3** | D-pad left, d-pad right, left stick press | 1, 2, 3 |
 | **Build defences** | D-pad down | B |
 | **Menus: choose** | D-pad | Arrow keys / mouse wheel |
 | Pause menu | Start | Esc / P |
@@ -345,7 +386,7 @@ Menu: **Continue run** · **Part I · The Wall** (pick a slot) · **Part II · T
 Low on the wall beside the window, someone has been keeping count: one scratch for every run you've played, in fives. Nobody mentions it.
 
 ## Pause menu and settings
-**Start / Esc**: Resume · Switch view · **Stats & mods** · Settings · Save game · **Debug tools** · Quit to main menu · Quit to desktop. Offline, the game pauses while anyone has it open; online the beach keeps going.
+**Start / Esc**: Resume · Switch view · **Inventory** · **Stats & mods** · Settings · Save game · **Debug tools** · Quit to main menu · Quit to desktop. Offline, the game pauses while anyone has it open; online the beach keeps going.
 
 | Settings | |
 |---|---|

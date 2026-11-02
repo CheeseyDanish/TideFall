@@ -47,8 +47,9 @@ The design documents in `docs/` define the game. These rules are binding for any
 
 ### Feel & performance
 - **R9d — World text** is 3D TextMeshPro made with `Ui.Label`, plus a `Billboard` (never legacy `TextMesh` or `UI.Text`; all text is TextMeshPro). Pieces that tile (the wall) are modelled without their joining faces so they read as one object.
-- **R9c — Animated, not static.** Players and vendors are jointed (`Part_*`) and every creature has its own animation; new characters need both a model with parts and a pose function. Melee hits land at the end of the wind-up (`MeleeDef.windup`), never instantly.
+- **R9c — Animated, not static.** Players and vendors are jointed (`Part_*`) and every creature has its own animation; new characters need both a model with parts and a pose function. A creature's non-severable moving pieces are `Part_*` too, animated by name prefix (`Enemy.AnimateParts`). Melee hits land at the end of the wind-up (`MeleeDef.windup`), never instantly.
 - **R9b — Creatures arrive on the waves.** Anything that comes from the sea rides a `Breaker` in (flyers fly in); nothing pops into existence on the beach except boss summons and test/capture spawns.
+- **R9e — Blows can be dodged.** A creature's attack on a player goes through its wind-up (`EnemyDef.windup`, `TryAttackPlayer`): it telegraphs, and only lands if the target is still in reach.
 - **R10 — Wetness is always visible.** Drip count is proportional to wetness (`Fx.Drip`, `maxDripsPerSecond`). Anything that changes wetness must keep drips and gloss in sync.
 - **R10a — The money is sand dollars.** Never call it coins in anything a player sees; show the sand dollar icon (`Ui.SandDollarIcon`) or "SD" next to amounts.
 - **R11 — Feedback for every hit**: hit flash, gore/sparks, a sound, a hit marker for the shooter; severed limbs fly off with physics; big events shake the cameras of nearby players (scaled by the screen-shake setting).

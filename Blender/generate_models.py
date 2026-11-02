@@ -191,7 +191,7 @@ def mirror(parts):
     out = []
     for p in parts:
         out.append(p)
-        if p[0].endswith('L') and p[0].startswith('Limb_'):
+        if p[0].endswith('L') and (p[0].startswith('Limb_') or p[0][:8] == 'Part_Leg' and p[0][8].isdigit()):
             q = list(p) + [None] * (8 - len(p))
             off = q[3] or (0, 0, 0); jt = q[5] or (0, 0, 0); rot = q[6] or (0, 0, 0)
             out.append((p[0][:-1] + 'R', q[1], q[2], (-off[0], off[1], off[2]), q[4], (-jt[0], jt[1], jt[2]), (rot[0], -rot[1], -rot[2]), q[7]))
@@ -212,144 +212,308 @@ def spikes(n, r, center, size, col, upper_only=False):
     return out
 
 # =====================================================================================  ENEMIES
+# TideWall 3D — the creatures, redrawn. Limb names and overall sizes are as before (R5: the data's limbs still match); what's
+# new is the shape language (big readable silhouettes, eyes you can see from the wall, plates, teeth, undersides)
+# and jointed Part_* pieces the game animates (legs, flippers, jaws, body segments, antennae).
+COL.update({'crabD': (.72, .25, .08), 'crabL': (1, .72, .45), 'hermD': (.55, .1, .08), 'shellD': (.55, .38, .3), 'sharkD': (.2, .26, .32),
+            'gum': (.75, .2, .28), 'barn': (.72, .7, .62), 'rag': (.22, .24, .2), 'bone': (.92, .88, .75), 'lobD': (.5, .07, .06), 'lobL': (.92, .4, .22),
+            'jellyG': (.7, .95, 1), 'octD': (.5, .1, .14), 'octL': (.95, .55, .5), 'turtleL': (.5, .62, .3), 'turtleB': (.78, .72, .42), 'pale': (.85, .92, .8), 'eelL': (.5, .62, .4),
+            'puffL': (1, .95, .7), 'gullD': (.35, .38, .42)})
+
+def eye(name, x, y, z, joint=None, r=.1, white='white', pupil='black', look=-1):
+    """A cartoon eye: a white ball with a black pupil on the front."""
+    return [(name, 'ball', (r * 2, r * 2, r * 2), (x, y, z), white, joint),
+            (name, 'ball', (r, r * .7, r), (x, y + look * r * .75, z), pupil, joint)]
+
+def teeth(name, n, x0, x1, y, z, h, joint=None, down=True, col='bone'):
+    out = []
+    for i in range(n):
+        x = x0 + (x1 - x0) * i / max(1, n - 1)
+        out.append((name, 'cone', (h * .7, h * .7, h), (x, y, z), col, joint, (180 if down else 0, 0, 0), 4))
+    return out
+
+def leg(name, joint, reach, drop, col, tip):
+    """A jointed leg, out and then down, on the left side (mirror makes the right)."""
+    return [(name, 'box', (reach, .08, .08), (-reach * .5, 0, .03), col, joint, (0, 18, 0)),
+            (name, 'box', (.07, .07, drop), (-reach * .95, 0, -drop * .42), tip, joint, (0, -12, 0)),
+            (name, 'cone', (.07, .07, .1), (-reach * 1.0, 0, -drop * .95), tip, joint, (180, 0, 0), 4)]
+
+# ---- Crabling: a wide shell with a ridge, big unequal claws, stalk eyes, six walking legs
 build('Crab', mirror([
-    ('Body', 'ball', (.9, .75, .42), (0, 0, .4), 'orange'),
-    *[('Body', 'box', (.5, .07, .07), (s * .55, y, .22), 'orange', None, (0, s * 30, 0)) for s in (-1, 1) for y in (-.18, .05, .26)],
-    ('Limb_ClawL', 'box', (.12, .3, .12), (-.05, -.15, 0), 'orange', (-.4, -.3, .42)),
-    ('Limb_ClawL', 'ball', (.3, .36, .22), (-.12, -.4, .02), 'orange2', (-.4, -.3, .42)),
-    ('Limb_Eyes', 'cyl', (.05, .05, .22), (-.1, 0, .1), 'orange', (0, -.28, .5)),
-    ('Limb_Eyes', 'cyl', (.05, .05, .22), (.1, 0, .1), 'orange', (0, -.28, .5)),
-    ('Limb_Eyes', 'ball', (.12, .12, .12), (-.1, 0, .24), 'white', (0, -.28, .5)),
-    ('Limb_Eyes', 'ball', (.12, .12, .12), (.1, 0, .24), 'white', (0, -.28, .5)),
-    ('Limb_Eyes', 'ball', (.05, .05, .05), (-.1, -.06, .25), 'black', (0, -.28, .5)),
-    ('Limb_Eyes', 'ball', (.05, .05, .05), (.1, -.06, .25), 'black', (0, -.28, .5)),
+    ('Body', 'ball', (.95, .78, .36), (0, 0, .42), 'orange'),
+    ('Body', 'ball', (.7, .55, .2), (0, .05, .55), 'crabL'),
+    ('Body', 'ball', (.72, .62, .22), (0, -.02, .28), 'crabD'),
+    *[('Body', 'cone', (.08, .08, .1), (x, -.3, .55), 'crabD', None, None, 4) for x in (-.28, -.14, 0, .14, .28)],
+    ('Body', 'box', (.26, .04, .05), (0, -.38, .36), 'black'),
+    *teeth('Body', 4, -.09, .09, -.39, .33, .05),
+    *[p for k, (y) in enumerate((-.18, .04, .24)) for p in leg('Part_Leg%dL' % k, (-.38, y, .34), .32, .3, 'orange', 'crabD')],
+    ('Limb_ClawL', 'box', (.13, .28, .13), (-.05, -.12, 0), 'orange', (-.42, -.28, .42)),
+    ('Limb_ClawL', 'ball', (.3, .34, .22), (-.1, -.34, .02), 'crabD', (-.42, -.28, .42)),
+    ('Limb_ClawL', 'cone', (.11, .11, .22), (-.15, -.54, .06), 'crabL', (-.42, -.28, .42), (90, 0, 8), 5),
+    ('Limb_ClawL', 'cone', (.09, .09, .18), (-.05, -.52, -.03), 'crabL', (-.42, -.28, .42), (90, 0, -8), 5),
+    ('Limb_Eyes', 'cyl', (.05, .05, .24), (-.12, 0, .1), 'orange', (0, -.28, .5)),
+    ('Limb_Eyes', 'cyl', (.05, .05, .24), (.12, 0, .1), 'orange', (0, -.28, .5)),
+    *eye('Limb_Eyes', -.12, 0, .25, (0, -.28, .5), .08),
+    *eye('Limb_Eyes', .12, 0, .25, (0, -.28, .5), .08),
 ]))
 
+# ---- Hermit crab: a spiral whelk shell far too big for it, and the Mark goes on top
+shell = [('Limb_Shell', 'ball', (.76, .8, .7), (0, .15, .22), 'shell', (0, .1, .3))]
+for k in range(4):
+    shell.append(('Limb_Shell', 'ball', (.62 - k * .13, .6 - k * .12, .46 - k * .08), (0, .28 + k * .15, .34 + k * .09), 'shellD' if k % 2 else 'shell', (0, .1, .3), (-30, 0, 0)))
+shell.append(('Limb_Shell', 'cone', (.2, .2, .3), (0, .78, .68), 'shell', (0, .1, .3), (-55, 0, 0), 6))
+shell += [('Limb_Shell', 'cone', (.08, .08, .14), (x, y, z), 'shellD', (0, .1, .3), None, 4) for x, y, z in ((-.3, .2, .5), (.3, .2, .5), (-.36, -.02, .26), (.36, -.02, .26))]
 build('HermitCrab', mirror([
-    ('Body', 'ball', (.45, .5, .3), (0, -.1, .25), 'red'),
-    ('Limb_Shell', 'ball', (.7, .75, .65), (0, .15, .2), 'shell', (0, .1, .3)),
-    ('Limb_Shell', 'cone', (.4, .4, .45), (0, .45, .45), 'shell', (0, .1, .3), (-50, 0, 0)),
-    ('Limb_ClawL', 'ball', (.2, .26, .16), (-.08, -.15, 0), 'red2', (-.18, -.3, .25)),
-    ('Limb_Eyes', 'cyl', (.04, .04, .18), (0, 0, .08), 'red', (0, -.3, .35)),
-    ('Limb_Eyes', 'ball', (.1, .1, .1), (0, 0, .2), 'black', (0, -.3, .35)),
+    ('Body', 'ball', (.45, .5, .32), (0, -.12, .25), 'red'),
+    ('Body', 'ball', (.3, .22, .16), (0, -.3, .2), 'hermD'),
+    *shell,
+    *[p for k, y in enumerate((-.16, .02)) for p in leg('Part_Leg%dL' % k, (-.18, y - .1, .22), .22, .22, 'red', 'hermD')],
+    ('Limb_ClawL', 'ball', (.24, .3, .18), (-.08, -.16, 0), 'hermD', (-.18, -.3, .25)),
+    ('Limb_ClawL', 'cone', (.08, .08, .16), (-.1, -.33, .03), 'red', (-.18, -.3, .25), (90, 0, 0), 5),
+    ('Limb_Eyes', 'cyl', (.04, .04, .18), (-.07, 0, .08), 'red', (0, -.3, .35)),
+    ('Limb_Eyes', 'cyl', (.04, .04, .18), (.07, 0, .08), 'red', (0, -.3, .35)),
+    *eye('Limb_Eyes', -.07, 0, .2, (0, -.3, .35), .065),
+    *eye('Limb_Eyes', .07, 0, .2, (0, -.3, .35), .065),
 ]))
 
+# ---- Drowner: a hunched, bloated fish-man in a rotted oilskin: gills, a fin crest, barnacles, webbed claws, a gaping mouth
 build('Drowner', mirror([
-    ('Limb_LegL', 'box', (.18, .2, .85), (0, 0, -.42), 'fishG', (-.15, 0, .85)),
-    ('Body', 'box', (.55, .42, .75), (0, .05, 1.18), 'fishG', None, (-15, 0, 0)),
-    ('Body', 'box', (.4, .1, .5), (0, -.14, 1.12), 'fishL', None, (-15, 0, 0)),
-    ('Limb_ArmL', 'box', (.13, .65, .13), (0, -.32, -.08), 'fishG', (-.33, -.05, 1.42)),
-    ('Limb_ArmL', 'ball', (.18, .18, .18), (0, -.68, -.12), 'fishL', (-.33, -.05, 1.42)),
-    ('Limb_Head', 'ball', (.38, .42, .38), (0, -.05, .2), 'fishL', (0, -.12, 1.55)),
-    ('Limb_Head', 'cone', (.08, .3, .32), (0, .1, .44), 'teal', (0, -.12, 1.55)),
-    ('Limb_Head', 'ball', (.08, .08, .08), (-.09, -.24, .25), 'yellow', (0, -.12, 1.55)),
-    ('Limb_Head', 'ball', (.08, .08, .08), (.09, -.24, .25), 'yellow', (0, -.12, 1.55)),
-    ('Limb_Head', 'box', (.18, .02, .04), (0, -.26, .1), 'black', (0, -.12, 1.55)),
+    ('Limb_LegL', 'box', (.2, .24, .5), (0, 0, -.24), 'fishG', (-.16, 0, .85)),
+    ('Limb_LegL', 'box', (.16, .2, .42), (0, .03, -.62), 'rag', (-.16, 0, .85)),
+    ('Limb_LegL', 'box', (.24, .42, .08), (0, -.12, -.82), 'fishG', (-.16, 0, .85)),
+    ('Body', 'ball', (.72, .58, .95), (0, .1, 1.2), 'fishG', None, (-22, 0, 0)),
+    ('Body', 'ball', (.5, .3, .62), (0, -.13, 1.12), 'pale', None, (-22, 0, 0)),
+    ('Body', 'ball', (.84, .62, .42), (0, .12, .84), 'rag'),
+    ('Body', 'cone', (.3, .12, .55), (-.24, .28, .62), 'rag', None, (172, 0, 6), 4),
+    *[('Body', 'ball', (.1, .1, .07), (x, y, z), 'barn') for x, y, z in ((.24, .32, 1.35), (-.2, .36, 1.2), (.05, .4, 1.05), (.32, .15, 1.0))],
+    *[('Body', 'cone', (.05, .2, .22), (0, .36 - k * .02, 1.65 - k * .22), 'teal', None, (-20, 0, 0), 4) for k in range(3)],
+    ('Limb_ArmL', 'ball', (.22, .22, .22), (0, 0, 0), 'fishG', (-.36, -.03, 1.45)),
+    ('Limb_ArmL', 'box', (.14, .62, .14), (-.02, -.3, -.1), 'fishG', (-.36, -.03, 1.45), (-8, 0, 0)),
+    ('Limb_ArmL', 'ball', (.22, .2, .1), (-.02, -.66, -.14), 'fishL', (-.36, -.03, 1.45)),
+    *[('Limb_ArmL', 'cone', (.05, .05, .15), (x - .02, -.8, -.14), 'bone', (-.36, -.03, 1.45), (90, 0, 0), 4) for x in (-.07, 0, .07)],
+    ('Limb_Head', 'ball', (.44, .48, .4), (0, -.05, .2), 'fishL', (0, -.14, 1.55)),
+    ('Limb_Head', 'ball', (.34, .24, .14), (0, -.2, .05), 'gum', (0, -.14, 1.55)),
+    *teeth('Limb_Head', 4, -.1, .1, -.28, .1, .08, (0, -.14, 1.55)),
+    *[('Limb_Head', 'box', (.02, .1, .1), (s * .2, .02, .2 + k * .06), 'teal', (0, -.14, 1.55)) for s in (-1, 1) for k in range(2)],
+    ('Limb_Head', 'cone', (.07, .34, .34), (0, .12, .46), 'teal', (0, -.14, 1.55), None, 4),
+    *eye('Limb_Head', -.12, -.2, .26, (0, -.14, 1.55), .075, 'yellow'),
+    *eye('Limb_Head', .12, -.2, .26, (0, -.14, 1.55), .075, 'yellow'),
 ]))
 
+# ---- Gull: a mean little bomber with heavy brows, a hooked beak, tucked feet and proper wing tips
 build('Gull', mirror([
-    ('Body', 'ball', (.35, .6, .3), (0, 0, 0), 'white'),
-    ('Body', 'ball', (.22, .22, .22), (0, -.32, .08), 'white'),
-    ('Body', 'cone', (.08, .08, .18), (0, -.48, .06), 'orange', None, (90, 0, 0), 5),
-    ('Body', 'box', (.2, .15, .04), (0, .35, .02), 'grey'),
-    ('Body', 'ball', (.05, .05, .05), (-.08, -.4, .12), 'black'),
-    ('Body', 'ball', (.05, .05, .05), (.08, -.4, .12), 'black'),
-    ('Limb_WingL', 'box', (.6, .26, .04), (-.3, .02, 0), 'white', (-.15, 0, .05)),
-    ('Limb_WingL', 'box', (.18, .2, .045), (-.55, .04, 0), 'greyD', (-.15, 0, .05)),
+    ('Body', 'ball', (.38, .68, .34), (0, .02, 0), 'white'),
+    ('Body', 'ball', (.3, .5, .16), (0, .05, -.1), 'grey'),
+    ('Body', 'ball', (.27, .27, .27), (0, -.33, .1), 'white'),
+    ('Body', 'cone', (.11, .11, .26), (0, -.53, .07), 'yellow', None, (90, 0, 0), 5),
+    ('Body', 'cone', (.05, .05, .07), (0, -.65, .03), 'red', None, (180, 0, 0), 4),
+    *eye('Body', -.09, -.43, .15, None, .04),
+    *eye('Body', .09, -.43, .15, None, .04),
+    ('Body', 'box', (.09, .06, .02), (-.09, -.44, .2), 'black', None, (0, -18, 0)),
+    ('Body', 'box', (.09, .06, .02), (.09, -.44, .2), 'black', None, (0, 18, 0)),
+    ('Body', 'box', (.24, .28, .04), (0, .42, .02), 'gullD'),
+    ('Body', 'box', (.05, .14, .05), (-.07, .24, -.17), 'orange'), ('Body', 'box', (.05, .14, .05), (.07, .24, -.17), 'orange'),
+    ('Limb_WingL', 'box', (.48, .3, .04), (-.24, .02, 0), 'white', (-.15, 0, .05)),
+    ('Limb_WingL', 'box', (.34, .22, .04), (-.62, .05, .03), 'grey', (-.15, 0, .05), (0, -8, 0)),
+    ('Limb_WingL', 'box', (.2, .16, .045), (-.88, .08, .06), 'black', (-.15, 0, .05), (0, -12, 0)),
 ]))
 
+# ---- Puffer: an offended beach ball with enormous eyes, kissy lips, side fins and a tail fin
 build('Puffer', [
-    ('Body', 'ball', (.8, .8, .8), (0, 0, .5), 'yellow'),
-    ('Body', 'ball', (.6, .5, .4), (0, -.08, .38), 'white'),
-    ('Body', 'ball', (.12, .12, .12), (-.2, -.32, .65), 'black'),
-    ('Body', 'ball', (.12, .12, .12), (.2, -.32, .65), 'black'),
-    ('Body', 'cone', (.12, .2, .1), (0, -.42, .48), 'orange', None, (90, 0, 0), 5),
-    *spikes(14, .38, (0, 0, .5), (.08, .08, .22), 'orange2'),
+    ('Body', 'ball', (.85, .85, .85), (0, 0, .5), 'yellow'),
+    ('Body', 'ball', (.66, .6, .42), (0, -.1, .4), 'puffL'),
+    *eye('Body', -.2, -.32, .68, None, .13),
+    *eye('Body', .2, -.32, .68, None, .13),
+    ('Body', 'box', (.16, .06, .03), (-.2, -.42, .84), 'orange2', None, (0, -18, 0)),
+    ('Body', 'box', (.16, .06, .03), (.2, -.42, .84), 'orange2', None, (0, 18, 0)),
+    ('Body', 'tor', (.28, .28, .3), (0, -.42, .46), 'orange', None, (90, 0, 0), 8),
+    ('Body', 'ball', (.1, .05, .06), (0, -.46, .46), 'gum'),
+    ('Body', 'cone', (.3, .08, .26), (0, .5, .54), 'orange', None, (-90, 0, 0), 4),
+    *spikes(16, .41, (0, 0, .5), (.07, .07, .2), 'orange2'),
+    ('Part_FliL', 'cone', (.26, .05, .22), (-.1, 0, 0), 'orange', (-.4, -.05, .5), (0, -90, 0), 4),
+    ('Part_FliR', 'cone', (.26, .05, .22), (.1, 0, 0), 'orange', (.4, -.05, .5), (0, 90, 0), 4),
 ])
 
-build('Eel', [
-    ('Limb_Head', 'ball', (.32, .42, .3), (0, -.1, 0), 'greyD', (0, -.95, .3)),
-    ('Limb_Head', 'ball', (.07, .07, .07), (-.1, -.25, .08), 'glow', (0, -.95, .3)),
-    ('Limb_Head', 'ball', (.07, .07, .07), (.1, -.25, .08), 'glow', (0, -.95, .3)),
-    ('Body', 'cyl', (.28, .28, .8), (0, -.5, .28), 'greyD', None, (90, 0, 0), 6),
-    ('Body', 'cyl', (.25, .25, .8), (0, .2, .26), 'greyD', None, (90, 0, 0), 6),
-    ('Body', 'box', (.03, 1.5, .12), (0, -.15, .44), 'teal'),
-    ('Limb_Tail', 'cone', (.22, .2, .9), (0, .45, 0), 'greyD', (0, .6, .25), (-90, 0, 0), 6),
-])
+# ---- Eel: a long body in rippling segments, a dorsal crest, a gaping fanged head and glowing eyes
+eel = [
+    ('Limb_Head', 'ball', (.34, .5, .28), (0, -.14, .03), 'greyD', (0, -.95, .3)),
+    ('Limb_Head', 'ball', (.3, .36, .1), (0, -.22, -.09), 'gum', (0, -.95, .3)),
+    *teeth('Limb_Head', 5, -.11, .11, -.36, .0, .09, (0, -.95, .3)),
+    *teeth('Limb_Head', 3, -.07, .07, -.36, -.08, .07, (0, -.95, .3), down=False),
+    *eye('Limb_Head', -.12, -.22, .13, (0, -.95, .3), .06, 'glow'),
+    *eye('Limb_Head', .12, -.22, .13, (0, -.95, .3), .06, 'glow'),
+    ('Limb_Head', 'cone', (.05, .2, .2), (0, .02, .2), 'teal', (0, -.95, .3), None, 4),
+    ('Body', 'cyl', (.3, .3, .55), (0, -.62, .28), 'greyD', None, (90, 0, 0), 8),
+    ('Limb_Tail', 'cone', (.22, .2, .9), (0, .45, 0), 'greyD', (0, .75, .25), (-90, 0, 0), 6),
+    ('Limb_Tail', 'box', (.03, .55, .3), (0, .65, .02), 'teal', (0, .75, .25)),
+]
+for k, y in enumerate((-.3, -.02, .25, .52)):
+    r = .3 - k * .012
+    eel += [('Part_Seg%d' % k, 'cyl', (r, r, .34), (0, 0, 0), 'greyD', (0, y, .27), (90, 0, 0), 8),
+            ('Part_Seg%d' % k, 'box', (r * .7, .32, .05), (0, 0, -r * .46), 'eelL', (0, y, .27)),
+            ('Part_Seg%d' % k, 'cone', (.03, .24, .16), (0, 0, r * .55), 'teal', (0, y, .27), None, 4),
+            ('Part_Seg%d' % k, 'ball', (.05, .05, .05), (r * .4, 0, .03), 'glow', (0, y, .27)),
+            ('Part_Seg%d' % k, 'ball', (.05, .05, .05), (-r * .4, 0, .03), 'glow', (0, y, .27))]
+build('Eel', eel)
 
-build('Turtle', [
-    ('Body', 'ball', (1.2, 1.4, .7), (0, 0, .45), 'greenD'),
-    ('Body', 'box', (1.25, 1.45, .12), (0, 0, .3), 'brown'),
-    *[('Body', 'box', (.35, .25, .12), (sx * .6, sy * .45, .2), 'fishG') for sx in (-1, 1) for sy in (-1, 1)],
-    ('Limb_Head', 'ball', (.35, .45, .32), (0, -.2, .02), 'fishG', (0, -.7, .4)),
-    ('Limb_Head', 'ball', (.06, .06, .06), (-.1, -.38, .1), 'black', (0, -.7, .4)),
-    ('Limb_Head', 'ball', (.06, .06, .06), (.1, -.38, .1), 'black', (0, -.7, .4)),
-])
+# ---- Shellback: a domed shell of raised plates with a spiked ridge, a beaked head, heavy flippers
+turtle = [
+    ('Body', 'ball', (1.25, 1.45, .72), (0, 0, .45), 'greenD'),
+    ('Body', 'cyl', (1.36, 1.56, .1), (0, 0, .24), 'brown', None, None, 14),
+    ('Body', 'ball', (1.05, 1.25, .3), (0, 0, .17), 'turtleB'),
+    ('Body', 'cone', (.18, .22, .2), (0, .78, .22), 'turtleL', None, (-90, 0, 0), 5),
+]
+for x, y in ((0, -.42), (0, 0), (0, .42), (-.34, -.2), (.34, -.2), (-.34, .22), (.34, .22)):
+    z = .78 - (x * x + y * y) * .42
+    turtle.append(('Body', 'cyl', (.34, .36, .05), (x, y, z), 'turtleL', None, (y * 28, x * -28, 0), 6))
+for y in (-.42, 0, .42):
+    turtle.append(('Body', 'cone', (.12, .14, .17), (0, y, .86 - y * y * .35), 'brown', None, None, 4))
+for sx in (-1, 1):
+    for sy, k in ((-1, 0), (1, 1)):
+        turtle += [('Part_Fli%d%s' % (k, 'L' if sx < 0 else 'R'), 'ball', (.3, .52, .13), (sx * .2, sy * .12, -.04), 'turtleL', (sx * .42, sy * .42, .24), (0, sx * 16, 0))]
+turtle += [
+    ('Limb_Head', 'ball', (.38, .5, .34), (0, -.22, .02), 'turtleL', (0, -.7, .4)),
+    ('Limb_Head', 'cone', (.18, .18, .17), (0, -.47, -.02), 'greyD', (0, -.7, .4), (90, 0, 0), 5),
+    *eye('Limb_Head', -.13, -.36, .1, (0, -.7, .4), .06),
+    *eye('Limb_Head', .13, -.36, .1, (0, -.7, .4), .06),
+    ('Limb_Head', 'box', (.12, .05, .02), (-.13, -.38, .17), 'greenD', (0, -.7, .4), (0, -15, 0)),
+    ('Limb_Head', 'box', (.12, .05, .02), (.13, -.38, .17), 'greenD', (0, -.7, .4), (0, 15, 0)),
+]
+build('Turtle', turtle)
 
+# ---- Shark: tapered and countershaded, gill slits, a jaw that drops on the attack, swept fins, a forked tail
 build('Shark', [
-    ('Body', 'ball', (.9, 3.0, .9), (0, 0, .6), 'shark'),
-    ('Body', 'ball', (.75, 2.6, .55), (0, 0, .42), 'belly'),
-    ('Body', 'ball', (.62, .8, .55), (0, -1.35, .6), 'shark'),
-    ('Body', 'ball', (.1, .1, .1), (-.3, -1.3, .75), 'black'),
-    ('Body', 'ball', (.1, .1, .1), (.3, -1.3, .75), 'black'),
-    ('Body', 'box', (.45, .05, .08), (0, -1.62, .42), 'white'),
-    ('Body', 'box', (.8, .35, .06), (-.6, -.35, .38), 'shark', None, (0, -20, 0)),
-    ('Body', 'box', (.8, .35, .06), (.6, -.35, .38), 'shark', None, (0, 20, 0)),
-    ('Limb_Fin', 'cone', (.12, .7, .8), (0, .1, .35), 'shark', (0, -.1, .95), None, 6),
-    ('Limb_Tail', 'cone', (.35, .35, .8), (0, .35, 0), 'shark', (0, 1.35, .6), (-90, 0, 0), 6),
-    ('Limb_Tail', 'box', (.06, .45, 1.0), (0, .75, .1), 'shark', (0, 1.35, .6), (-25, 0, 0)),
+    ('Body', 'ball', (.92, 2.7, .9), (0, .1, .62), 'shark'),
+    ('Body', 'ball', (.78, 2.4, .48), (0, .05, .38), 'belly'),
+    ('Body', 'cone', (.58, .75, .8), (0, -1.45, .68), 'shark', None, (90, 0, 0), 8),
+    ('Body', 'ball', (.5, .7, .24), (0, -1.08, .47), 'belly'),
+    ('Body', 'ball', (.2, .14, .08), (0, -1.1, .55), 'gum'),
+    *teeth('Body', 7, -.2, .2, -1.32, .5, .09),
+    *eye('Body', -.27, -1.15, .75, None, .08, 'black', 'white', -1),
+    *eye('Body', .27, -1.15, .75, None, .08, 'black', 'white', -1),
+    ('Body', 'box', (.24, .07, .02), (-.27, -1.17, .86), 'sharkD', None, (0, -15, 0)),
+    ('Body', 'box', (.24, .07, .02), (.27, -1.17, .86), 'sharkD', None, (0, 15, 0)),
+    *[('Body', 'box', (.02, .03, .24), (sx * .44, y, .62), 'sharkD') for sx in (-1, 1) for y in (-.75, -.62, -.49)],
+    ('Part_Jaw', 'ball', (.48, .72, .18), (0, -.32, -.03), 'belly', (0, -.8, .4)),
+    *teeth('Part_Jaw', 6, -.17, .17, -.58, .08, .09, (0, -.8, .4), down=False),
+    ('Part_Fli0L', 'cone', (.1, .42, .78), (-.36, .1, -.04), 'sharkD', (-.3, -.4, .42), (0, -90, 0), 4),
+    ('Part_Fli0R', 'cone', (.1, .42, .78), (.36, .1, -.04), 'sharkD', (.3, -.4, .42), (0, 90, 0), 4),
+    ('Limb_Fin', 'cone', (.1, .72, .85), (0, .14, .36), 'sharkD', (0, -.1, .98), None, 5),
+    ('Limb_Tail', 'cone', (.4, .4, .9), (0, .4, 0), 'shark', (0, 1.25, .62), (-90, 0, 0), 6),
+    ('Limb_Tail', 'cone', (.08, .44, .8), (0, .78, .28), 'sharkD', (0, 1.25, .62), (28, 0, 0), 4),
+    ('Limb_Tail', 'cone', (.08, .36, .5), (0, .74, -.16), 'sharkD', (0, 1.25, .62), (152, 0, 0), 4),
 ])
 
-build('Croc', [
-    ('Body', 'box', (1.0, 2.0, .45), (0, .1, .4), 'croc'),
-    *[('Body', 'box', (.18, .25, .1), (sx, y, .66), 'crocD') for sx in (-.25, .25) for y in (-.6, -.1, .4, .9)],
-    *[('Body', 'box', (.25, .3, .35), (sx * .55, sy * .6, .18), 'crocD') for sx in (-1, 1) for sy in (-1, 1)],
-    ('Limb_Head', 'box', (.7, .7, .35), (0, -.3, 0), 'croc', (0, -.9, .42)),
-    ('Limb_Head', 'box', (.5, .9, .25), (0, -1.0, -.04), 'croc', (0, -.9, .42)),
-    ('Limb_Head', 'box', (.04, .8, .05), (-.26, -1.0, -.13), 'white', (0, -.9, .42)),
-    ('Limb_Head', 'box', (.04, .8, .05), (.26, -1.0, -.13), 'white', (0, -.9, .42)),
-    ('Limb_Head', 'ball', (.13, .13, .13), (-.22, -.35, .2), 'yellow', (0, -.9, .42)),
-    ('Limb_Head', 'ball', (.13, .13, .13), (.22, -.35, .2), 'yellow', (0, -.9, .42)),
-    ('Limb_Head', 'box', (.03, .03, .1), (-.22, -.42, .22), 'black', (0, -.9, .42)),
-    ('Limb_Head', 'box', (.03, .03, .1), (.22, -.42, .22), 'black', (0, -.9, .42)),
-    ('Limb_Tail', 'cone', (.7, .4, 1.8), (0, .9, 0), 'croc', (0, 1.1, .4), (-90, 0, 0), 6),
-])
+# ---- Croc: long and low, ridged back, a real snout with interlocking teeth, four splayed legs
+croc = [
+    ('Body', 'ball', (1.15, 2.2, .5), (0, .08, .42), 'croc'),
+    ('Body', 'ball', (.95, 1.95, .3), (0, .05, .28), 'pale'),
+]
+for y in (-.7, -.35, 0, .35, .7, 1.0):
+    for sx in (-.2, .2):
+        croc.append(('Body', 'cone', (.17, .22, .17), (sx, y, .68), 'crocD', None, None, 4))
+    croc.append(('Body', 'box', (.1, .22, .05), (.4, y, .55), 'crocD')); croc.append(('Body', 'box', (.1, .22, .05), (-.4, y, .55), 'crocD'))
+for k, (sx, sy) in enumerate(((-1, -1), (1, -1), (-1, 1), (1, 1))):
+    nm = 'Part_Leg%d%s' % (k, 'L' if sx < 0 else 'R')
+    croc += [(nm, 'box', (.26, .3, .2), (sx * .1, 0, -.06), 'croc', (sx * .4, sy * .62, .28), (0, sx * 18, 0)),
+             (nm, 'box', (.3, .36, .08), (sx * .22, -.1, -.22), 'crocD', (sx * .4, sy * .62, .28))]
+hj = (0, -.9, .42)
+croc += [
+    ('Limb_Head', 'box', (.72, .68, .3), (0, -.26, .03), 'croc', hj),
+    ('Limb_Head', 'box', (.5, 1.0, .2), (0, -1.0, .02), 'croc', hj),
+    ('Limb_Head', 'box', (.48, 1.0, .1), (0, -1.0, -.16), 'crocD', hj),
+    ('Limb_Head', 'box', (.42, .92, .05), (0, -1.0, -.08), 'gum', hj),
+    ('Limb_Head', 'ball', (.2, .18, .13), (-.14, -1.45, .13), 'crocD', hj),
+    ('Limb_Head', 'ball', (.2, .18, .13), (.14, -1.45, .13), 'crocD', hj),
+    *[('Limb_Head', 'cone', (.06, .06, .12), (s * .23, -.62 - k * .17, -.09), 'bone', hj, (180, 0, 0), 4) for s in (-1, 1) for k in range(5)],
+    *[('Limb_Head', 'cone', (.05, .05, .1), (s * .2, -.7 - k * .17, -.1), 'bone', hj, None, 4) for s in (-1, 1) for k in range(4)],
+    *eye('Limb_Head', -.24, -.32, .22, hj, .09, 'yellow'),
+    *eye('Limb_Head', .24, -.32, .22, hj, .09, 'yellow'),
+    ('Limb_Head', 'box', (.2, .06, .03), (-.24, -.36, .32), 'crocD', hj, (0, -15, 0)),
+    ('Limb_Head', 'box', (.2, .06, .03), (.24, -.36, .32), 'crocD', hj, (0, 15, 0)),
+    ('Limb_Tail', 'cone', (.72, .42, 1.85), (0, .9, 0), 'croc', (0, 1.1, .4), (-90, 0, 0), 6),
+    *[('Limb_Tail', 'cone', (.05, .18, .18), (0, .25 + k * .32, .2 - k * .03), 'crocD', (0, 1.1, .4), None, 4) for k in range(5)],
+]
+build('Croc', croc)
 
-build('Urchin', [
-    ('Body', 'ball', (.7, .7, .7), (0, 0, .42), 'purpleD'),
-    *spikes(18, .32, (0, 0, .42), (.07, .07, .42), 'purple'),
-])
+# ---- Urchin: a dark ball of long banded spines, with two beady eyes peering out from among them
+urchin = [('Body', 'ball', (.72, .72, .72), (0, 0, .42), 'purpleD')]
+urchin += spikes(22, .36, (0, 0, .42), (.11, .11, .5), 'purple')
+urchin += spikes(22, .49, (0, 0, .42), (.06, .06, .2), 'pinkL')
+urchin += eye('Body', -.13, -.33, .5, None, .07, 'yellow') + eye('Body', .13, -.33, .5, None, .07, 'yellow')
+build('Urchin', urchin)
 
-build('Jellyfish', [
-    ('Body', 'ball', (1.0, 1.0, .7), (0, 0, 1.35), 'pink'),
-    ('Body', 'ball', (.6, .6, .4), (0, 0, 1.28), 'pinkL'),
-    *[('Limb_Tent%d' % (i + 1), 'cyl', (.06, .06, .9), (0, 0, -.45), 'pinkL', p, None, 5) for i, p in enumerate(ring(4, .28, 1.05, .4))],
-])
+# ---- Jellyfish: a ribbed bell over a glowing core, a frill, and trailing tentacles with bends in them
+bell = [
+    ('Body', 'ball', (1.05, 1.05, .78), (0, 0, 1.4), 'pink'),
+    ('Body', 'ball', (.62, .62, .42), (0, 0, 1.3), 'jellyG'),
+    ('Body', 'ball', (.3, .3, .24), (0, 0, 1.36), 'glow'),
+    ('Body', 'cyl', (.98, .98, .1), (0, 0, 1.08), 'pinkL', None, None, 12),
+]
+for k in range(10):
+    a = k * .628
+    bell.append(('Body', 'box', (.07, .13, .16), (math.cos(a) * .5, math.sin(a) * .5, 1.0), 'pink', None, (0, 0, math.degrees(a))))
+    bell.append(('Body', 'ball', (.08, .08, .08), (math.cos(a) * .44, math.sin(a) * .44, 1.46), 'jellyG'))
+bell += eye('Body', -.15, -.45, 1.42, None, .06) + eye('Body', .15, -.45, 1.42, None, .06)
+for i, p in enumerate(ring(4, .28, 1.05, .4)):
+    nm = 'Limb_Tent%d' % (i + 1)
+    bell += [(nm, 'cyl', (.07, .07, .4), (0, 0, -.2), 'pinkL', p, None, 5),
+             (nm, 'cyl', (.055, .055, .35), (.04, .02, -.53), 'pink', p, (8, -8, 0), 5),
+             (nm, 'cone', (.05, .05, .32), (.05, .05, -.85), 'jellyG', p, (180, 0, 0), 5)]
+build('Jellyfish', bell)
 
-build('Octopus', [
-    ('Body', 'ball', (.9, .9, 1.1), (0, .15, .95), 'red'),
-    ('Body', 'ball', (.2, .2, .2), (-.2, -.28, .95), 'white'),
-    ('Body', 'ball', (.2, .2, .2), (.2, -.28, .95), 'white'),
-    ('Body', 'box', (.12, .03, .05), (-.2, -.38, .95), 'black'),
-    ('Body', 'box', (.12, .03, .05), (.2, -.38, .95), 'black'),
-    *[('Limb_Tent%d' % (i + 1), 'cone', (.22, .22, 1.0), (p[0] * 1.2, p[1] * 1.2, -.18), 'red2', p, aim((p[0], p[1], -.45)), 6)
-      for i, p in enumerate(ring(6, .35, .45))],
-])
+# ---- Octopus: a big bulb of a head, spotted, with slit-pupil eyes under angry brows, a siphon, and suckered tapering arms
+oct_parts = [
+    ('Body', 'ball', (.95, .95, 1.2), (0, .18, 1.0), 'red'),
+    ('Body', 'ball', (.72, .72, .36), (0, 0, .58), 'octD'),
+    *[('Body', 'ball', (.13, .1, .13), (x, y, z), 'octD') for x, y, z in ((-.3, .35, 1.25), (.32, .28, 1.05), (.05, .55, 1.3), (-.15, .42, .85), (.25, .48, .8), (0, .32, 1.5))],
+    ('Body', 'ball', (.26, .26, .26), (-.23, -.25, .95), 'yellow'),
+    ('Body', 'ball', (.26, .26, .26), (.23, -.25, .95), 'yellow'),
+    ('Body', 'box', (.15, .04, .05), (-.23, -.38, .95), 'black'),
+    ('Body', 'box', (.15, .04, .05), (.23, -.38, .95), 'black'),
+    ('Body', 'box', (.3, .08, .05), (-.23, -.34, 1.12), 'octD', None, (0, -18, 0)),
+    ('Body', 'box', (.3, .08, .05), (.23, -.34, 1.12), 'octD', None, (0, 18, 0)),
+    ('Body', 'cyl', (.13, .13, .28), (.42, -.08, .72), 'octD', None, (0, 60, 0), 6),
+]
+for i, p in enumerate(ring(6, .35, .45)):
+    nm = 'Limb_Tent%d' % (i + 1)
+    d = Vector((p[0], p[1], -.45)).normalized()
+    a = aim(tuple(d))
+    oct_parts += [(nm, 'cone', (.36, .36, 1.05), (p[0] * 1.2, p[1] * 1.2, -.18), 'red2', p, a, 6)]
+    for k in (-.32, -.14, .04):
+        oct_parts.append((nm, 'ball', (.09, .09, .06), (p[0] * 1.2 + d.x * k, p[1] * 1.2 + d.y * k, -.18 + d.z * k - .09), 'octL', p))
+build('Octopus', oct_parts)
 
-build('Lobster', mirror([
-    ('Body', 'ball', (.9, 1.1, .6), (0, -.1, .55), 'red'),
-    *[('Body', 'ball', (.75 - i * .12, .4, .45 - i * .05), (0, .55 + i * .33, .45 - i * .04), 'red') for i in range(3)],
-    ('Body', 'box', (.6, .25, .05), (0, 1.55, .32), 'red2'),
-    *[('Body', 'box', (.45, .06, .06), (s * .5, y, .25), 'red', None, (0, s * 30, 0)) for s in (-1, 1) for y in (-.2, .1, .4)],
-    ('Limb_Head', 'ball', (.5, .4, .35), (0, -.15, 0), 'red', (0, -.6, .65)),
-    ('Limb_Head', 'cyl', (.03, .03, 1.0), (-.1, -.55, .3), 'red2', (0, -.6, .65), (-60, 0, -10), 5),
-    ('Limb_Head', 'cyl', (.03, .03, 1.0), (.1, -.55, .3), 'red2', (0, -.6, .65), (-60, 0, 10), 5),
-    ('Limb_Head', 'ball', (.09, .09, .09), (-.12, -.3, .15), 'black', (0, -.6, .65)),
-    ('Limb_Head', 'ball', (.09, .09, .09), (.12, -.3, .15), 'black', (0, -.6, .65)),
-    ('Limb_ClawL', 'cyl', (.15, .15, .6), (-.1, -.3, 0), 'red', (-.45, -.55, .5), (90, 0, 0), 6),
-    ('Limb_ClawL', 'ball', (.45, .6, .3), (-.15, -.8, .05), 'red2', (-.45, -.55, .5)),
-    ('Limb_ClawL', 'cone', (.18, .18, .35), (-.08, -1.2, .05), 'red2', (-.45, -.55, .5), (90, 0, 0), 5),
-]))
+# ---- Clawback: an armoured lobster: plated thorax, a segmented tail that sways, huge crusher claws, long antennae
+lob = [
+    ('Body', 'ball', (.95, 1.15, .62), (0, -.1, .56), 'red'),
+    ('Body', 'ball', (.78, .95, .4), (0, -.1, .4), 'lobL'),
+    *[('Body', 'cone', (.11, .11, .14), (x, y, .86), 'lobD', None, None, 4) for x, y in ((-.22, -.35), (.22, -.35), (0, -.1), (-.26, .12), (.26, .12))],
+    ('Body', 'box', (.92, .05, .08), (0, -.05, .78), 'lobD'),
+    *[p for k, y in enumerate((-.3, -.05, .2, .42)) for p in leg('Part_Leg%dL' % k, (-.36, y, .36), .36, .32, 'red', 'lobD')],
+    ('Limb_Head', 'ball', (.54, .44, .38), (0, -.15, 0), 'red', (0, -.6, .65)),
+    ('Limb_Head', 'cone', (.12, .3, .1), (0, -.38, .13), 'lobD', (0, -.6, .65), (90, 0, 0), 4),
+    ('Limb_Head', 'cyl', (.035, .035, 1.1), (-.1, -.55, .3), 'lobD', (0, -.6, .65), (-60, 0, -14), 5),
+    ('Limb_Head', 'cyl', (.035, .035, 1.1), (.1, -.55, .3), 'lobD', (0, -.6, .65), (-60, 0, 14), 5),
+    ('Limb_Head', 'cyl', (.03, .03, .55), (-.15, -.32, .05), 'lobL', (0, -.6, .65), (-90, 0, -35), 5),
+    ('Limb_Head', 'cyl', (.03, .03, .55), (.15, -.32, .05), 'lobL', (0, -.6, .65), (-90, 0, 35), 5),
+    *eye('Limb_Head', -.14, -.3, .17, (0, -.6, .65), .08),
+    *eye('Limb_Head', .14, -.3, .17, (0, -.6, .65), .08),
+    ('Limb_ClawL', 'cyl', (.16, .16, .6), (-.1, -.3, 0), 'red', (-.45, -.55, .5), (90, 0, 0), 6),
+    ('Limb_ClawL', 'ball', (.52, .68, .32), (-.16, -.82, .05), 'lobD', (-.45, -.55, .5)),
+    ('Limb_ClawL', 'ball', (.3, .4, .18), (-.18, -.8, .17), 'red', (-.45, -.55, .5)),
+    ('Limb_ClawL', 'cone', (.2, .2, .44), (-.26, -1.26, .06), 'lobL', (-.45, -.55, .5), (90, 0, 6), 5),
+    ('Limb_ClawL', 'cone', (.15, .15, .34), (-.04, -1.22, .0), 'lobL', (-.45, -.55, .5), (90, 0, -6), 5),
+    *teeth('Limb_ClawL', 3, -.22, -.06, -1.1, .02, .06, (-.45, -.55, .5)),
+]
+for k in range(3):
+    w = .78 - k * .13
+    lob += [('Part_Seg%d' % k, 'ball', (w, .42, .46 - k * .05), (0, .1, 0), 'red', (0, .5 + k * .33, .46 - k * .04)),
+            ('Part_Seg%d' % k, 'box', (w * .98, .06, .05), (0, .1, .2 - k * .02), 'lobD', (0, .5 + k * .33, .46 - k * .04))]
+lob += [('Part_Seg3', 'box', (.68, .32, .05), (0, .15, 0), 'lobD', (0, 1.5, .34)),
+        ('Part_Seg3', 'cone', (.3, .3, .05), (-.26, .24, 0), 'red', (0, 1.5, .34), None, 5)]
+build('Lobster', mirror(lob))
+
 
 # =====================================================================================  PLAYER
 # Sailors are jointed for animation: Part_ objects pivot at hip, shoulder and neck (the game swings them).
@@ -1113,3 +1277,30 @@ rounds('AmmoBlast', 'red', 'ball', band='black')
 rounds('AmmoHollow', 'greyD', 'cyl')
 
 print('TIDEWALL_MODELS_DONE', sorted(os.listdir(OUT)))
+
+# Laser sights, and the scope, choke and stock that came with the five-slot guns
+build('AttReflex', [
+    ('Body', 'box', (.05, .1, .025), (0, 0, .012), 'gold'),
+    ('Body', 'box', (.07, .012, .07), (0, -.03, .055), 'gold'),
+    ('Body', 'box', (.055, .006, .055), (0, -.03, .055), 'lens'),
+    ('Body', 'ball', (.012, .012, .012), (0, -.035, .058), 'red'),
+])
+build('AttChoke', [
+    ('Body', 'cyl', (.08, .08, .08), (0, -.03, 0), 'orange', None, (90, 0, 0), 8),
+    ('Body', 'cone', (.11, .11, .1), (0, -.11, 0), 'pinkL', None, (-90, 0, 0), 8),
+    *[('Body', 'ball', (.025, .025, .025), (x, -.02, z), 'white') for x, z in ((.04, .02), (-.03, .035), (.015, -.04))],
+])
+build('AttWhalebone', [
+    ('Body', 'box', (.045, .3, .05), (0, .17, .015), 'bone', None, (6, 0, 0)),
+    ('Body', 'box', (.045, .28, .04), (0, .17, -.075), 'bone', None, (-6, 0, 0)),
+    ('Body', 'box', (.06, .05, .15), (0, .33, -.03), 'bone'),
+])
+def laser_part(name, lens):
+    build(name, [
+        ('Body', 'cyl', (.04, .04, .13), (0, 0, 0), 'greyD', None, (90, 0, 0), 8),
+        ('Body', 'cyl', (.048, .048, .02), (0, -.06, 0), 'gold', None, (90, 0, 0), 8),
+        ('Body', 'cyl', (.03, .03, .012), (0, -.072, 0), lens, None, (90, 0, 0), 8),
+    ])
+laser_part('AttLaserRed', 'red')
+laser_part('AttLaserGreen', 'glow')
+laser_part('AttLaserBlue', 'shockTip')

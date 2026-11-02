@@ -24,12 +24,13 @@ namespace TideWall
         static readonly HashSet<Enemy> struck = new();
 
         /// <summary>Fire one shot (all pellets) from origin toward target.</summary>
-        public static void FireGun(Player p, GunDef g, Vector3 origin, Vector3 target, float damageMult)
+        public static void FireGun(Player p, GunDef g, Vector3 origin, Vector3 target, float damageMult, float spreadMult = 1)
         {
             var baseDir = (target - origin).normalized;
             for (int i = 0; i < g.pellets; i++)
             {
-                var dir = Quaternion.Euler(Random.Range(-g.spreadDegrees, g.spreadDegrees) * .3f, Random.Range(-g.spreadDegrees, g.spreadDegrees), 0) * baseDir;
+                float spread = g.spreadDegrees * spreadMult;
+                var dir = Quaternion.Euler(Random.Range(-spread, spread) * .3f, Random.Range(-spread, spread), 0) * baseDir;
                 Vector3 end = origin + dir * g.range;
                 int n = Physics.RaycastNonAlloc(origin, dir, hits, g.range, ~0, QueryTriggerInteraction.Collide);
                 System.Array.Sort(hits, 0, n, Comparer<RaycastHit>.Create((a, b) => a.distance.CompareTo(b.distance)));
@@ -66,11 +67,16 @@ namespace TideWall
                     if (c.isTrigger || c.GetComponentInParent<Corpse>() != null) continue;
                     // Hit the world (sand, rocks, stalls)
                     end = h.point;
-                    if (Arena.InWater(h.point)) Fx.Splash(h.point, 4); else Fx.Smoke(h.point, 2, .1f, new Color(.9f, .82f, .6f, .6f));
+                    if (Arena.InWater(h.point)) Fx.Splash(h.point, 4);
+                    else
+                    {
+                        Fx.Smoke(h.point, 2, .1f, new Color(.9f, .82f, .6f, .6f));
+                        Fx.Burst(h.point, Vector3.Reflect(dir, h.normal).normalized + h.normal, new Color(.82f, .74f, .55f), 5, 3.5f);   // a kick of whatever it hit
+                    }
                     if (g.splash > 0) Explode(h.point, g.splash, g.damage * damageMult * .5f, g.element, p, false);
                     break;
                 }
-                Fx.Tracer(origin, end, g.element == Element.Fire ? new Color(1, .55f, .2f) : g.element == Element.Shock ? new Color(.45f, .9f, 1f) : new Color(1, .95f, .7f), g.pierce > 0 ? .08f : .045f);
+                Fx.Tracer(origin, end, g.element == Element.Fire ? new Color(1, .55f, .2f) : g.element == Element.Shock ? new Color(.45f, .9f, 1f) : new Color(1, .95f, .7f), g.pierce > 0 ? .1f : .06f);
             }
         }
 

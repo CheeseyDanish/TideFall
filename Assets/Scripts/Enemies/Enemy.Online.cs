@@ -18,7 +18,7 @@ namespace TideWall
             s.rootPos = r.localPosition; s.rootRot = r.localRotation; s.rootScale = r.localScale.x / Mathf.Max(.0001f, Def.scale);
             var c = Dead ? GetComponent<Corpse>() : null;
             s.wet = c != null ? c.Wet : Wet;
-            s.flags = (byte)((Dead ? 1 : 0) | (flashT > 0 ? 2 : 0) | (burnT > 0 ? 4 : 0) | (grounded ? 8 : 0) | (swingT > 0 ? 16 : 0) | (ride != null ? 32 : 0));
+            s.flags = (byte)((Dead ? 1 : 0) | (flashT > 0 ? 2 : 0) | (burnT > 0 ? 4 : 0) | (grounded ? 8 : 0) | (swingT > 0 ? 16 : 0) | (ride != null ? 32 : 0) | (windupT > 0 ? 64 : 0));
             uint mask = 0;
             for (int i = 0; i < Limbs.Count && i < 32; i++) if (Limbs[i] == null || Limbs[i].Severed) mask |= 1u << i;
             s.severed = mask;
@@ -35,6 +35,7 @@ namespace TideWall
             burnT = (s.flags & 4) != 0 ? 1 : 0;
             grounded = (s.flags & 8) != 0;
             if ((s.flags & 16) != 0) swingT = .25f;
+            windupT = (s.flags & 64) != 0 ? Def.windup : 0;
             bool surfing = (s.flags & 32) != 0;
             if (surfing != (board != null)) ShowBoard(surfing);
             for (int i = 0; i < Limbs.Count && i < 32; i++)
@@ -106,7 +107,7 @@ namespace TideWall
 
         /// <summary>A tipped-over corpse can swing below the sand: lift its model so the lowest point sits on the ground
         /// (otherwise it looks sunk and is hard to pick up).</summary>
-        void LiftCorpse()
+        public void LiftCorpse()
         {
             var b = ModelFactory.Bounds(Model.root);
             float ground = Arena.GroundY(transform.position.z);

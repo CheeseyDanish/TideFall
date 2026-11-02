@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace TideWall
 {
-    public enum FxKind : byte { Gore, Sparks, Smoke, Fire, Splash, Ink, Bubbles, Debris, Explosion, Tracer, Flash, Number }
+    public enum FxKind : byte { Gore, Sparks, Smoke, Fire, Splash, Ink, Bubbles, Debris, Explosion, Tracer, Flash, Number, Burst }
 
     public static class Fx
     {
@@ -35,6 +35,7 @@ namespace TideWall
                 case FxKind.Tracer: Tracer(e.a, e.b, e.color, e.f1, e.f2); break;
                 case FxKind.Flash: Flash(e.a, e.color, e.f1, e.f2, e.f3); break;
                 case FxKind.Number: DamageNumber(e.a, e.f1, e.n == 1, null); break;
+                case FxKind.Burst: Burst(e.a, e.b, e.color, e.n, e.f1, e.f2 > 0); break;
             }
         }
 
@@ -114,6 +115,19 @@ namespace TideWall
         {
             Relay(FxKind.Gore, p, default, c, n: n);
             for (int i = 0; i < n; i++) Emit(gore, p, R(3) + Vector3.up * 2, c, Random.Range(.06f, .16f), Random.Range(.5f, .9f));
+        }
+        /// <summary>A spray thrown one way: blood out of a wound, sand off a bullet strike, sparks from a muzzle.</summary>
+        public static void Burst(Vector3 p, Vector3 dir, Color c, int n, float speed, bool glow = false)
+        {
+            Relay(FxKind.Burst, p, dir, c, speed, glow ? 1 : 0, n: n);
+            dir = dir.normalized;
+            for (int i = 0; i < n; i++)
+                Emit(glow ? sparks : gore, p, (dir + R(.45f)) * speed * Random.Range(.5f, 1.1f), c, Random.Range(.04f, .11f) * (glow ? .7f : 1), Random.Range(.2f, .45f));
+        }
+        /// <summary>A puff of sand under a running creature (local only: every machine makes its own, from how it moves).</summary>
+        public static void Dust(Vector3 p, float size)
+        {
+            Emit(smoke, p + R(.1f), R(.25f) + Vector3.up * .25f, new Color(.88f, .8f, .62f, .32f), Random.Range(.25f, .45f) * size, Random.Range(.5f, .8f));
         }
         public static void Sparks(Vector3 p, Color c, int n = 6)
         {
@@ -261,6 +275,7 @@ namespace TideWall
                 if (life <= 0) { t.gameObject.SetActive(false); numbers[i] = (t, 0, vel); continue; }
                 vel += Vector3.down * 5 * dt;
                 t.transform.position += vel * dt;
+                t.transform.localScale = Vector3.one * (1 + Mathf.Clamp01((life - .62f) / .18f) * .7f);   // pops, then settles
                 var c = t.color; c.a = Mathf.Clamp01(life / .3f); t.color = c;
                 numbers[i] = (t, life, vel);
             }

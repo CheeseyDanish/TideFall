@@ -20,7 +20,7 @@ namespace TideWall
 
         [Header("Base materials (runtime colours are copies of these)")]
         public Material lit;
-        public Material litTransparent, unlit, particle, particleAdditive, sky;
+        public Material litTransparent, unlit, particle, particleAdditive, sky, skin;
 
         [Header("Models and sounds, by name")]
         public List<NamedModel> models = new();

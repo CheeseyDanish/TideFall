@@ -27,7 +27,7 @@ namespace TideWall
         int hostStage = -1;
         Gamepad pad1, pad2;
         Vector2 look1;
-        bool fire;
+        bool fire, sights;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Check()
@@ -58,7 +58,7 @@ namespace TideWall
         void Update()
         {
             // Hold the virtual sticks/triggers every frame (state events are one-shot).
-            if (pad1 != null && pad1.added) InputSystem.QueueStateEvent(pad1, new GamepadState { rightStick = look1, rightTrigger = fire ? 1 : 0 });
+            if (pad1 != null && pad1.added) InputSystem.QueueStateEvent(pad1, new GamepadState { rightStick = look1, rightTrigger = fire ? 1 : 0, leftTrigger = sights ? 1 : 0 });
         }
 
         IEnumerator Start()
@@ -102,6 +102,30 @@ namespace TideWall
             Teleport(p2, new Vector3(6, 0, 8)); p2.SetLook(20, 8);
             yield return new WaitForSecondsRealtime(1f);
             yield return Shot("04a-attachments-and-third-person");
+            // The inventory: three guns carried, a gun's five slots, skins on the racks; the view through a scope with a laser
+            p1.GiveGun("scattergun"); p1.GiveGun("smg"); p1.GiveGun("revolver");
+            foreach (var a in gm.DB.attachments) p1.OwnedParts.Add(a.id);
+            p1.FitAttachment(gm.DB.Attachment("harbourlaser")); p1.FitAttachment(gm.DB.Attachment("longbarrel")); p1.FitAttachment(gm.DB.Attachment("driftstock"));
+            foreach (var sk in gm.DB.skins) Legacy.UnlockSkin(sk.id);
+            p1.OpenMenu(InventoryMenus.GunPage(p1, p1.Gun));
+            p2.OpenMenu(InventoryMenus.Main(p2));
+            yield return new WaitForSecondsRealtime(.6f);
+            yield return Shot("04aa-inventory-gun-page");
+            p1.OpenMenu(InventoryMenus.SkinPage(p1, p1.Gun.id, p1.Gun.model, p1.Gun.displayName, null));
+            p2.OpenMenu(InventoryMenus.PartPage(p2, p2.Gun, AttachmentSlot.Laser));
+            yield return new WaitForSecondsRealtime(.8f);
+            yield return Shot("04ab-skins-and-parts");
+            p1.CloseMenu(); p2.CloseMenu();
+            int skinIndex = 0;
+            foreach (var skinId in new[] { "trench", "reactor" })
+            {
+                var who = skinIndex++ == 0 ? p1 : p2;
+                who.SetSkin(who.Gun.id, gm.DB.Skin(skinId));
+                who.SetSkin(who.Melee.id, gm.DB.Skin(skinId));
+            }
+            yield return new WaitForSecondsRealtime(.6f);
+            yield return Shot("04ac-skinned-guns");
+            p1.SetSkin(p1.Gun.id, null);
             p2.SwitchView();
             Teleport(p2, back2);
             p1.OpenMenu(Menus.Hotdogs(p1, p1.transform.position));
@@ -135,6 +159,15 @@ namespace TideWall
             fire = true;
             yield return new WaitForSecondsRealtime(1.2f);
             yield return Shot("05-evening-fight-first-person");
+
+            // Guns up: player 1 through the spyglass, player 2 from the hip with a laser
+            fire = false;
+            gm.Waves.RunWave = gm.DB.gunsUnlockWave;
+            p2.FitAttachment(gm.DB.Attachment("glowfishlaser"));
+            sights = true;
+            yield return new WaitForSecondsRealtime(.7f);
+            yield return Shot("05aa-sights-up-and-laser");
+            sights = false;
 
             // Reload minigames at the reticle (the SMG's green zone, the revolver's beat) and a kill combo
             fire = false;
@@ -197,6 +230,14 @@ namespace TideWall
             cam.fieldOfView = 60;
             yield return new WaitForSecondsRealtime(.5f);
             yield return Shot("09-bestiary");
+            cam.transform.SetPositionAndRotation(new Vector3(-9, 3.2f, 2.5f), Quaternion.Euler(16, 0, 0));
+            cam.fieldOfView = 45;
+            yield return new WaitForSecondsRealtime(.3f);
+            yield return Shot("09a-bestiary-close-front-row");
+            cam.transform.SetPositionAndRotation(new Vector3(7, 3.6f, 2.5f), Quaternion.Euler(16, 0, 0));
+            yield return new WaitForSecondsRealtime(.3f);
+            yield return Shot("09b-bestiary-close-back-row");
+            cam.fieldOfView = 60;
             var boss = Enemy.Spawn(gm.DB.Enemy("glizzy"), new Vector3(0, Arena.GroundY(12), 12), 5, -1);   // on the sand, not under the sea
             boss.enabled = false;
             cam.transform.SetPositionAndRotation(new Vector3(0, 7, 0), Quaternion.Euler(18, 0, 0));

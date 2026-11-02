@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 namespace TideWall
 {
     /// <summary>The buttons gameplay reads. Order matters: it's also the bit order of network input packets.</summary>
-    public enum Btn { Fire, Melee, Interact, Back, Reload, Swap, Dash, Pause, View, Stats, Build }
+    public enum Btn { Fire, Melee, Interact, Back, Reload, Swap, Dash, Pause, View, Stats, Build, Sight, Inventory, Slot1, Slot2, Slot3 }
 
     public class PlayerControls : IDisposable
     {
@@ -28,7 +28,7 @@ namespace TideWall
         {
             ("Move", "up", "Move forward"), ("Move", "down", "Move back"), ("Move", "left", "Move left"), ("Move", "right", "Move right"),
             ("Fire", "", "Shoot / throw"), ("Melee", "", "Melee"), ("Interact", "", "Interact"), ("Dash", "", "Dash"),
-            ("Reload", "", "Reload"), ("Swap", "", "Swap gun"), ("View", "", "Switch view"), ("Stats", "", "Stats, mods and tidal cards"), ("Build", "", "Build defences"),
+            ("Sight", "", "Aim down sights"), ("Reload", "", "Reload"), ("Swap", "", "Swap gun"), ("Slot1", "", "Gun slot 1"), ("Slot2", "", "Gun slot 2"), ("Slot3", "", "Gun slot 3"), ("Inventory", "", "Inventory"), ("View", "", "Switch view"), ("Stats", "", "Stats, mods and tidal cards"), ("Build", "", "Build defences"),
             ("Back", "", "Back / close menu"), ("Pause", "", "Pause"),
         };
 
@@ -69,16 +69,21 @@ namespace TideWall
 
             buttons = new InputAction[Enum.GetValues(typeof(Btn)).Length];
             buttons[(int)Btn.Fire] = Button(map, "Fire", new[] { "<Gamepad>/rightTrigger", "<Joystick>/trigger" }, new[] { "<Mouse>/leftButton" });
-            buttons[(int)Btn.Melee] = Button(map, "Melee", new[] { "<Gamepad>/rightShoulder", "<Joystick>/button3" }, new[] { "<Mouse>/rightButton", "<Keyboard>/f" });
+            buttons[(int)Btn.Melee] = Button(map, "Melee", new[] { "<Gamepad>/rightShoulder", "<Joystick>/button3" }, new[] { "<Keyboard>/f" });
             buttons[(int)Btn.Interact] = Button(map, "Interact", new[] { "<Gamepad>/buttonSouth", "<Joystick>/button2" }, new[] { "<Keyboard>/e", "<Keyboard>/enter" });
             buttons[(int)Btn.Back] = Button(map, "Back", new[] { "<Gamepad>/buttonEast", "<Joystick>/button4" }, new[] { "<Keyboard>/backspace" });
             buttons[(int)Btn.Reload] = Button(map, "Reload", new[] { "<Gamepad>/buttonWest", "<Joystick>/button5" }, new[] { "<Keyboard>/r" });
             buttons[(int)Btn.Swap] = Button(map, "Swap", new[] { "<Gamepad>/buttonNorth", "<Joystick>/button6" }, new[] { "<Keyboard>/q", "<Mouse>/middleButton" });
-            buttons[(int)Btn.Dash] = Button(map, "Dash", new[] { "<Gamepad>/leftShoulder", "<Gamepad>/leftTrigger", "<Joystick>/button7" }, new[] { "<Keyboard>/space", "<Keyboard>/leftShift" });
+            buttons[(int)Btn.Dash] = Button(map, "Dash", new[] { "<Gamepad>/leftShoulder", "<Joystick>/button7" }, new[] { "<Keyboard>/space", "<Keyboard>/leftShift" });
             buttons[(int)Btn.Pause] = Button(map, "Pause", new[] { "<Gamepad>/start", "<Joystick>/button8" }, new[] { "<Keyboard>/escape", "<Keyboard>/p" });
             buttons[(int)Btn.View] = Button(map, "View", new[] { "<Gamepad>/rightStickPress" }, new[] { "<Keyboard>/v" });
             buttons[(int)Btn.Stats] = Button(map, "Stats", new[] { "<Gamepad>/select", "<Joystick>/button9" }, new[] { "<Keyboard>/tab", "<Keyboard>/c" });
             buttons[(int)Btn.Build] = Button(map, "Build", new[] { "<Gamepad>/dpad/down", "<Joystick>/button10" }, new[] { "<Keyboard>/b" });
+            buttons[(int)Btn.Sight] = Button(map, "Sight", new[] { "<Gamepad>/leftTrigger", "<Joystick>/button11" }, new[] { "<Mouse>/rightButton" });
+            buttons[(int)Btn.Inventory] = Button(map, "Inventory", new[] { "<Gamepad>/dpad/up", "<Joystick>/button12" }, new[] { "<Keyboard>/i" });
+            buttons[(int)Btn.Slot1] = Button(map, "Slot1", new[] { "<Gamepad>/dpad/left", "<Joystick>/button13" }, new[] { "<Keyboard>/1" });
+            buttons[(int)Btn.Slot2] = Button(map, "Slot2", new[] { "<Gamepad>/dpad/right", "<Joystick>/button14" }, new[] { "<Keyboard>/2" });
+            buttons[(int)Btn.Slot3] = Button(map, "Slot3", new[] { "<Gamepad>/leftStickPress", "<Joystick>/button15" }, new[] { "<Keyboard>/3" });
             return map;
         }
 

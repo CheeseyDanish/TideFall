@@ -25,7 +25,9 @@ namespace TideWall
         /// <summary>Timers that keep running whatever you're doing (reloads finish, swings land, even with a menu open).</summary>
         void CombatTimers(float dt)
         {
-            fireCd -= dt; meleeCd -= dt; swingT -= dt; fireBuffer -= dt; lockToastT -= dt;
+            fireCd -= dt; meleeCd -= dt; fireBuffer -= dt; lockToastT -= dt;
+            // A landed swing hangs in the air for a moment: that's what makes it feel like it hit something
+            if (hitStop > 0) hitStop -= dt; else swingT -= dt;
             FireHeat = Mathf.MoveTowards(FireHeat, 0, dt * 3);
             comboT -= dt;
             if (comboT <= 0) combo = 0;
@@ -54,7 +56,14 @@ namespace TideWall
         void Strike()
         {
             int hit = Combat.Melee(this, EffMelee, transform.position + Vector3.up * .9f + AimDir * .3f, AimDir, DamageMult(true));
-            if (hit > 0) { Sfx.Play("hit"); Shake(.08f + (Melee.style == MeleeStyle.Slam ? .2f : 0)); }
+            if (hit > 0)
+            {
+                bool heavy = Melee.style == MeleeStyle.Slam;
+                Sfx.Play("thud", heavy ? 1 : .7f, .04f);
+                Shake(.1f + (heavy ? .25f : 0));
+                hitStop = db.meleeHitStop * (heavy ? 2 : 1);
+                if (Cam != null) Cam.Kick(heavy ? 3 : 1.5f);
+            }
             if (Melee.style == MeleeStyle.Slam) Fx.Debris(transform.position + AimDir * 1.6f, new Color(.9f, .82f, .6f), 10);
         }
 
@@ -68,6 +77,9 @@ namespace TideWall
                 return;
             }
             if (!GunsLocked && Pressed(Btn.Swap)) CycleGun();
+            if (!GunsLocked && Pressed(Btn.Slot1)) SelectSlot(0);
+            if (!GunsLocked && Pressed(Btn.Slot2)) SelectSlot(1);
+            if (!GunsLocked && Pressed(Btn.Slot3)) SelectSlot(2);
             if (!GunsLocked && Pressed(Btn.Reload))
             {
                 if (reload != null) { int a = Ammo; reload.Press(ref a, MagSize); ammo[Gun.id] = a; if (reload.Done) FinishReload(); }
@@ -96,7 +108,7 @@ namespace TideWall
             }
             else if ((Held(Btn.Fire) || fireBuffer > 0) && fireCd <= 0 && reload == null)
             {
-                if (Ammo <= 0) StartReload();
+                if (Ammo <= 0) { if (Pressed(Btn.Fire)) Sfx.Play("click", .8f); StartReload(); }
                 else Shoot();
             }
             if (Pressed(Btn.Melee) && meleeCd <= 0) StartSwing();
@@ -105,7 +117,7 @@ namespace TideWall
         /// <summary>Where bullets leave from: the first-person gun (bottom right of your view) or the model's muzzle.</summary>
         public Vector3 MuzzlePosition()
         {
-            if (FirstPerson) return EyePos + LookRotation * new Vector3(.26f, -.2f, .7f);
+            if (FirstPerson) return EyePos + LookRotation * Vector3.Lerp(new Vector3(.26f, -.2f, .7f), new Vector3(0, -.09f, .8f), AimAmount);
             return gunModel.Sockets.TryGetValue("Muzzle", out var mz) ? mz.position : transform.position + Vector3.up * 1.2f + AimDir * .6f;
         }
 
@@ -116,17 +128,23 @@ namespace TideWall
             fireCd = 1 / rate;
             if (!DebugTools.InfiniteAmmo) ammo[Gun.id] = Ammo - 1;
             var origin = MuzzlePosition();
-            Combat.FireGun(this, EffGun, origin, AimPoint, DamageMult(false) * (1 + perfectBonus));
-            Fx.Flash(origin, new Color(1, .8f, .4f), 5, 3, .06f);
+            Combat.FireGun(this, EffGun, origin, AimPoint, DamageMult(false) * (1 + perfectBonus), Mathf.Lerp(1, db.aimSpread, AimAmount));
+            var barrel = (AimPoint - origin).normalized;
+            Fx.Flash(origin, new Color(1, .8f, .4f), 5 + EffGun.recoil, 3 + EffGun.recoil * .5f, .06f);
+            Fx.Burst(origin, barrel, new Color(1, .75f, .35f), Mathf.Clamp(Mathf.RoundToInt(EffGun.recoil), 2, 6), 8, true);
             Fx.Smoke(origin, 1, .05f);
-            Sfx.Play(Gun.id switch { "scattergun" => "shotgun", "harpoon" => "harpoon", "flare" => "flare", _ => "shot" });
-            Shake(EffGun.recoil * .025f);
-            FireHeat = 1;
-            Pitch = Mathf.Clamp(Pitch - EffGun.recoil * .25f, -80, 80);   // the barrel climbs a little (the camera kick is bigger, and recovers)
+            Sfx.Play(string.IsNullOrEmpty(Gun.sound) ? "shot" : Gun.sound);
+            Shake(EffGun.recoil * .025f * (1 - AimAmount * .5f));
+            FireHeat = 1 - AimAmount * .6f;
+            // The barrel climbs and wanders a little (the camera kick is bigger, and recovers). Steadier with the sights up.
+            float steady = 1 - AimAmount * .5f;
+            Pitch = Mathf.Clamp(Pitch - EffGun.recoil * .25f * steady, -80, 80);
+            Yaw = Mathf.Repeat(Yaw + Random.Range(-.08f, .08f) * EffGun.recoil * steady, 360);
             if (Ammo <= 0) { perfectBonus = 0; StartReload(); }
         }
 
         int dummyAmmo;
+        float hitStop;
 
         /// <summary>Start the gun's reload minigame (CLAUDE.md R6b). With no input it finishes in the normal reload time.</summary>
         void StartReload()
@@ -154,15 +172,6 @@ namespace TideWall
             Sfx.Play("reload");
             lastReload = reload;
             reload = null;
-        }
-
-        void CycleGun()
-        {
-            var list = db.guns.FindAll(g => ownedGuns.Contains(g.id));
-            if (list.Count < 2) return;
-            int i = list.IndexOf(Gun);
-            GiveGun(list[(i + 1) % list.Count].id);
-            Sfx.Play("ui");
         }
 
         public void OnHitEnemy(Enemy e, float dmg, bool crit, bool melee = false)

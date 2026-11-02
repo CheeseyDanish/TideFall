@@ -101,7 +101,7 @@ namespace TideWall
 
             // Bottom-left: weapons
             var bl = new Vector2(0, 0);
-            gunText = Ui.Text(c, "Gun", bl, new Vector2(18, 16), new Vector2(460, 70), 16, TextAnchor.LowerLeft, Color.white);
+            gunText = Ui.Text(c, "Gun", bl, new Vector2(18, 16), new Vector2(520, 92), 16, TextAnchor.LowerLeft, Color.white);
             gunText.rectTransform.pivot = bl;
 
             // Bottom-centre: what Interact does here
@@ -143,7 +143,29 @@ namespace TideWall
         /// <summary>A red X when your hit kills.</summary>
         public void KillMarker() { killT = .35f; }
 
-        public void HitMarker(bool crit) { hitT = .15f; hitMarker.color = crit ? new Color(1, .85f, .2f, 1) : new Color(1, 1, 1, .9f); }
+        public void HitMarker(bool crit)
+        {
+            hitT = .15f;
+            hitBig = crit ? 1.5f : 1;
+            hitMarker.color = crit ? new Color(1, .85f, .2f, 1) : new Color(1, 1, 1, .9f);
+            if (crit) Sfx.Play("crit", .7f, .05f);
+        }
+        float hitBig = 1;
+
+        /// <summary>The guns you carry, the one in your hands picked out, above the ammo line.</summary>
+        string LoadoutLine()
+        {
+            if (p.Loadout.Count < 2) return "";
+            var sb = new StringBuilder("<size=13>");
+            for (int i = 0; i < p.Loadout.Count; i++)
+            {
+                var g = gm.DB.Gun(p.Loadout[i]);
+                if (g == null) continue;
+                if (i > 0) sb.Append("  ");
+                sb.Append(g == p.Gun ? $"<color=#fde68a><b>{i + 1} {g.displayName}</b></color>" : $"<color=#94a3b8>{i + 1} {g.displayName}</color>");
+            }
+            return sb.Append("</size>\n").ToString();
+        }
 
         void Update()
         {
@@ -229,9 +251,9 @@ namespace TideWall
 
             bool reloading = p.ReloadProgress >= 0;
             int perfect = Mathf.RoundToInt(p.PerfectBonus * 100), weight = Mathf.RoundToInt(p.CarryWeight);
-            int gunKey = System.HashCode.Combine(p.GunsLocked, p.Gun.id, reloading, p.Ammo, p.MagSize, perfect, p.Melee.id, System.HashCode.Combine(p.CarryCount, weight, p.Glyph(Btn.Fire)));
+            int gunKey = System.HashCode.Combine(p.GunsLocked, p.Gun.id, reloading, p.Ammo, p.MagSize, perfect, p.Melee.id, System.HashCode.Combine(p.CarryCount, weight, p.Glyph(Btn.Fire), p.LoadoutVersion));
             if (gunLine.Changed(gunKey))
-                gunText.text = (p.GunsLocked ? $"<color=#94a3b8><b>{p.Gun.displayName}</b>  holstered until wave {gm.DB.gunsUnlockWave}</color>\n"
+                gunText.text = LoadoutLine() + (p.GunsLocked ? $"<color=#94a3b8><b>{p.Gun.displayName}</b>  holstered until wave {gm.DB.gunsUnlockWave}</color>\n"
                                              : $"<b>{p.Gun.displayName}</b>  {(reloading ? "reloading…" : $"{p.Ammo}/{p.MagSize}")}" +
                                                (perfect > 0 ? $"  <color=#fcd34d>PERFECT +{perfect}%</color>" : "") + "\n") +
                                $"<color=#cbd5e1>{p.Melee.displayName}</color>" +
@@ -243,6 +265,9 @@ namespace TideWall
             SetAlpha(bannerTitle, Mathf.Clamp01(bannerT)); SetAlpha(bannerSub, Mathf.Clamp01(bannerT));
             SetAlpha(toastText, Mathf.Clamp01(toastT));
             var hc = hitMarker.color; hc.a = Mathf.Clamp01(hitT / .15f); hitMarker.color = hc;
+            // The markers pop, then settle: a weak point's bigger still, and a kill's is biggest
+            hitMarker.rectTransform.localScale = Vector3.one * (hitBig + Mathf.Clamp01(hitT / .15f) * .5f);
+            killMarker.rectTransform.localScale = Vector3.one * (1 + Mathf.Clamp01(killT / .35f) * .8f);
             killT -= dt;
             killMarker.color = new Color(1, .25f, .2f, Mathf.Clamp01(killT / .35f));
             killMarker.rectTransform.localScale = Vector3.one * (1 + Mathf.Clamp01(killT / .35f) * .6f);

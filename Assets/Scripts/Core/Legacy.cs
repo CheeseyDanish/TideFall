@@ -15,6 +15,7 @@ namespace TideWall
         [Tooltip("Times the Heart was struck")] public int strikes;
         [Tooltip("The Crest was laid down: the sea is calm")] public bool spiral;
         [Tooltip("Runs played when the Crest was laid down (the keep wall's tally stops there)")] public int runsAtPeace;
+        [Tooltip("Weapon skins unlocked with golden pearls")] public System.Collections.Generic.List<string> skins = new();
         const string File = "legacy.json";
 
         public int ShardCount { get { int n = 0; for (int s = shards; s != 0; s >>= 1) n += s & 1; return n; } }
@@ -65,6 +66,14 @@ namespace TideWall
             l.shards |= 1 << stage;
             l.Save();
             return l.ShardCount;
+        }
+
+        /// <summary>A skin was bought: it's unlocked for good.</summary>
+        public static void UnlockSkin(string id)
+        {
+            var l = Load();
+            if (!l.skins.Contains(id)) l.skins.Add(id);
+            l.Save();
         }
 
         /// <summary>The Heart was answered.</summary>

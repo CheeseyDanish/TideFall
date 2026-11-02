@@ -45,7 +45,7 @@ namespace TideWall
         /// <summary>A gun's recoil: the view snaps up (and a little sideways) and settles back; the FOV punches in.</summary>
         public void Kick(float degrees)
         {
-            kickPitch = Mathf.Min(kickPitch + degrees, 14);
+            kickPitch = Mathf.Min(kickPitch + degrees * (1 - player.AimAmount * .5f), 14);
             kickYaw += Random.Range(-.35f, .35f) * degrees;
             punch = Mathf.Min(punch + degrees * .5f, 6);
         }
@@ -96,7 +96,7 @@ namespace TideWall
             kickPitch = Mathf.Lerp(kickPitch, 0, 1 - Mathf.Exp(-dt * 12));
             kickYaw = Mathf.Lerp(kickYaw, 0, 1 - Mathf.Exp(-dt * 12));
             punch = Mathf.Lerp(punch, 0, 1 - Mathf.Exp(-dt * 10));
-            Camera.fieldOfView = FirstPersonFov(Settings.Current.fov + fovExtra - punch, Camera.aspect);
+            Camera.fieldOfView = FirstPersonFov((Settings.Current.fov + fovExtra - punch) * player.AimZoom, Camera.aspect);
             var look = player.LookRotation * Quaternion.Euler(jitter.x * 3 - kickPitch, jitter.y * 3 + kickYaw, 0);
             if (fp)
             {
@@ -113,7 +113,7 @@ namespace TideWall
             // Third person: over the right shoulder. Sized with the sailor (giant, tiny, downed).
             float size = st.Has(StatusType.Giant) ? 1.45f : st.Has(StatusType.Tiny) ? .6f : 1;
             var pivot = player.transform.position + player.RenderOffset + Vector3.up * (player.IsDowned ? .8f : PivotHeight * size);
-            var want = pivot + look * (Shoulder * Mathf.Max(.8f, size));
+            var want = pivot + look * (Shoulder * Mathf.Max(.8f, size) * (1 - .4f * player.AimAmount));   // sights up: in over the shoulder
             smoothPos = Clear(pivot, want);
             transform.SetPositionAndRotation(smoothPos, look * Quaternion.Euler(0, 0, roll));
         }

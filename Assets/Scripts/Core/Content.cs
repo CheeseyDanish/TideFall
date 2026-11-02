@@ -57,7 +57,7 @@ namespace TideWall
             if (l == null) return null;
             return name switch
             {
-                "Lit" => l.lit, "LitTransparent" => l.litTransparent, "Unlit" => l.unlit,
+                "Lit" => l.lit, "Skin" => l.skin, "LitTransparent" => l.litTransparent, "Unlit" => l.unlit,
                 "Particle" => l.particle, "ParticleAdditive" => l.particleAdditive, "Sky" => l.sky, _ => null,
             };
         }

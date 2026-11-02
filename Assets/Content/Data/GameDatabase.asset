@@ -35,6 +35,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 1
     pearls: 0
+    windup: 0.22
+    poise: 0.45
     mark: 0
     limbs:
     - part: ClawL
@@ -71,6 +73,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 1
     pearls: 0
+    windup: 0.42
+    poise: 0.3
     mark: 0
     limbs:
     - part: ArmL
@@ -115,6 +119,8 @@ MonoBehaviour:
     minWave: 5
     spawnWeight: 1
     pearls: 0
+    windup: 0.3
+    poise: 0.45
     mark: 0
     limbs:
     - part: WingL
@@ -147,6 +153,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 1
     pearls: 0
+    windup: 0.25
+    poise: 0.3
     mark: 1
     limbs:
     - part: Shell
@@ -187,6 +195,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 1
     pearls: 0
+    windup: 0.3
+    poise: 0.45
     mark: 0
     limbs: []
   - id: urchin
@@ -211,6 +221,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 1
     pearls: 0
+    windup: 0.3
+    poise: 0.3
     mark: 0
     limbs: []
   - id: jelly
@@ -235,6 +247,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 1
     pearls: 0
+    windup: 0.3
+    poise: 0.3
     mark: 0
     limbs:
     - part: Tent1
@@ -275,6 +289,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 1
     pearls: 0
+    windup: 0.28
+    poise: 0.3
     mark: 0
     limbs:
     - part: Fin
@@ -307,6 +323,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 1
     pearls: 0
+    windup: 0.3
+    poise: 0.3
     mark: 0
     limbs:
     - part: Head
@@ -339,6 +357,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 1
     pearls: 0
+    windup: 0.55
+    poise: 0.2
     mark: 1
     limbs:
     - part: Head
@@ -367,6 +387,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 1
     pearls: 0
+    windup: 0.3
+    poise: 0.2
     mark: 1
     limbs:
     - part: Head
@@ -399,6 +421,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 1
     pearls: 0
+    windup: 0.3
+    poise: 0.3
     mark: 0
     limbs:
     - part: Tent1
@@ -447,6 +471,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 1
     pearls: 0
+    windup: 0.6
+    poise: 0.2
     mark: 1
     limbs:
     - part: ClawL
@@ -483,6 +509,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 0.15
     pearls: 2
+    windup: 0.3
+    poise: 0.3
     mark: 0
     limbs:
     - part: Lid
@@ -511,6 +539,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 1
     pearls: 0
+    windup: 0.65
+    poise: 2
     mark: 0
     limbs: []
   - id: tidemother
@@ -535,6 +565,8 @@ MonoBehaviour:
     minWave: 1
     spawnWeight: 1
     pearls: 10
+    windup: 0.75
+    poise: 2
     mark: 1
     limbs:
     - part: ClawL
@@ -566,6 +598,7 @@ MonoBehaviour:
     magazine: 6
     pierce: 0
     element: 0
+    sound: shot
     recoil: 3.5
     reloadStyle: 1
     lifesteal: 0
@@ -586,6 +619,7 @@ MonoBehaviour:
     magazine: 24
     pierce: 0
     element: 0
+    sound: smg
     recoil: 1.6
     reloadStyle: 0
     lifesteal: 0
@@ -607,6 +641,7 @@ MonoBehaviour:
     magazine: 6
     pierce: 0
     element: 0
+    sound: shotgun
     recoil: 8
     reloadStyle: 2
     lifesteal: 0
@@ -628,6 +663,7 @@ MonoBehaviour:
     magazine: 3
     pierce: 99
     element: 0
+    sound: harpoon
     recoil: 6
     reloadStyle: 4
     lifesteal: 0
@@ -648,6 +684,7 @@ MonoBehaviour:
     magazine: 5
     pierce: 1
     element: 0
+    sound: rifle
     recoil: 7
     reloadStyle: 3
     lifesteal: 0
@@ -669,6 +706,7 @@ MonoBehaviour:
     magazine: 4
     pierce: 0
     element: 1
+    sound: flare
     recoil: 4.5
     reloadStyle: 5
     lifesteal: 0
@@ -689,6 +727,7 @@ MonoBehaviour:
     magazine: 10
     pierce: 0
     element: 2
+    sound: zap
     recoil: 2.5
     reloadStyle: 6
     lifesteal: 0
@@ -709,6 +748,7 @@ MonoBehaviour:
     magazine: 40
     pierce: 0
     element: 1
+    sound: torch
     recoil: 0.8
     reloadStyle: 7
     lifesteal: 0
@@ -1417,6 +1457,8 @@ MonoBehaviour:
     pierce: 0
     splash: 0
     knockback: 0
+    zoom: 0.75
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
     limbBonus: 0
     setElement: 0
     element: 0
@@ -1438,6 +1480,8 @@ MonoBehaviour:
     pierce: 0
     splash: 0
     knockback: 0
+    zoom: 0.45
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
     limbBonus: 0
     setElement: 0
     element: 0
@@ -1445,7 +1489,7 @@ MonoBehaviour:
     displayName: Barnacle Brake
     description: A muzzle brake crusted with barnacles. Half the kick, and a little
       tighter.
-    slot: 0
+    slot: 1
     mount: 2
     price: 140
     model: AttBrake
@@ -1459,6 +1503,8 @@ MonoBehaviour:
     pierce: 0
     splash: 0
     knockback: 0
+    zoom: 1
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
     limbBonus: 0
     setElement: 0
     element: 0
@@ -1466,7 +1512,7 @@ MonoBehaviour:
     displayName: Long Barrel
     description: A longer barrel from the harbour armoury. +20% damage and +30% range;
       kicks a bit harder.
-    slot: 0
+    slot: 1
     mount: 2
     price: 220
     model: AttBarrel
@@ -1480,13 +1526,15 @@ MonoBehaviour:
     pierce: 0
     splash: 0
     knockback: 0
+    zoom: 1
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
     limbBonus: 0
     setElement: 0
     element: 0
   - id: drum
     displayName: Drum Magazine
     description: 'A fat drum of rounds: +60% magazine, but it''s slower to reload.'
-    slot: 0
+    slot: 4
     mount: 3
     price: 180
     model: AttDrum
@@ -1500,13 +1548,15 @@ MonoBehaviour:
     pierce: 0
     splash: 0
     knockback: 0
+    zoom: 1
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
     limbBonus: 0
     setElement: 0
     element: 0
   - id: quickclip
     displayName: Quick-Draw Clip
     description: Rounds pre-loaded on a brass clip. Reloads 35% faster.
-    slot: 0
+    slot: 4
     mount: 3
     price: 160
     model: AttClip
@@ -1520,6 +1570,8 @@ MonoBehaviour:
     pierce: 0
     splash: 0
     knockback: 0
+    zoom: 1
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
     limbBonus: 0
     setElement: 0
     element: 0
@@ -1527,7 +1579,7 @@ MonoBehaviour:
     displayName: Sharkskin Grip
     description: Rough sharkskin that never slips, wet or dry. +15% fire rate, a
       little less kick.
-    slot: 0
+    slot: 3
     mount: 4
     price: 150
     model: AttGrip
@@ -1541,6 +1593,8 @@ MonoBehaviour:
     pierce: 0
     splash: 0
     knockback: 0
+    zoom: 1
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
     limbBonus: 0
     setElement: 0
     element: 0
@@ -1548,7 +1602,7 @@ MonoBehaviour:
     displayName: Driftwood Stock
     description: A stock carved from driftwood, braced on the shoulder. 40% less
       kick, 20% less spread.
-    slot: 0
+    slot: 3
     mount: 4
     price: 130
     model: AttStock
@@ -1562,14 +1616,152 @@ MonoBehaviour:
     pierce: 0
     splash: 0
     knockback: 0
+    zoom: 1
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
     limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: seaglass
+    displayName: Sea-Glass Reflex
+    description: 'A shard of sea glass in a brass frame. A quick, clear picture:
+      a little zoom and a slightly faster trigger.'
+    slot: 0
+    mount: 1
+    price: 170
+    model: AttReflex
+    damage: 1
+    fireRate: 1.05
+    reload: 1
+    magazine: 1
+    range: 1
+    spread: 0.7
+    recoil: 1
+    pierce: 0
+    splash: 0
+    knockback: 0
+    zoom: 0.65
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: coralchoke
+    displayName: Coral Choke
+    description: A throat of hard coral that bunches every shot. Far tighter, and
+      hits shove harder.
+    slot: 1
+    mount: 2
+    price: 190
+    model: AttChoke
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1.1
+    spread: 0.55
+    recoil: 1
+    pierce: 0
+    splash: 0
+    knockback: 2
+    zoom: 1
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: whalebone
+    displayName: Whalebone Stock
+    description: Light, springy and old. Reloads 20% faster, a quarter less kick.
+    slot: 3
+    mount: 4
+    price: 170
+    model: AttWhalebone
+    damage: 1
+    fireRate: 1
+    reload: 0.8
+    magazine: 1
+    range: 1
+    spread: 1
+    recoil: 0.75
+    pierce: 0
+    splash: 0
+    knockback: 0
+    zoom: 1
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: harbourlaser
+    displayName: Harbour Beam
+    description: 'A red beam from a harbour signal lamp. Shows exactly where you''re
+      aiming: 30% less spread.'
+    slot: 2
+    mount: 5
+    price: 150
+    model: AttLaserRed
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    spread: 0.7
+    recoil: 1
+    pierce: 0
+    splash: 0
+    knockback: 0
+    zoom: 1
+    laserColor: {r: 1, g: 0.15, b: 0.1, a: 0.9}
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: glowfishlaser
+    displayName: Glowfish Beam
+    description: A green beam, steady as a glowfish. Less spread and 20% less kick.
+    slot: 2
+    mount: 5
+    price: 190
+    model: AttLaserGreen
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    spread: 0.85
+    recoil: 0.8
+    pierce: 0
+    splash: 0
+    knockback: 0
+    zoom: 1
+    laserColor: {r: 0.25, g: 1, b: 0.45, a: 0.9}
+    limbBonus: 0
+    setElement: 0
+    element: 0
+  - id: anglerlaser
+    displayName: Angler Lure
+    description: A blue lure on a stalk, and creatures can't help but look. +30%
+      damage to limbs.
+    slot: 2
+    mount: 5
+    price: 240
+    model: AttLaserBlue
+    damage: 1
+    fireRate: 1
+    reload: 1
+    magazine: 1
+    range: 1
+    spread: 0.9
+    recoil: 1
+    pierce: 0
+    splash: 0
+    knockback: 0
+    zoom: 1
+    laserColor: {r: 0.3, g: 0.7, b: 1, a: 0.9}
+    limbBonus: 0.3
     setElement: 0
     element: 0
   - id: incendiary
     displayName: Incendiary Rounds
     description: Rounds packed with lamp oil. Sets dry creatures alight; wet ones
       only steam.
-    slot: 1
+    slot: 4
     mount: 0
     price: 200
     model: AmmoFire
@@ -1583,6 +1775,8 @@ MonoBehaviour:
     pierce: 0
     splash: 0
     knockback: 0
+    zoom: 1
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
     limbBonus: 0
     setElement: 1
     element: 1
@@ -1590,7 +1784,7 @@ MonoBehaviour:
     displayName: Eel-Shock Rounds
     description: Charged from a live eel. Shock hits wet creatures hard, and most
       of them come out of the sea dripping.
-    slot: 1
+    slot: 4
     mount: 0
     price: 220
     model: AmmoShock
@@ -1604,13 +1798,15 @@ MonoBehaviour:
     pierce: 0
     splash: 0
     knockback: 0
+    zoom: 1
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
     limbBonus: 0
     setElement: 1
     element: 2
   - id: harpoontip
     displayName: Harpoon-Tip Rounds
     description: 'Barbed steel tips: every shot goes through one more creature.'
-    slot: 1
+    slot: 4
     mount: 0
     price: 180
     model: AmmoPierce
@@ -1624,6 +1820,8 @@ MonoBehaviour:
     pierce: 1
     splash: 0
     knockback: 0
+    zoom: 1
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
     limbBonus: 0
     setElement: 0
     element: 0
@@ -1631,7 +1829,7 @@ MonoBehaviour:
     displayName: Blasting Caps
     description: Rounds that burst on impact, hurting everything close by. A touch
       weaker and slower.
-    slot: 1
+    slot: 4
     mount: 0
     price: 280
     model: AmmoBlast
@@ -1645,13 +1843,15 @@ MonoBehaviour:
     pierce: 0
     splash: 1.6
     knockback: 0
+    zoom: 1
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
     limbBonus: 0
     setElement: 0
     element: 0
   - id: hollow
     displayName: Hollow Points
     description: 'Mushrooming rounds: +50% damage to limbs. Shoot their claws off.'
-    slot: 1
+    slot: 4
     mount: 0
     price: 160
     model: AmmoHollow
@@ -1665,9 +1865,180 @@ MonoBehaviour:
     pierce: 0
     splash: 0
     knockback: 0
+    zoom: 1
+    laserColor: {r: 1, g: 0, b: 0, a: 1}
     limbBonus: 0.5
     setElement: 0
     element: 0
+  skins:
+  - id: factory
+    displayName: Factory
+    description: As it left the armoury.
+    pattern: 0
+    colorA: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+    colorB: {r: 0, g: 0, b: 0, a: 1}
+    colorC: {r: 0, g: 0, b: 0, a: 1}
+    glow: {r: 0, g: 0, b: 0, a: 1}
+    patternScale: 10
+    pulse: 0
+    metallic: 0.3
+    smoothness: 0.4
+    pearls: 0
+    kills: 0
+  - id: rust
+    displayName: Rusted Hull
+    description: Left out in the salt for a decade. Still fires.
+    pattern: 2
+    colorA: {r: 0.45, g: 0.24, b: 0.13, a: 1}
+    colorB: {r: 0.2, g: 0.11, b: 0.08, a: 1}
+    colorC: {r: 0.16, g: 0.1, b: 0.08, a: 1}
+    glow: {r: 0, g: 0, b: 0, a: 1}
+    patternScale: 14
+    pulse: 0
+    metallic: 0.1
+    smoothness: 0.1
+    pearls: 0
+    kills: 0
+  - id: dunes
+    displayName: Dune Camo
+    description: Blends right into the beach, for all the good it does.
+    pattern: 2
+    colorA: {r: 0.78, g: 0.68, b: 0.46, a: 1}
+    colorB: {r: 0.42, g: 0.34, b: 0.2, a: 1}
+    colorC: {r: 0.25, g: 0.2, b: 0.13, a: 1}
+    glow: {r: 0, g: 0, b: 0, a: 1}
+    patternScale: 11
+    pulse: 0
+    metallic: 0
+    smoothness: 0.15
+    pearls: 0
+    kills: 0
+  - id: tiger
+    displayName: Tiger Shark
+    description: Grey and black bars, like the things in the surf.
+    pattern: 3
+    colorA: {r: 0.5, g: 0.55, b: 0.58, a: 1}
+    colorB: {r: 0.1, g: 0.12, b: 0.15, a: 1}
+    colorC: {r: 0.08, g: 0.09, b: 0.1, a: 1}
+    glow: {r: 0, g: 0, b: 0, a: 1}
+    patternScale: 9
+    pulse: 0
+    metallic: 0.25
+    smoothness: 0.55
+    pearls: 2
+    kills: 150
+  - id: reef
+    displayName: Coral Reef
+    description: Pink, orange and alive with colour.
+    pattern: 4
+    colorA: {r: 0.95, g: 0.42, b: 0.4, a: 1}
+    colorB: {r: 0.98, g: 0.75, b: 0.3, a: 1}
+    colorC: {r: 0.2, g: 0.55, b: 0.6, a: 1}
+    glow: {r: 0, g: 0, b: 0, a: 1}
+    patternScale: 13
+    pulse: 0
+    metallic: 0
+    smoothness: 0.35
+    pearls: 2
+    kills: 300
+  - id: scale
+    displayName: Dragonscale
+    description: Overlapping green scales with a wet shine.
+    pattern: 8
+    colorA: {r: 0.1, g: 0.45, b: 0.35, a: 1}
+    colorB: {r: 0.03, g: 0.14, b: 0.13, a: 1}
+    colorC: {r: 0.5, g: 0.4, b: 0.15, a: 1}
+    glow: {r: 0, g: 0, b: 0, a: 1}
+    patternScale: 17
+    pulse: 0
+    metallic: 0.6
+    smoothness: 0.65
+    pearls: 3
+    kills: 500
+  - id: ketchup
+    displayName: Ketchup & Mustard
+    description: Exactly what it looks like. The chef insists.
+    pattern: 6
+    colorA: {r: 0.8, g: 0.1, b: 0.08, a: 1}
+    colorB: {r: 0.95, g: 0.78, b: 0.12, a: 1}
+    colorC: {r: 0.75, g: 0.5, b: 0.25, a: 1}
+    glow: {r: 0, g: 0, b: 0, a: 1}
+    patternScale: 11
+    pulse: 0
+    metallic: 0
+    smoothness: 0.5
+    pearls: 3
+    kills: 750
+  - id: reactor
+    displayName: Nuclear Sand
+    description: Hazard stripes off a cooling tower door. Probably safe.
+    pattern: 7
+    colorA: {r: 0.95, g: 0.78, b: 0.1, a: 1}
+    colorB: {r: 0.05, g: 0.05, b: 0.05, a: 1}
+    colorC: {r: 0.08, g: 0.08, b: 0.08, a: 1}
+    glow: {r: 0, g: 0, b: 0, a: 1}
+    patternScale: 12
+    pulse: 0
+    metallic: 0.2
+    smoothness: 0.45
+    pearls: 4
+    kills: 1000
+  - id: gilded
+    displayName: Gilded Galleon
+    description: Solid gold, from a wreck nobody came back from.
+    pattern: 1
+    colorA: {r: 1, g: 0.77, b: 0.3, a: 1}
+    colorB: {r: 0, g: 0, b: 0, a: 1}
+    colorC: {r: 0.3, g: 0.08, b: 0.08, a: 1}
+    glow: {r: 0, g: 0, b: 0, a: 1}
+    patternScale: 10
+    pulse: 0
+    metallic: 1
+    smoothness: 0.8
+    pearls: 5
+    kills: 1500
+  - id: pearl
+    displayName: Mother of Pearl
+    description: Shifts colour as you turn it.
+    pattern: 9
+    colorA: {r: 0.95, g: 0.93, b: 0.96, a: 1}
+    colorB: {r: 0, g: 0, b: 0, a: 1}
+    colorC: {r: 0.8, g: 0.75, b: 0.85, a: 1}
+    glow: {r: 0, g: 0, b: 0, a: 1}
+    patternScale: 10
+    pulse: 0
+    metallic: 0.35
+    smoothness: 0.85
+    pearls: 6
+    kills: 2000
+  - id: trench
+    displayName: Deep Trench
+    description: Black as the bottom of the sea, with something glowing in the cracks.
+    pattern: 5
+    colorA: {r: 0.03, g: 0.07, b: 0.16, a: 1}
+    colorB: {r: 0.05, g: 0.35, b: 0.5, a: 1}
+    colorC: {r: 0.02, g: 0.03, b: 0.07, a: 1}
+    glow: {r: 0.15, g: 1.6, b: 2, a: 1}
+    patternScale: 8
+    pulse: 2.5
+    metallic: 0.4
+    smoothness: 0.7
+    pearls: 8
+    kills: 3000
+  - id: vent
+    displayName: Lava Vent
+    description: Cooled rock from a seabed vent. Not completely cooled.
+    pattern: 5
+    colorA: {r: 0.06, g: 0.05, b: 0.05, a: 1}
+    colorB: {r: 0.6, g: 0.15, b: 0.02, a: 1}
+    colorC: {r: 0.03, g: 0.03, b: 0.03, a: 1}
+    glow: {r: 3, g: 0.8, b: 0.1, a: 1}
+    patternScale: 8
+    pulse: 4
+    metallic: 0.1
+    smoothness: 0.25
+    pearls: 10
+    kills: 4000
   cards:
   - id: redtide
     displayName: Red Tide
@@ -2226,6 +2597,11 @@ MonoBehaviour:
   reviveHpFraction: 0.4
   startGun: revolver
   startMelee: spade
+  gunSlots: 3
+  swapSeconds: 0.3
+  aimSpread: 0.5
+  aimZoom: 0.85
+  meleeHitStop: 0.05
   startSandDollars: 40
   gunsUnlockWave: 4
   perfectReloadBonus: 0.25

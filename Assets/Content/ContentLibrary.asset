@@ -21,6 +21,7 @@ MonoBehaviour:
   particle: {fileID: 2100000, guid: 32e0b205977525a4e88436d33865896f, type: 2}
   particleAdditive: {fileID: 2100000, guid: 800454bda38a2ed4eb91ba4e5b7497b2, type: 2}
   sky: {fileID: 2100000, guid: 9433d32414b0a3d439bb5540426f44ce, type: 2}
+  skin: {fileID: 2100000, guid: b01ce3408bcfdc345958b9fc153e08d2, type: 2}
   models:
   - name: AmmoBlast
     prefab: {fileID: 919132149155446097, guid: f0bc3d00c1d25694db7aee14bc2088c4, type: 3}
@@ -40,18 +41,30 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: 8cafddc443a839f43941d8db541088b4, type: 3}
   - name: AttBrake
     prefab: {fileID: 919132149155446097, guid: cc8b2dbb01c3fcd42a9ebf7eda150a46, type: 3}
+  - name: AttChoke
+    prefab: {fileID: 919132149155446097, guid: b2f8d98de2ee0da44a462671e03dacc5, type: 3}
   - name: AttClip
     prefab: {fileID: 919132149155446097, guid: 439050443aa11374d9c87615b3833c35, type: 3}
   - name: AttDrum
     prefab: {fileID: 919132149155446097, guid: 942a1b59409159547bd4d951aaa6e8d8, type: 3}
   - name: AttGrip
     prefab: {fileID: 919132149155446097, guid: c4ff1cceb7e06fe42b12e0c28942b795, type: 3}
+  - name: AttLaserBlue
+    prefab: {fileID: 919132149155446097, guid: b36597c0c67c19649adafa502785ae42, type: 3}
+  - name: AttLaserGreen
+    prefab: {fileID: 919132149155446097, guid: 5ba3d1017181cab42b6dbb6a0bdc191d, type: 3}
+  - name: AttLaserRed
+    prefab: {fileID: 919132149155446097, guid: 163830b8d43155c419170c2be46fb5ef, type: 3}
+  - name: AttReflex
+    prefab: {fileID: 919132149155446097, guid: 2c6872eb63aa7d04f931564bda69ecc3, type: 3}
   - name: AttScope
     prefab: {fileID: 919132149155446097, guid: 0d14677a2dd042a4085bddad46d8efce, type: 3}
   - name: AttSight
     prefab: {fileID: 919132149155446097, guid: dcae75267647f30479a9d7bcf9ad0a8b, type: 3}
   - name: AttStock
     prefab: {fileID: 919132149155446097, guid: 186ce44d4259eeb45b40c345026490d9, type: 3}
+  - name: AttWhalebone
+    prefab: {fileID: 919132149155446097, guid: a2df676712c42294da981765fb220092, type: 3}
   - name: BaitBucket
     prefab: {fileID: 919132149155446097, guid: 23101b92737e04f45b9cb23b7f35c19a, type: 3}
   - name: Barricade
@@ -239,16 +252,24 @@ MonoBehaviour:
     clip: {fileID: 8300000, guid: f49bcb3ef8b87a24996e8c22d2b0e76f, type: 3}
   - name: boom
     clip: {fileID: 8300000, guid: 20143b6aacaf9f34882bb414be78f9bd, type: 3}
+  - name: click
+    clip: {fileID: 8300000, guid: a61bc88fefec7c04eac15cfef5478615, type: 3}
+  - name: clink
+    clip: {fileID: 8300000, guid: 20cafc17f1b0ebf47b77f77f64746f85, type: 3}
   - name: coin
     clip: {fileID: 8300000, guid: f1f78f898496e5248a86e2c65f6c5d0a, type: 3}
   - name: combo
     clip: {fileID: 8300000, guid: 4c32d83e56568ed4e8f3d988ef2e17a1, type: 3}
+  - name: crit
+    clip: {fileID: 8300000, guid: 5b68361813d998b48ab10c721923d292, type: 3}
   - name: deny
     clip: {fileID: 8300000, guid: 0e8903f8aa6de8849b35675ff25d09e2, type: 3}
   - name: eat
     clip: {fileID: 8300000, guid: 93f1048db04916e4aaac0d8a58ac21d4, type: 3}
   - name: flare
     clip: {fileID: 8300000, guid: f5b5e331de14a4b4e8fcddba8b7a708d, type: 3}
+  - name: growl
+    clip: {fileID: 8300000, guid: e8fb2ca399fe77044ad883efb8ef794e, type: 3}
   - name: gulp
     clip: {fileID: 8300000, guid: 36e05f9c76bdc7d44b4be2ef7d2ed602, type: 3}
   - name: harpoon
@@ -271,20 +292,30 @@ MonoBehaviour:
     clip: {fileID: 8300000, guid: 4ecd751426175c14cbfbfa68384fad28, type: 3}
   - name: reload
     clip: {fileID: 8300000, guid: 7a91acb0c0974e247a8bb5ec16ce579a, type: 3}
+  - name: rifle
+    clip: {fileID: 8300000, guid: a5cefefffe920ff409e631562950abc5, type: 3}
   - name: sever
     clip: {fileID: 8300000, guid: fa580eb1aa891a4449f7b80770ad0552, type: 3}
   - name: shot
     clip: {fileID: 8300000, guid: b45e2de34c46a6e4ea66a5c04a4e72b2, type: 3}
   - name: shotgun
     clip: {fileID: 8300000, guid: a96171db4f7831b41a4b6a467b1d6a44, type: 3}
+  - name: smg
+    clip: {fileID: 8300000, guid: 596c92c8cee789145bf4c1d629b4102b, type: 3}
   - name: splash
     clip: {fileID: 8300000, guid: fa4de86a910cc7d4d9b0d92a0dc92ea1, type: 3}
   - name: surf
     clip: {fileID: 8300000, guid: 7e96e494e4b3caf4891b556e9abc9bb3, type: 3}
+  - name: swap
+    clip: {fileID: 8300000, guid: 530876095f7f34e46a3ca5adf3fae783, type: 3}
   - name: swing
     clip: {fileID: 8300000, guid: 9827128430d9d0647a5ce2036ba68777, type: 3}
+  - name: thud
+    clip: {fileID: 8300000, guid: e93825439206f2d42ad60b9131e9ec36, type: 3}
   - name: tick
     clip: {fileID: 8300000, guid: 2ee96718a6251a840bbbf03915c5789a, type: 3}
+  - name: torch
+    clip: {fileID: 8300000, guid: 4d11a22be09f5e6428be9579c9b5badc, type: 3}
   - name: ui
     clip: {fileID: 8300000, guid: e7e51bd909381314cac44baf1d4bc1ae, type: 3}
   - name: zap

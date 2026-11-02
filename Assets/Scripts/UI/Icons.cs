@@ -13,7 +13,7 @@ namespace TideWall
         static Camera cam;
         static Light key;
 
-        /// <summary>The picture of a model (null if it can't be drawn, e.g. without a graphics device).</summary>
+        /// <summary>The picture of a model (null if it can't be drawn, e.g. without a graphics device). "Model#skin" draws it wearing that skin.</summary>
         public static Sprite For(string model) => For(model, .35f);
 
         /// <summary>The picture from higher up (elevation: how far above the three-quarter view the camera sits; the
@@ -52,7 +52,9 @@ namespace TideWall
                     key.transform.rotation = Quaternion.Euler(35, -40, 0);
                     key.enabled = false;
                 }
-                var mi = ModelFactory.Spawn(model, null, stage);
+                int hash = model.IndexOf('#');
+                var mi = ModelFactory.Spawn(hash < 0 ? model : model.Substring(0, hash), null, stage);
+                if (hash >= 0) Skins.Apply(mi, GameDatabase.Load().Skin(model.Substring(hash + 1)));
                 go = mi.root;
                 foreach (var t in go.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layer;
                 go.transform.rotation = Quaternion.Euler(0, 210, 0);   // three-quarter view

@@ -95,7 +95,7 @@ namespace TideWall
         public readonly Dictionary<string, int> Allocated = new();
         /// <summary>Mods on each weapon (weapon id → mod ids).</summary>
         public readonly Dictionary<string, List<string>> Mods = new();
-        /// <summary>Attachment and ammo on each gun (gun id → ids, one per slot). Bought in the shop.</summary>
+        /// <summary>The parts on each gun (gun id → ids, one per slot). Bought in the shop, moved around in the Inventory.</summary>
         public readonly Dictionary<string, List<string>> Attachments = new();
         /// <summary>The mods on offer right now (null if none is waiting).</summary>
         public List<ModDef> ModOffer { get; private set; }
@@ -252,6 +252,15 @@ namespace TideWall
             var save = gm.Loaded?.players.Find(s => s.index == Index);
             if (save == null) return;
             foreach (var g in save.guns) if (db.Gun(g) != null) { ownedGuns.Add(g); ammo[g] = Mathf.RoundToInt(db.Gun(g).magazine * gm.Team.Magazine); }
+            // (A save from before the inventory has no loadout: carry the first guns it owned)
+            Loadout.Clear();
+            foreach (var g in save.loadout.Count > 0 ? save.loadout : save.guns) if (db.Gun(g) != null && Loadout.Count < db.gunSlots && !Loadout.Contains(g)) Loadout.Add(g);
+            foreach (var part in save.parts) if (db.Attachment(part) != null) OwnedParts.Add(part);
+            foreach (var ws in save.skins)
+            {
+                var parts = ws.Split('/');
+                if (parts.Length == 2 && db.Skin(parts[1]) != null) WeaponSkins[parts[0]] = parts[1];
+            }
             foreach (var m in save.melees) if (db.Melee(m) != null) ownedMelee.Add(m);
             if (db.Gun(save.gun) != null) GiveGun(save.gun);
             if (db.Melee(save.melee) != null) GiveMelee(save.melee);
@@ -279,15 +288,13 @@ namespace TideWall
         {
             var g = db.Gun(id); if (g == null) return;
             ownedGuns.Add(id);
+            Carry(id);
             Gun = g;
             RebuildWeapons();
             if (!ammo.ContainsKey(id)) ammo[id] = MagSize;
+            else if (Simulated && ammo[id] > MagSize) ammo[id] = MagSize;   // its drum came off while it was away
             reload = null; perfectBonus = 0;
-            if (gunModel != null) Destroy(gunModel.root);
-            gunModel = ModelFactory.Spawn(g.model, Socket("Gun"), Vector3.zero);
-            DressGun(gunModel, g.id);
-            SetLayer(gunModel.root.transform, BodyLayer + Index);
-            if (Cam != null) Cam.View.Rebuild();
+            SpawnGunModel();
         }
 
         public void GiveMelee(string id)
@@ -296,11 +303,7 @@ namespace TideWall
             ownedMelee.Add(id);
             Melee = m;
             RebuildWeapons();
-            if (meleeModel != null) Destroy(meleeModel.root);
-            meleeModel = ModelFactory.Spawn(m.model, Socket("Melee"), Vector3.zero);
-            meleeModel.root.transform.localRotation = Quaternion.Euler(-60, 0, 0);   // held up, ready to swing
-            SetLayer(meleeModel.root.transform, BodyLayer + Index);
-            if (Cam != null) Cam.View.Rebuild();
+            SpawnMeleeModel();
         }
 
         Transform Socket(string name) => model.Sockets.TryGetValue(name, out var s) ? s : visual;
@@ -349,6 +352,7 @@ namespace TideWall
             if (Kind == PlayerKind.Local) LocalButtons();
             else PrefersFirstPerson = Remote.FirstPerson;
             if (Pressed(Btn.Stats) && !Rebinder.Busy) ToggleStats();
+            if (Pressed(Btn.Inventory) && !Rebinder.Busy && gm.State == GameState.Playing && !IsOut) ToggleInventory();
             float udt = Time.unscaledDeltaTime;
             if (gm.State == GameState.GameOver) { UpdateReticle(false); return; }
             if (dt <= 0) { if (OpenedMenu != null) UpdateMenu(udt); UpdateReticle(false); return; }   // paused (offline)

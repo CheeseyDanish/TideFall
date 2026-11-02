@@ -87,13 +87,23 @@ namespace TideWall
             m.Add("+5 golden pearls", null, null, pick: () => gm.AddPearls(5));
             m.Add("Level up", $"level {p.Level}", "One level for you (stat points and mods as normal).", pick: () => LevelUp(p, 1));
             m.Add("Level up everyone ×5", null, "Five levels for every player.", pick: () => { foreach (var q in gm.Players.All) LevelUp(q, 5); });
-            m.Add("Every weapon", null, "You own every gun and melee weapon (switch with Swap; the one in your hands stays).", pick: () =>
+            m.Add("Every weapon", null, "You own every gun and melee weapon (in your stash: pick three in the Inventory).", pick: () =>
             {
-                string gun = p.Gun.id, melee = p.Melee.id;
-                foreach (var g in gm.DB.guns) p.GiveGun(g.id);
+                string melee = p.Melee.id;
+                foreach (var g in gm.DB.guns) p.OwnGun(g.id);
                 foreach (var w in gm.DB.melee) p.GiveMelee(w.id);
-                p.GiveGun(gun); p.GiveMelee(melee);
+                p.GiveMelee(melee);
                 Done(p, "Every weapon");
+            });
+            m.Add("Every attachment", null, "You own every part (fit them in the Inventory or the shop).", pick: () =>
+            {
+                foreach (var a in gm.DB.attachments) p.OwnedParts.Add(a.id);
+                Done(p, "Every attachment");
+            });
+            m.Add("Every skin", null, "Unlocks them in this run's record too.", pick: () =>
+            {
+                foreach (var s in gm.DB.skins) Legacy.UnlockSkin(s.id);
+                Done(p, "Every skin");
             });
             m.Add("Refill ammo", null, null, pick: () => { foreach (var q in gm.Players.All) if (q.Simulated) q.DebugRefill(); });
             m.Add("Heal everyone", null, null, pick: () => { foreach (var q in gm.Players.All) if (q.Simulated) q.Heal(q.MaxHp); });

@@ -16,11 +16,14 @@ namespace TideWall
         Transform gunRoot, meleeRoot, flash;
         Model gun, melee;
         int lastAmmo;
-        float kick, bobT, flashT;
+        float kick, kickVel, bobT, flashT, raise, lastYaw, lastPitch;
+        Vector2 sway;
+        TrailRenderer trail;
         Vector3 lastPos;
         string gunId, meleeId;
 
         static readonly Vector3 GunRest = new(.3f, -.27f, .6f);
+        static readonly Vector3 SightRest = new(0, -.115f, .46f);   // centred, with the sights on the crosshair
 
         public static ViewModel Create(Player p, PlayerCamera cam)
         {
@@ -47,25 +50,43 @@ namespace TideWall
         }
 
         /// <summary>The player changed weapons: swap the held models.</summary>
-        public void Rebuild()
+        public void Rebuild(bool force = false)
         {
             if (p == null || p.Gun == null || p.Melee == null || gunRoot == null) return;
-            if (gunId != p.Gun.id)
+            if (gunId != p.Gun.id || force)
             {
-                if (gun != null) Destroy(gun.root);
+                if (gunId != null && gunId != p.Gun.id) raise = 1;   // a new gun comes up from below the view
+                if (gun != null) { gun.root.SetActive(false); Destroy(gun.root); }
                 gun = ModelFactory.Spawn(p.Gun.model, gunRoot, Vector3.zero, .55f);
+                Skins.Apply(gun, p.SkinOn(p.Gun.id));
                 Player.DressGun(gun, p.AttachmentsOn(p.Gun.id));
                 Prepare(gun);
                 gunId = p.Gun.id;
                 lastAmmo = p.Ammo;
                 if (flash != null) flash.localPosition = gun.Sockets.TryGetValue("Muzzle", out var mz) ? gunRoot.InverseTransformPoint(mz.position) : new Vector3(0, .03f, .3f);
             }
-            if (meleeId != p.Melee.id)
+            if (meleeId != p.Melee.id || force)
             {
-                if (melee != null) Destroy(melee.root);
+                if (melee != null) { melee.root.SetActive(false); Destroy(melee.root); }
                 melee = ModelFactory.Spawn(p.Melee.model, meleeRoot, Vector3.zero, .42f);
+                Skins.Apply(melee, p.SkinOn(p.Melee.id));
                 Prepare(melee);
                 meleeId = p.Melee.id;
+                // A streak behind the blade through the strike
+                if (trail == null)
+                {
+                    var tip = new GameObject("BladeTip");
+                    tip.layer = Player.ViewLayer + p.Index;
+                    tip.transform.SetParent(meleeRoot, false);
+                    trail = tip.AddComponent<TrailRenderer>();
+                    trail.material = Mats.ParticleAdditive;
+                    trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    trail.time = .11f; trail.startWidth = .07f; trail.endWidth = 0; trail.minVertexDistance = .015f;
+                    trail.startColor = new Color(1, .95f, .8f, .55f); trail.endColor = new Color(1, .95f, .8f, 0);
+                    trail.emitting = false;
+                }
+                var b = ModelFactory.Bounds(melee.root);
+                trail.transform.position = b.center + meleeRoot.forward * b.extents.magnitude * .85f;
             }
         }
 
@@ -98,12 +119,21 @@ namespace TideWall
             // A shot: the magazine count dropped
             if (p.Ammo < lastAmmo && !locked)
             {
-                kick = 1; flashT = .05f;
+                kickVel += 11; flashT = .05f;
                 if (p.Cam != null) p.Cam.Kick(p.EffGun != null ? p.EffGun.recoil : 3);
                 Fx.Casing(gunRoot.position + gunRoot.right * .05f, gunRoot.right);
             }
             lastAmmo = p.Ammo;
-            kick = Mathf.MoveTowards(kick, 0, dt * 6);
+            // The kick is a spring: it snaps back, overshoots a touch and settles. Sights up: a far smaller jolt
+            kickVel += (-kick * 170 - kickVel * 17) * dt;
+            kick = Mathf.Clamp(kick + kickVel * dt, -.3f, 1.2f);
+            raise = Mathf.MoveTowards(raise, 0, dt * 4.5f);
+            float aim = p.AimAmount;
+            // The weapon lags a little behind the look
+            float yawNow = p.Yaw, pitchNow = p.Pitch;
+            var lag = new Vector2(Mathf.DeltaAngle(lastYaw, yawNow), pitchNow - lastPitch);
+            lastYaw = yawNow; lastPitch = pitchNow;
+            sway = Vector2.Lerp(sway, Vector2.ClampMagnitude(lag * .012f, .05f), 1 - Mathf.Exp(-dt * 14));
             flashT -= dt;
             flash.gameObject.SetActive(flashT > 0);
             if (flashT > 0) { flash.localRotation = Quaternion.Euler(0, 0, Random.Range(0, 360f)); flash.localScale = Vector3.one * Random.Range(.18f, .3f); }
@@ -123,19 +153,26 @@ namespace TideWall
             // Gun: rest pose, a hard kick back and up (bigger for heavy guns), dipped and tilted while reloading
             float reload = p.ReloadProgress >= 0 ? Mathf.Sin(p.ReloadProgress * Mathf.PI) : 0;
             float heavy = p.EffGun != null ? Mathf.Clamp(p.EffGun.recoil / 4, .6f, 2f) : 1;
-            gunRoot.localPosition = new Vector3(GunRest.x, GunRest.y * k, GunRest.z) + bob + new Vector3(0, -.18f * reload * k + .03f * kick * heavy, -.12f * kick * heavy);
-            gunRoot.localRotation = Quaternion.Euler(-22 * kick * heavy + 35 * reload, -3, 25 * reload + Random.Range(-2f, 2f) * kick);
+            float jolt = 1 - aim * .65f, drawn = raise * raise;
+            var hold = Vector3.Lerp(new Vector3(GunRest.x, GunRest.y * k, GunRest.z), SightRest, aim);
+            gunRoot.localPosition = hold + bob * (1 - aim * .8f) - (Vector3)sway * (1 - aim * .7f)
+                                  + new Vector3(0, -.18f * reload * k + .03f * kick * heavy * jolt - .4f * drawn, -.12f * kick * heavy * jolt);
+            gunRoot.localRotation = Quaternion.Euler(-22 * kick * heavy * jolt + 35 * reload + 45 * drawn, Mathf.Lerp(-3, 0, aim) - sway.x * 40, 25 * reload + Random.Range(-2f, 2f) * kick * jolt - sway.x * 30);
             if (sp >= 0) gunRoot.localPosition += new Vector3(.05f, -.14f * k, 0);   // the gun dips out of the way of a swing
 
             // Melee: held ready (guns holstered) or swinging in its weapon's style
             if (sp < 0)
             {
                 // Held ready at the lower right, blade up and angled away (not poking into the middle of the view)
+                if (trail != null) trail.emitting = false;
                 float breathe = Mathf.Sin(Time.time * 1.6f) * .006f;
                 meleeRoot.localPosition = new Vector3(.42f, -.44f * k + breathe, .55f) + bob;
                 meleeRoot.localRotation = Quaternion.Euler(-52, 26, -22);
                 return;
             }
+            // The streak only shows through the strike itself
+            float w = p.Melee.windup / p.Melee.SwingTime, st = (p.Melee.windup + p.Melee.strike) / p.Melee.SwingTime;
+            if (trail != null) trail.emitting = sp > w * .7f && sp < st + .08f;
             var (pos, rot) = Swing(p.Melee, sp, k);
             meleeRoot.localPosition = pos + bob * .5f;
             meleeRoot.localRotation = rot;

@@ -27,6 +27,7 @@ namespace TideWall
         public static Material Unlit(Color c) => Get("Unlit", "Universal Render Pipeline/Unlit", c);
         public static Material Transparent(Color c) => Get("LitTransparent", "Universal Render Pipeline/Lit", c);
         public static Material Particle => Base("Particle", "Universal Render Pipeline/Particles/Unlit");
+        public static Material Skin => Base("Skin", "TideWall/Skin");
         public static Material ParticleAdditive => Base("ParticleAdditive", "Universal Render Pipeline/Particles/Unlit");
 
         static Material Get(string baseName, string shader, Color c)

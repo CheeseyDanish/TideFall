@@ -33,7 +33,13 @@ namespace TideWall
                 Sfx.Play("zap");
                 if (!d.chained) ChainShock(d);
             }
-            if (!d.ignoreArmor) dmg = Mathf.Max(1, dmg - armor);
+            if (!d.ignoreArmor && armor > 0)
+            {
+                // Glancing off a shell: you can see and hear that this isn't the place to shoot
+                dmg = Mathf.Max(1, dmg - armor);
+                Fx.Sparks(d.point == Vector3.zero ? bounds.center : d.point, new Color(1, .9f, .6f), 3);
+                Sfx.Play("clink", .5f, .05f);
+            }
             if (d.element == Element.Fire)
             {
                 if (Wet > .3f) { Wet = 0; Fx.Smoke(bounds.center, 8, .3f, new Color(.95f, .95f, 1f, .6f)); }   // steam: dries, no burn
@@ -42,9 +48,24 @@ namespace TideWall
             Hp -= dmg;
             flashT = .08f;
             flinch = .18f;
+            hitLean = d.dir.sqrMagnitude > .01f ? Quaternion.Inverse(transform.rotation) * d.dir : Vector3.forward * -1;
+            bool crit = limb != null && limb.Def.critMultiplier > 1;
+            if (d.melee || crit) stallT = Mathf.Max(stallT, d.melee ? .1f : .05f);   // a solid hit holds it for a moment
+            bool boss = Def.behaviour == EnemyBehaviour.Boss;
+            if (!boss && d.dir.sqrMagnitude > .01f) knock += d.dir * Mathf.Min(1.5f, dmg * .05f) / Mathf.Max(1, Radius);    // every hit shoves it, a little
+            poiseAcc += dmg / Mathf.Max(1, MaxHp);
+            if (poiseAcc >= Def.poise && Hp > 0)
+            {
+                // Hit hard enough, fast enough, it staggers: whatever it was winding up to is off
+                poiseAcc = 0; windupT = 0; windupTarget = null;
+                stunT = Mathf.Max(stunT, boss ? .15f : .4f);
+                Sfx.Play("thud", .5f, .08f);
+            }
             if (d.source != null) Fx.DamageNumber(d.point == Vector3.zero ? bounds.center + Vector3.up * bounds.extents.y : d.point, dmg,
                                                    limb != null && limb.Def.critMultiplier > 1, d.source);
-            Fx.Gore(d.point == Vector3.zero ? bounds.center : d.point, GoreColor, 4);
+            var wound = d.point == Vector3.zero ? bounds.center : d.point;
+            if (d.dir.sqrMagnitude > .01f) { Fx.Burst(wound, -d.dir + Vector3.up * .5f, GoreColor, crit ? 9 : 5, crit ? 5 : 3.5f); Fx.Burst(wound, d.dir + Vector3.up * .3f, GoreColor, 3, 5); }
+            else Fx.Gore(wound, GoreColor, 4);
             Sfx.Play("hit", .6f);
             d.source?.OnHitEnemy(this, dmg, limb != null && limb.Def.critMultiplier > 1, d.melee);
             if (d.knockback > 0) knock += d.dir * d.knockback * (Def.behaviour == EnemyBehaviour.Boss ? .2f : 1);
@@ -95,11 +116,15 @@ namespace TideWall
             var rb = t.gameObject.AddComponent<Rigidbody>();
             rb.mass = .4f;
             var away = d.dir.sqrMagnitude > .01f ? d.dir : (t.position - transform.position).normalized;
-            rb.linearVelocity = away * 4 + Vector3.up * 3.5f + Random.insideUnitSphere;
-            rb.angularVelocity = Random.insideUnitSphere * 12;
+            rb.linearVelocity = away * 5.5f + Vector3.up * 4.5f + Random.insideUnitSphere;
+            rb.angularVelocity = Random.insideUnitSphere * 14;
             Destroy(limb);
             Destroy(t.gameObject, 8);
             Fx.Gore(joint, GoreColor, 18);
+            Fx.Burst(joint, away + Vector3.up, GoreColor, 8, 6);
+            stunT = Mathf.Max(stunT, Def.behaviour == EnemyBehaviour.Boss ? .1f : .3f);   // losing a limb stops anything for a moment
+            windupT = 0; windupTarget = null;
+            d.source?.Shake(.06f);
             if (Def.behaviour == EnemyBehaviour.Octopus) Fx.Ink(joint, 6);
             Sfx.Play("sever");
             d.source?.OnSever(this, limb.Def);
@@ -130,7 +155,9 @@ namespace TideWall
             ShowBoard(false, launch: true);
             gm.Players.AwardKill(d.source, Def.Xp);
             d.source?.OnKill(this);
+            windupT = 0; windupTarget = null;
             Fx.Gore(bounds.center, GoreColor, 16);
+            if (d.source != null && Radius > 1) d.source.Shake(Mathf.Clamp(Radius * .08f, .05f, .3f));
             if (Def.behaviour == EnemyBehaviour.Puffer && corpse)
             {
                 // A popped puffer still bursts, smaller, hurting its neighbours.
@@ -144,12 +171,12 @@ namespace TideWall
             float frac = Limbs.Count == 0 ? 1 : .5f + .5f * intact / Def.limbs.Count;
             var c = gameObject.AddComponent<Corpse>();
             c.Init(Def, Mathf.Max(1, Mathf.RoundToInt(Def.corpseValue * frac * gm.Cards.CorpseValue)), Wet);
-            Model.root.transform.localPosition = Vector3.up * .1f;
-            Model.root.transform.localRotation = Quaternion.Euler(0, 0, Def.behaviour is EnemyBehaviour.Walker or EnemyBehaviour.Croc ? 180 : 85);
-            Model.root.transform.localScale = Vector3.one * Def.scale;
-            LiftCorpse();
-            if (Def.behaviour == EnemyBehaviour.Flyer || Def.behaviour == EnemyBehaviour.Jelly)
-                transform.position = new Vector3(transform.position.x, Arena.GroundY(transform.position.z), transform.position.z);
+            // It goes over the way the blow sent it (the corpse pose is where it ends up, on its back or its side)
+            bool onBack = Def.behaviour is EnemyBehaviour.Walker or EnemyBehaviour.Croc;
+            bool falls = Def.behaviour == EnemyBehaviour.Flyer || Def.behaviour == EnemyBehaviour.Jelly;
+            var thrown = d.dir.sqrMagnitude > .01f ? d.dir * (d.explosion ? 6 : d.melee ? 4.5f : 3) / Mathf.Max(1, Radius) : Vector3.zero;
+            thrown.y = 0;
+            DeathFlop.Begin(this, c, Quaternion.Euler(0, 0, onBack ? 180 : 85), thrown, falls);
             foreach (var r in Model.Renderers) if (r) r.SetPropertyBlock(null);
             foreach (var l in Limbs) if (l != null) Destroy(l);
             enabled = false;
