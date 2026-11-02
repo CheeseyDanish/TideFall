@@ -895,7 +895,7 @@ namespace TideWall.Tests
             Assert.NotNull(clawGo.GetComponent<Rigidbody>());
             Assert.False(crab.Dead);
             var eyes = crab.Limbs.Find(l => l.Def.part == "Eyes");
-            crab.TakeHit(new DamageInfo { amount = 999, ignoreArmor = true }, eyes);
+            crab.TakeHit(new DamageInfo { amount = 999, ignoreArmor = true }, eyes);   // (a blow this big leaves nothing to stumble on)
             yield return null;
             Assert.True(crab.Dead, "losing the eyes kills");
             var corpse = crab.GetComponent<Corpse>();

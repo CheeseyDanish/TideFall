@@ -76,6 +76,12 @@ namespace TideWall
             statusText = Ui.Text(c, "Status", tl, new Vector2(18, -72), new Vector2(420, 60), 14, TextAnchor.UpperLeft, Color.white);
             statusText.rectTransform.pivot = tl;
 
+            // Soft backings, so the HUD stays readable over anything in the world
+            var shade = new Color(.03f, .05f, .1f, .34f);
+            Ui.Image(c, "ShadeTop", new Vector2(.5f, 1), Vector2.zero, new Vector2(520, 100), shade);
+            Ui.Image(c, "ShadeCoins", new Vector2(1, 1), Vector2.zero, new Vector2(184, 52), shade);
+            Ui.Image(c, "ShadeGuns", new Vector2(0, 0), Vector2.zero, new Vector2(400, 108), shade);
+
             // Top-centre: phase, waves, wall
             var tc = new Vector2(.5f, 1);
             phaseText = Ui.Text(c, "Phase", tc, new Vector2(0, -10), new Vector2(560, 26), 19, TextAnchor.UpperCenter, Color.white);
@@ -83,7 +89,7 @@ namespace TideWall
             wallFill = Ui.Bar(c, "Plant", tc, new Vector2(-130, -40), new Vector2(260, 12), new Color(.4f, .95f, .45f));
             wallFill.transform.parent.GetComponent<RectTransform>().pivot = tc;
             wallFill.transform.parent.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, -40);
-            wallText = Ui.Text(c, "WallText", tc, new Vector2(0, -54), new Vector2(300, 20), 13, TextAnchor.UpperCenter, new Color(.9f, .88f, .8f));
+            wallText = Ui.Text(c, "WallText", tc, new Vector2(0, -62), new Vector2(460, 20), 13, TextAnchor.UpperCenter, new Color(.9f, .88f, .8f));
             wallText.rectTransform.pivot = tc;
 
             // Top-right: the team purse
@@ -151,6 +157,64 @@ namespace TideWall
             if (crit) Sfx.Play("crit", .7f, .05f);
         }
         float hitBig = 1;
+
+        Image[] wallCells;
+        GameObject scope;
+
+        /// <summary>One cell per wall section, left to right as you look out to sea from town: green to red as it's
+        /// battered, dark when it's down, flashing white as it's hit. You can see which part of the wall is in trouble.</summary>
+        void UpdateWallStrip()
+        {
+            if (gm.Wall == null || gm.World == null) return;
+            var sections = gm.Wall.Sections;
+            if (wallCells == null)
+            {
+                wallCells = new Image[sections.Count];
+                float w = 300f / Mathf.Max(1, sections.Count);
+                for (int i = 0; i < wallCells.Length; i++)
+                    wallCells[i] = Ui.Image(transform.GetComponentInChildren<Canvas>().transform, "WallCell", new Vector2(.5f, 1), new Vector2(-150 + (i + .5f) * w, -57), new Vector2(w - 1, 6), Color.green);
+            }
+            for (int i = 0; i < wallCells.Length && i < sections.Count; i++)
+            {
+                var s = sections[i];
+                float f = s.hp / Mathf.Max(1, s.max);
+                var col = s.breached ? new Color(.1f, .08f, .08f, .9f)
+                        : f > .6f ? Color.Lerp(new Color(.95f, .8f, .2f), new Color(.35f, .85f, .4f), (f - .6f) / .4f)
+                        : Color.Lerp(new Color(.95f, .25f, .2f), new Color(.95f, .8f, .2f), f / .6f);
+                float flash = Mathf.Clamp01(1 - (Time.time - s.hitAt) / .25f);
+                wallCells[i].color = Color.Lerp(col, Color.white, flash);
+            }
+        }
+
+        /// <summary>Fully scoped in with a long scope, you look down the tube: a dark ring in your own viewport.</summary>
+        void UpdateScope()
+        {
+            bool on = p.ScopedIn;
+            if (scope == null) { if (!on) return; scope = MakeScope(); }
+            if (scope.activeSelf != on) scope.SetActive(on);
+        }
+
+        GameObject MakeScope()
+        {
+            var canvas = transform.GetComponentInChildren<Canvas>().transform;
+            const int Size = 256;
+            var tex = new Texture2D(Size, Size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            for (int y = 0; y < Size; y++)
+                for (int x = 0; x < Size; x++)
+                {
+                    float r = new Vector2(x - Size / 2f + .5f, y - Size / 2f + .5f).magnitude / (Size / 2f);
+                    tex.SetPixel(x, y, new Color(0, 0, 0, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.8f, .96f, r))));
+                }
+            tex.Apply();
+            float h = ((RectTransform)canvas).rect.height;
+            var ring = Ui.Image(canvas, "Scope", new Vector2(.5f, .5f), Vector2.zero, new Vector2(h, h), Color.white);
+            ring.sprite = Sprite.Create(tex, new Rect(0, 0, Size, Size), new Vector2(.5f, .5f));
+            ring.raycastTarget = false;
+            foreach (float side in new[] { -1f, 1f })
+                Ui.Image(ring.transform, "ScopeSide", new Vector2(.5f, .5f), new Vector2(side * (h / 2 + 1500), 0), new Vector2(3000, h), Color.black);
+            ring.transform.SetAsFirstSibling();
+            return ring.gameObject;
+        }
 
         /// <summary>The guns you carry, the one in your hands picked out, above the ammo line.</summary>
         string LoadoutLine()
@@ -248,6 +312,8 @@ namespace TideWall
             // (Built as words by the level, so it's refreshed a few times a second rather than every frame)
             statusT -= dt;
             if (statusT <= 0) { statusT = .2f; Ui.Set(wallText, gm.Level.StatusLine()); }
+            UpdateWallStrip();
+            UpdateScope();
 
             bool reloading = p.ReloadProgress >= 0;
             int perfect = Mathf.RoundToInt(p.PerfectBonus * 100), weight = Mathf.RoundToInt(p.CarryWeight);

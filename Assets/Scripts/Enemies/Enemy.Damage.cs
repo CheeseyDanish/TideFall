@@ -33,6 +33,15 @@ namespace TideWall
                 Sfx.Play("zap");
                 if (!d.chained) ChainShock(d);
             }
+            // A Clawback's raised claws turn aside anything from the front; a Shellback's bulk covers those around it
+            if (Def.frontGuard < 1 && limb == null && !d.explosion && BothClaws() && d.dir.sqrMagnitude > .01f && Vector3.Dot(d.dir, transform.forward) < -.3f)
+            {
+                dmg *= Def.frontGuard;
+                Fx.Sparks(d.point == Vector3.zero ? bounds.center : d.point, new Color(1, .75f, .5f), 6);
+                Sfx.Play("clink", .7f, .05f);
+            }
+            if (!d.explosion) dmg *= Guarded();
+            if (Tucked) dmg *= .3f;
             if (!d.ignoreArmor && armor > 0)
             {
                 // Glancing off a shell: you can see and hear that this isn't the place to shoot
@@ -81,7 +90,9 @@ namespace TideWall
                 limb.Hp -= dmg * (1 + d.limbBonus);
                 if (limb.Hp <= 0) { Sever(limb, d); if (Dead) return; }
             }
-            if (Hp <= 0) Die(d);
+            if (Hp <= 0) { Die(d); return; }
+            if (d.explosion) BlastLimb(d);
+            if (Def.tuckBelow > 0 && tuckCd <= 0 && Hp < MaxHp * Def.tuckBelow && armor > 0) Tuck();
         }
 
         void ChainShock(DamageInfo d)
@@ -122,6 +133,7 @@ namespace TideWall
             Destroy(t.gameObject, 8);
             Fx.Gore(joint, GoreColor, 18);
             Fx.Burst(joint, away + Vector3.up, GoreColor, 8, 6);
+            stumps.Add((transform, transform.InverseTransformPoint(joint), Time.time + 3.5f));   // the stump keeps pumping for a while
             stunT = Mathf.Max(stunT, Def.behaviour == EnemyBehaviour.Boss ? .1f : .3f);   // losing a limb stops anything for a moment
             windupT = 0; windupTarget = null;
             d.source?.Shake(.06f);
@@ -130,9 +142,15 @@ namespace TideWall
             d.source?.OnSever(this, limb.Def);
             switch (limb.Def.effect)
             {
-                case LimbEffect.Kill: Die(d); break;
+                case LimbEffect.Kill:
+                    if (Hp > 0 && Random.value < gm.DB.headlessChance && Def.behaviour != EnemyBehaviour.Boss) GoHeadless(d);
+                    else Die(d);
+                    break;
                 case LimbEffect.WeakenAttack: attackMult *= .5f; break;
-                case LimbEffect.Slow: speedMult *= Def.behaviour == EnemyBehaviour.Octopus ? .88f : .6f; break;
+                case LimbEffect.Slow:
+                    speedMult *= Def.behaviour == EnemyBehaviour.Octopus ? .88f : .6f;
+                    if (limb.Kind == "Leg") { legsLost++; climbs = false; }
+                    break;
                 case LimbEffect.Ground: grounded = true; speedMult *= .4f; break;
                 case LimbEffect.NoTail: hasTail = false; break;
                 case LimbEffect.ShellOff: armor = 0; speedMult *= 1.6f; break;

@@ -173,23 +173,28 @@ Some enemies have severable limbs. A hit lands on whatever is under your crossha
 **Corpse value** = base × (0.5 + 0.5 × intact limbs / all limbs).
 
 ## Enemies
-| Enemy | Asks | Answer | How it moves |
+Every creature has a job. The **Field guide** (pause menu) lists each one's job and answer.
+
+| Enemy | Its job | What only it does | Answer |
 |---|---|---|---|
-| **Crabling** | Many small, fast targets | Scattergun, oar sweep | Scuttles **sideways** on tiptoe, claws snapping, eye stalks looking about |
-| **Drowner** | Baseline; can you hit heads? | Revolver on the head | Shambles, arms out in front, head lolling |
-| **Gull** (from wave 5) | Flies over the wall, straight for the powerplant; in the morning, steals corpses | Shoot the wings | Glides and banks; grounded, it hops |
-| **Hermit Crab** | Armour (4) | Shell off with the anchor | Scuttles sideways, shell wobbling |
-| **Puffer** | Explodes when it reaches you (or the wall) | Range; pop it in a crowd | Bobs along, then **puffs into a quivering, spinning spiky ball** as it closes in |
-| **Sea Urchin** | Punishes melee (spines) | Shoot it | Rolls on its spines, bristling |
-| **Jellyfish** | Stings everyone close, worse in water | Stay on dry sand; cut tentacles | Bell pulses, streamers trail |
-| **Shark** | Hunts swimmers; beaches itself and flops at the wall | Stay out of the sea; take the tail | Sweeping S-swim; flops furiously on sand |
-| **Eel** | Fast leaping lunges | Spread; the tail stops the lunges | Slithers, leaps |
-| **Shellback** | Big armour (6), slow | Harpoon, anchor | Heavy plod, slowly looking around |
-| **Saltwater Croc** | Grabs and death-rolls a player; tail-swipes | Teammates break the grab; cut the tail | Low belly waddle, swinging tail, jaws up to bite, death roll |
-| **Octopus** | Grabs from 3.5 m and pulls; inks your screen | Cut tentacles | Mantle breathes, tentacles curl |
-| **Clawback** (lobster) | Heavy damage, armour | Claws first, then the head | Walks forward, rears up to strike |
-| **Giant Clam** (rare) | Armour 10 while shut; drops **golden pearls** | Hit it when it gapes open (or knock the lid off) | Hops along shut; gapes open now and then and snaps |
-| **Glizzy Monster** (boss) | Huge, summons crabs, shakes the screen | Everyone, everything | Bounces and squashes |
+| **Crabling** | The swarm | With 3+ others close it's faster and hits harder; 1.5x damage to the wall; scuttles in zig-zag bursts | Scattergun, oar sweep |
+| **Drowner** | The climber | After a few seconds at the wall, more than half of them **climb over it**, no breach needed | Heads; take its legs and it can't climb |
+| **Gull** (from wave 5) | The raider | Flies over the wall at the powerplant; steals corpses in the morning | Shoot the wings |
+| **Hermit Crab** | The turtler | Armour 4; below 60% HP it **pulls into its shell** for 2 s and takes 30% damage | Knock the shell off, then it's fast but soft |
+| **Puffer** | The bomb | Explodes on you or the wall, 3x damage to the wall | Pop it far off, or inside a crowd |
+| **Sea Urchin** | The mine | Bristles up and **fires a ring of spines** every few seconds; hurts anyone who hits it by hand | Keep your distance and shoot it |
+| **Jellyfish** | The snare | Stings everyone close, leaves you **slowed**, worse in water | Stay on dry sand; cut tentacles |
+| **Shark** | The sea's guard | Hunts swimmers; beached, it flops at the wall, 2x damage | Stay out of the sea; take the tail |
+| **Eel** | The hunter | Aggro 14 m: ignores the wall to chase sailors, **lunges from 7 m** and the lunge itself bites | Spread and sidestep; the tail stops the lunges |
+| **Shellback** | The escort and ram | **Shields creatures within 4.5 m** (they take 60%; a blue line shows it); 2.5x damage to the wall; shoves | Kill it first; only the head is soft |
+| **Saltwater Croc** | The ambusher | Grabs and death-rolls a sailor; tail-swipes | Teammates break the grab; cut the tail |
+| **Octopus** | The controller | Grabs from 3.5 m and pulls; inks your screen | Cut tentacles |
+| **Clawback** (lobster) | The bruiser | **Claws block 65% from the front** while both are on; charges; hits shove you far | Flank it, or take the claws first |
+| **Giant Clam** (rare) | The treasure | Armour 10 while shut; drops **golden pearls** | Hit it when it gapes open |
+| **Glizzy Monster** (boss) | The boss | Huge, summons crabs, shakes the screen | Everyone, everything |
+
+### Losing limbs
+A limb coming off rarely ends it. Lost claws and arms halve its damage, legs slow it, and a stump keeps pumping for a few seconds. **Without one leg it hops and lists; without both it drags itself along on its arms** (and a Drowner can't climb). Even losing its **head or eyes** kills only 60% of the time (`headlessChance`): otherwise it **stumbles about blind** and bleeds out in 4 to 8 s, and whoever took its head gets the kill. A blow big enough to kill it outright still does. **Explosions blow limbs off** (`blastLimbChance`), never the head.
 
 Behind a breach, creatures go for the powerplant and anyone in town. Bosses arrive on nights where `day % bossEveryDays == 0`.
 
@@ -202,6 +207,9 @@ Behind a breach, creatures go for the powerplant and anyone in town. Bosses arri
 
 ### Gunplay
 Every shot kicks: the view snaps up and settles (heavier guns kick harder), the gun jolts back, a muzzle flash and an ejected shell, the crosshair spreads and recovers. Hits flash the creature, make it flinch, and pop a **damage number** (yellow with "!" on weak points); kills flash a red X with a thunk.
+
+### The wall under attack
+Each of the 20 sections has its own HP, and a creature hits the one in front of it. Damage shows on the stone in stages: **cracks** (below 70%), **holes and a broken merlon** (below 40%), then **gaping holes with a heap at its foot** (below 15%), with a burst of debris at each stage, and at 0 it collapses. The HUD has a **strip with one cell per section** under the powerplant bar: green to red, flashing white as it's hit, dark when it's down.
 
 ### Inventory (Inventory button: I / d-pad up; also in the pause menu)
 You own any number of guns but **carry three** (`gunSlots`). Buying or taking a fourth swaps it with the gun in your hands; that one goes to your **stash**, and you can bring it back free from the Inventory. **Swap** cycles the three, and each slot has its own button (1, 2, 3 / d-pad left, d-pad right, left stick press). Swapping takes a moment (`swapSeconds`): the new gun comes up from below the view. The HUD lists the three, with the one in your hands picked out. The Inventory shows what you carry, your stash, each gun's five slots and its skin, and your melee weapons' skins. Saved with the run.

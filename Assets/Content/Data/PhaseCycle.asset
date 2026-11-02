@@ -69,13 +69,13 @@ MonoBehaviour:
     tidalDraft: 1
     corpseThieves: 0
     skyColor: {r: 0.95, g: 0.55, b: 0.35, a: 1}
-    sunColor: {r: 1, g: 0.6, b: 0.35, a: 1}
-    sunIntensity: 1
+    sunColor: {r: 1, g: 0.78, b: 0.6, a: 1}
+    sunIntensity: 1.1
     sunPitch: 10
     sunYaw: 110
-    ambientColor: {r: 0.55, g: 0.4, b: 0.38, a: 1}
-    fogColor: {r: 0.9, g: 0.55, b: 0.4, a: 1}
-    fogDensity: 0.006
+    ambientColor: {r: 0.52, g: 0.48, b: 0.54, a: 1}
+    fogColor: {r: 0.88, g: 0.66, b: 0.56, a: 1}
+    fogDensity: 0.004
     torchesLit: 1
     lanterns: 0
   - id: night
@@ -101,7 +101,7 @@ MonoBehaviour:
     sunIntensity: 0.35
     sunPitch: 45
     sunYaw: 160
-    ambientColor: {r: 0.13, g: 0.15, b: 0.25, a: 1}
+    ambientColor: {r: 0.2, g: 0.22, b: 0.34, a: 1}
     fogColor: {r: 0.05, g: 0.07, b: 0.15, a: 1}
     fogDensity: 0.012
     torchesLit: 1

@@ -128,6 +128,9 @@ namespace TideWall
             p1.SetSkin(p1.Gun.id, null);
             p2.SwitchView();
             Teleport(p2, back2);
+            p1.OpenMenu(Menus.FieldGuide(p1));
+            yield return new WaitForSecondsRealtime(.6f);
+            yield return Shot("04ad-field-guide");
             p1.OpenMenu(Menus.Hotdogs(p1, p1.transform.position));
             p2.OpenMenu(Menus.Pause(p2));
             yield return new WaitForSecondsRealtime(.4f);
@@ -164,8 +167,11 @@ namespace TideWall
             fire = false;
             gm.Waves.RunWave = gm.DB.gunsUnlockWave;
             p2.FitAttachment(gm.DB.Attachment("glowfishlaser"));
+            foreach (var e in GameManager.Enemies.ToArray()) if (e != null && !e.Dead && e.Def.behaviour != EnemyBehaviour.Shark) e.Die(default);
+            Teleport(p1, new Vector3(-3, 0, 22)); p1.SetLook(10, 6);
             sights = true;
             yield return new WaitForSecondsRealtime(.7f);
+            Debug.Log($"TOUR aim {p1.Aiming} amount {p1.AimAmount} scoped {p1.ScopedIn} reload {p1.ReloadProgress} menu {p1.ShownMenu != null} carry {p1.CarryCount}");
             yield return Shot("05aa-sights-up-and-laser");
             sights = false;
 
@@ -193,6 +199,16 @@ namespace TideWall
             view.transform.SetPositionAndRotation(plantView, Quaternion.LookRotation(Arena.PlantPos + Vector3.up * 2.5f - plantView));
             yield return new WaitForSecondsRealtime(.4f);
             yield return Shot("05c-nuclear-sand-powerplant");
+            // The wall from the sea side, sections at each stage of damage (and the HUD's strip behind it)
+            float[] left = { .9f, .55f, .3f, .1f };
+            for (int k = 0; k < left.Length; k++)
+            {
+                var sec = gm.Wall.Sections.Find(z => Mathf.Abs(z.x - (-14 + k * 4)) < .1f);
+                if (sec != null) gm.Wall.Damage(sec.hp - sec.max * left[k], new Vector3(sec.x, 0, 1));
+            }
+            view.transform.SetPositionAndRotation(new Vector3(-8, 2.2f, 9), Quaternion.LookRotation(new Vector3(-8, .9f, 0) - new Vector3(-8, 2.2f, 9)));
+            yield return new WaitForSecondsRealtime(.3f);
+            yield return Shot("05e-wall-damage-stages");
             Destroy(view.gameObject);
 
             gm.Phases.Advance();   // night (enemies still alive keep fighting)

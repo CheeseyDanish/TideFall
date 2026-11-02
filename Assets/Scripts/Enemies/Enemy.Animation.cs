@@ -17,7 +17,7 @@ namespace TideWall
                 mpb.Clear();
                 mpb.SetFloat("_Smoothness", .25f + .65f * Wet);
                 if (flashT > 0) mpb.SetColor("_BaseColor", Color.white);
-                else if (windupT > 0 && Mathf.Repeat(windupT * 9, 1) < .4f) mpb.SetColor("_BaseColor", new Color(1, .45f, .35f));   // about to strike
+                else if (windupT > 0 && Def.behaviour != EnemyBehaviour.Urchin && Mathf.Repeat(windupT * 9, 1) < .4f) mpb.SetColor("_BaseColor", new Color(1, .45f, .35f));   // about to strike
                 if (burnT > 0) mpb.SetColor("_BaseColor", new Color(.35f, .2f, .15f));
                 r.SetPropertyBlock(mpb);
             }
@@ -210,6 +210,7 @@ namespace TideWall
                 euler.z += Mathf.Sin(animT * 4.5f) * 14;
                 euler.x += Mathf.Sin(animT * 2.1f) * 6 - 6;
             }
+            TraitPose(ref pos, ref euler, ref scale);
             if (flinch > 0)
             {
                 // Rocks away from the hit, swelling slightly on the impact

@@ -130,6 +130,17 @@ namespace TideWall
             }
         }
 
+        /// <summary>Looking down a long scope (first person only): the view model gives way to the scope's ring.</summary>
+        public bool ScopedIn
+        {
+            get
+            {
+                if (!FirstPerson || AimAmount < .85f || Gun == null) return false;
+                var scope = AttachmentIn(Gun.id, AttachmentSlot.Scope);
+                return scope != null && scope.zoom <= .5f;
+            }
+        }
+
         void LateUpdate()
         {
             AimAmount = Mathf.MoveTowards(AimAmount, Aiming ? 1 : 0, Time.unscaledDeltaTime * 7);
@@ -159,7 +170,7 @@ namespace TideWall
             var from = MuzzlePosition();
             laser.enabled = true;
             laser.SetPosition(0, from); laser.SetPosition(1, AimPoint);
-            laser.startWidth = .012f; laser.endWidth = .02f;
+            laser.startWidth = .004f; laser.endWidth = .018f;
             laser.startColor = a.laserColor; laser.endColor = new Color(a.laserColor.r, a.laserColor.g, a.laserColor.b, .25f);
             laserDot.gameObject.SetActive(true);
             laserDot.position = AimPoint;

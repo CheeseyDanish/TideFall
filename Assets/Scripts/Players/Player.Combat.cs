@@ -117,6 +117,8 @@ namespace TideWall
         /// <summary>Where bullets leave from: the first-person gun (bottom right of your view) or the model's muzzle.</summary>
         public Vector3 MuzzlePosition()
         {
+            // In your own view, the end of the gun you can see (so tracers and lasers come out of it)
+            if (FirstPerson && Cam != null && Cam.View.HasMuzzle) return Cam.View.Muzzle;
             if (FirstPerson) return EyePos + LookRotation * Vector3.Lerp(new Vector3(.26f, -.2f, .7f), new Vector3(0, -.09f, .8f), AimAmount);
             return gunModel.Sockets.TryGetValue("Muzzle", out var mz) ? mz.position : transform.position + Vector3.up * 1.2f + AimDir * .6f;
         }

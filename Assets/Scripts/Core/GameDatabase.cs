@@ -109,6 +109,19 @@ namespace TideWall
         [Header("Feel")]
         [Tooltip("Seconds it rears back before an attack lands: the time you have to dash clear")] public float windup = .3f;
         [Tooltip("Staggers when this share of its max HP is dealt in quick succession")] public float poise = .3f;
+        [Header("What makes it itself")]
+        [Tooltip("Field guide: its job in one line")] public string role;
+        [Tooltip("Field guide: how to beat it")] public string counter;
+        [Tooltip("Damage multiplier against the wall and the powerplant")] public float wallDamage = 1;
+        [Tooltip("Chance it climbs over the wall after a while instead of breaking through")] public float climbChance;
+        [Tooltip("Hits on creatures within this many metres are softened by its bulk (0 = none)")] public float guardRadius;
+        [Tooltip("Damage multiplier for hits from the front while both claws are up (1 = none)")] public float frontGuard = 1;
+        [Tooltip("Pulls into its shell when below this share of HP (0 = never)")] public float tuckBelow;
+        [Tooltip("Fires a ring of spines this far every few seconds (0 = never)")] public float spineRadius;
+        [Tooltip("Faster and harder-hitting with at least 3 of its own kind close by (0.25 = +25%)")] public float swarmBonus;
+        [Tooltip("Seconds a hit leaves a player slowed (0 = none)")] public float slowSeconds;
+        [Tooltip("How hard its blows shove a player")] public float hitPush;
+        [Tooltip("Height the Mark sits at on its back (0 = the top of the model)")] public float markHeight;
         [Tooltip("Carries the Mark (the inner half of the Spiral) on its back: the sea's own (docs/STORY.md)")] public bool mark;
         public List<LimbDef> limbs = new();
     }
@@ -348,6 +361,11 @@ namespace TideWall
         [Tooltip("When exclusive cards are possible, chance one of the choices is exclusive")] public float exclusiveCardChance = .6f;
         [Tooltip("Chance the vote also offers a re-roll (three new cards)")] public float cardRerollChance = .15f;
 
+        [Header("Losing limbs")]
+        [Tooltip("Chance a creature keeps going for a while after losing its head or eyes (it stumbles blind and bleeds out)")] public float headlessChance = .4f;
+        public Vector2 headlessSeconds = new(4, 8);
+        [Tooltip("Chance an explosion that doesn't kill a creature blows a limb off")] public float blastLimbChance = .6f;
+
         [Header("Wet / elements")]
         [Tooltip("Wetness lost per second on dry land (1 = soaked)")] public float wetDrainPerSecond = .12f;
         [Tooltip("Drips per second when fully soaked")] public float maxDripsPerSecond = 28;
@@ -447,6 +465,57 @@ namespace TideWall
             foreach (var e in enemies)
             {
                 e.windup = e.id switch { "crab" => .22f, "hermit" => .25f, "drowner" => .42f, "turtle" => .55f, "lobster" => .6f, "shark" => .28f, "glizzy" => .65f, "tidemother" => .75f, _ => .3f };
+                switch (e.id)
+                {
+                    case "crab":
+                        e.role = "The swarm. Chews at the wall; dangerous in numbers."; e.counter = "Sweep them with the scattergun or an oar. Eyes are the weak point.";
+                        e.swarmBonus = .25f; e.wallDamage = 1.5f; break;
+                    case "drowner":
+                        e.role = "The climber. Hauls itself over the wall to get at the town."; e.counter = "Shoot heads, and don't leave one at the wall too long. Take its legs and it crawls.";
+                        e.climbChance = .55f; break;
+                    case "gull":
+                        e.role = "The raider. Flies over everything; steals corpses by morning."; e.counter = "Shoot a wing and it falls out of the sky.";
+                        break;
+                    case "hermit":
+                        e.role = "The turtler. Armoured, and pulls into its shell when hurt."; e.counter = "Knock the shell off with something heavy, then it's fast but soft.";
+                        e.tuckBelow = .6f; e.markHeight = .85f; break;
+                    case "puffer":
+                        e.role = "The bomb. Blows a hole in the wall, or in you."; e.counter = "Pop it far away, ideally inside a crowd.";
+                        e.wallDamage = 3; break;
+                    case "urchin":
+                        e.role = "The mine. Rolls in and fires spines at everything close."; e.counter = "Keep your distance and shoot it. Never hit it by hand.";
+                        e.spineRadius = 3.2f; break;
+                    case "jelly":
+                        e.role = "The snare. Its sting leaves you slow, and worse in the water."; e.counter = "Stay on dry sand. Cut the tentacles to weaken the sting.";
+                        e.slowSeconds = 2; break;
+                    case "shark":
+                        e.role = "The sea's guard. Hunts swimmers; slams the wall if it beaches."; e.counter = "Stay out of the water. Its tail stops it.";
+                        e.wallDamage = 2; e.hitPush = 4; break;
+                    case "eel":
+                        e.role = "The hunter. Ignores the wall and lunges at sailors from afar."; e.counter = "Spread out and sidestep the lunge. Cut the tail and it can't leap.";
+                        e.aggroRange = 14; e.wallDamage = .5f; break;
+                    case "turtle":
+                        e.role = "The escort and the ram. Shields everything around it, and batters the wall."; e.counter = "Kill it first. Its head is the only soft part.";
+                        e.guardRadius = 4.5f; e.wallDamage = 2.5f; e.hitPush = 5; e.markHeight = .9f; break;
+                    case "croc":
+                        e.role = "The ambusher. Grabs one sailor and death-rolls them."; e.counter = "Teammates hit it to break the grab. Stay out of its tail's reach.";
+                        e.markHeight = .72f; break;
+                    case "octopus":
+                        e.role = "The controller. Inks your view and drags you in from range."; e.counter = "Cut the tentacles: too few and it can't grab or ink.";
+                        break;
+                    case "lobster":
+                        e.role = "The bruiser. Its claws block from the front, and it hits like a door."; e.counter = "Get around it, or shoot the claws off first.";
+                        e.frontGuard = .35f; e.hitPush = 7; e.markHeight = .95f; break;
+                    case "clam":
+                        e.role = "The treasure. Rare, slow, and full of golden pearls."; e.counter = "Wait for it to gape open, then hit the soft inside.";
+                        break;
+                    case "glizzy":
+                        e.role = "The boss. Huge, calls crabs, shakes the ground."; e.counter = "Everyone, everything.";
+                        e.hitPush = 8; break;
+                    case "tidemother":
+                        e.role = "The Heart's keeper."; e.counter = "Her eye slows her. Her claws weaken her. Keep moving when she slams.";
+                        e.hitPush = 8; break;
+                }
                 e.poise = e.id switch { "crab" or "gull" or "puffer" => .45f, "turtle" or "lobster" or "croc" => .2f, "glizzy" or "tidemother" => 2f, _ => .3f };
             }
 

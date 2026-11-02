@@ -37,6 +37,18 @@ MonoBehaviour:
     pearls: 0
     windup: 0.22
     poise: 0.45
+    role: The swarm. Chews at the wall; dangerous in numbers.
+    counter: Sweep them with the scattergun or an oar. Eyes are the weak point.
+    wallDamage: 1.5
+    climbChance: 0
+    guardRadius: 0
+    frontGuard: 1
+    tuckBelow: 0
+    spineRadius: 0
+    swarmBonus: 0.25
+    slowSeconds: 0
+    hitPush: 0
+    markHeight: 0
     mark: 0
     limbs:
     - part: ClawL
@@ -75,6 +87,19 @@ MonoBehaviour:
     pearls: 0
     windup: 0.42
     poise: 0.3
+    role: The climber. Hauls itself over the wall to get at the town.
+    counter: Shoot heads, and don't leave one at the wall too long. Take its legs
+      and it crawls.
+    wallDamage: 1
+    climbChance: 0.55
+    guardRadius: 0
+    frontGuard: 1
+    tuckBelow: 0
+    spineRadius: 0
+    swarmBonus: 0
+    slowSeconds: 0
+    hitPush: 0
+    markHeight: 0
     mark: 0
     limbs:
     - part: ArmL
@@ -121,6 +146,18 @@ MonoBehaviour:
     pearls: 0
     windup: 0.3
     poise: 0.45
+    role: The raider. Flies over everything; steals corpses by morning.
+    counter: Shoot a wing and it falls out of the sky.
+    wallDamage: 1
+    climbChance: 0
+    guardRadius: 0
+    frontGuard: 1
+    tuckBelow: 0
+    spineRadius: 0
+    swarmBonus: 0
+    slowSeconds: 0
+    hitPush: 0
+    markHeight: 0
     mark: 0
     limbs:
     - part: WingL
@@ -155,6 +192,18 @@ MonoBehaviour:
     pearls: 0
     windup: 0.25
     poise: 0.3
+    role: The turtler. Armoured, and pulls into its shell when hurt.
+    counter: Knock the shell off with something heavy, then it's fast but soft.
+    wallDamage: 1
+    climbChance: 0
+    guardRadius: 0
+    frontGuard: 1
+    tuckBelow: 0.6
+    spineRadius: 0
+    swarmBonus: 0
+    slowSeconds: 0
+    hitPush: 0
+    markHeight: 0.85
     mark: 1
     limbs:
     - part: Shell
@@ -197,6 +246,18 @@ MonoBehaviour:
     pearls: 0
     windup: 0.3
     poise: 0.45
+    role: The bomb. Blows a hole in the wall, or in you.
+    counter: Pop it far away, ideally inside a crowd.
+    wallDamage: 3
+    climbChance: 0
+    guardRadius: 0
+    frontGuard: 1
+    tuckBelow: 0
+    spineRadius: 0
+    swarmBonus: 0
+    slowSeconds: 0
+    hitPush: 0
+    markHeight: 0
     mark: 0
     limbs: []
   - id: urchin
@@ -223,6 +284,18 @@ MonoBehaviour:
     pearls: 0
     windup: 0.3
     poise: 0.3
+    role: The mine. Rolls in and fires spines at everything close.
+    counter: Keep your distance and shoot it. Never hit it by hand.
+    wallDamage: 1
+    climbChance: 0
+    guardRadius: 0
+    frontGuard: 1
+    tuckBelow: 0
+    spineRadius: 3.2
+    swarmBonus: 0
+    slowSeconds: 0
+    hitPush: 0
+    markHeight: 0
     mark: 0
     limbs: []
   - id: jelly
@@ -249,6 +322,18 @@ MonoBehaviour:
     pearls: 0
     windup: 0.3
     poise: 0.3
+    role: The snare. Its sting leaves you slow, and worse in the water.
+    counter: Stay on dry sand. Cut the tentacles to weaken the sting.
+    wallDamage: 1
+    climbChance: 0
+    guardRadius: 0
+    frontGuard: 1
+    tuckBelow: 0
+    spineRadius: 0
+    swarmBonus: 0
+    slowSeconds: 2
+    hitPush: 0
+    markHeight: 0
     mark: 0
     limbs:
     - part: Tent1
@@ -291,6 +376,18 @@ MonoBehaviour:
     pearls: 0
     windup: 0.28
     poise: 0.3
+    role: The sea's guard. Hunts swimmers; slams the wall if it beaches.
+    counter: Stay out of the water. Its tail stops it.
+    wallDamage: 2
+    climbChance: 0
+    guardRadius: 0
+    frontGuard: 1
+    tuckBelow: 0
+    spineRadius: 0
+    swarmBonus: 0
+    slowSeconds: 0
+    hitPush: 4
+    markHeight: 0
     mark: 0
     limbs:
     - part: Fin
@@ -313,7 +410,7 @@ MonoBehaviour:
     attackRange: 1.1
     armor: 0
     waterSpeedMult: 0.8
-    aggroRange: 8
+    aggroRange: 14
     thorns: 0
     bounty: 3
     corpseValue: 12
@@ -325,6 +422,18 @@ MonoBehaviour:
     pearls: 0
     windup: 0.3
     poise: 0.3
+    role: The hunter. Ignores the wall and lunges at sailors from afar.
+    counter: Spread out and sidestep the lunge. Cut the tail and it can't leap.
+    wallDamage: 0.5
+    climbChance: 0
+    guardRadius: 0
+    frontGuard: 1
+    tuckBelow: 0
+    spineRadius: 0
+    swarmBonus: 0
+    slowSeconds: 0
+    hitPush: 0
+    markHeight: 0
     mark: 0
     limbs:
     - part: Head
@@ -359,6 +468,18 @@ MonoBehaviour:
     pearls: 0
     windup: 0.55
     poise: 0.2
+    role: The escort and the ram. Shields everything around it, and batters the wall.
+    counter: Kill it first. Its head is the only soft part.
+    wallDamage: 2.5
+    climbChance: 0
+    guardRadius: 4.5
+    frontGuard: 1
+    tuckBelow: 0
+    spineRadius: 0
+    swarmBonus: 0
+    slowSeconds: 0
+    hitPush: 5
+    markHeight: 0.9
     mark: 1
     limbs:
     - part: Head
@@ -389,6 +510,18 @@ MonoBehaviour:
     pearls: 0
     windup: 0.3
     poise: 0.2
+    role: The ambusher. Grabs one sailor and death-rolls them.
+    counter: Teammates hit it to break the grab. Stay out of its tail's reach.
+    wallDamage: 1
+    climbChance: 0
+    guardRadius: 0
+    frontGuard: 1
+    tuckBelow: 0
+    spineRadius: 0
+    swarmBonus: 0
+    slowSeconds: 0
+    hitPush: 0
+    markHeight: 0.72
     mark: 1
     limbs:
     - part: Head
@@ -423,6 +556,18 @@ MonoBehaviour:
     pearls: 0
     windup: 0.3
     poise: 0.3
+    role: The controller. Inks your view and drags you in from range.
+    counter: 'Cut the tentacles: too few and it can''t grab or ink.'
+    wallDamage: 1
+    climbChance: 0
+    guardRadius: 0
+    frontGuard: 1
+    tuckBelow: 0
+    spineRadius: 0
+    swarmBonus: 0
+    slowSeconds: 0
+    hitPush: 0
+    markHeight: 0
     mark: 0
     limbs:
     - part: Tent1
@@ -473,6 +618,18 @@ MonoBehaviour:
     pearls: 0
     windup: 0.6
     poise: 0.2
+    role: The bruiser. Its claws block from the front, and it hits like a door.
+    counter: Get around it, or shoot the claws off first.
+    wallDamage: 1
+    climbChance: 0
+    guardRadius: 0
+    frontGuard: 0.35
+    tuckBelow: 0
+    spineRadius: 0
+    swarmBonus: 0
+    slowSeconds: 0
+    hitPush: 7
+    markHeight: 0.95
     mark: 1
     limbs:
     - part: ClawL
@@ -511,6 +668,18 @@ MonoBehaviour:
     pearls: 2
     windup: 0.3
     poise: 0.3
+    role: The treasure. Rare, slow, and full of golden pearls.
+    counter: Wait for it to gape open, then hit the soft inside.
+    wallDamage: 1
+    climbChance: 0
+    guardRadius: 0
+    frontGuard: 1
+    tuckBelow: 0
+    spineRadius: 0
+    swarmBonus: 0
+    slowSeconds: 0
+    hitPush: 0
+    markHeight: 0
     mark: 0
     limbs:
     - part: Lid
@@ -541,6 +710,18 @@ MonoBehaviour:
     pearls: 0
     windup: 0.65
     poise: 2
+    role: The boss. Huge, calls crabs, shakes the ground.
+    counter: Everyone, everything.
+    wallDamage: 1
+    climbChance: 0
+    guardRadius: 0
+    frontGuard: 1
+    tuckBelow: 0
+    spineRadius: 0
+    swarmBonus: 0
+    slowSeconds: 0
+    hitPush: 8
+    markHeight: 0
     mark: 0
     limbs: []
   - id: tidemother
@@ -567,6 +748,18 @@ MonoBehaviour:
     pearls: 10
     windup: 0.75
     poise: 2
+    role: The Heart's keeper.
+    counter: Her eye slows her. Her claws weaken her. Keep moving when she slams.
+    wallDamage: 1
+    climbChance: 0
+    guardRadius: 0
+    frontGuard: 1
+    tuckBelow: 0
+    spineRadius: 0
+    swarmBonus: 0
+    slowSeconds: 0
+    hitPush: 8
+    markHeight: 0
     mark: 1
     limbs:
     - part: ClawL
@@ -2630,6 +2823,9 @@ MonoBehaviour:
   cardVoteSeconds: 15
   exclusiveCardChance: 0.6
   cardRerollChance: 0.15
+  headlessChance: 0.4
+  headlessSeconds: {x: 4, y: 8}
+  blastLimbChance: 0.6
   wetDrainPerSecond: 0.12
   maxDripsPerSecond: 28
   shockWetMultiplier: 1.5

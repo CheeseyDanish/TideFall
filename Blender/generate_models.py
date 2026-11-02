@@ -734,12 +734,21 @@ build('BeachUmbrella', [
     ('Body', 'cone', (1.2, 1.2, .3), (0, 0, 2.48), 'white', None, None, 8),
 ])
 build('Towel', [('Body', 'box', (1.0, 1.8, .03), (0, 0, .015), 'blue'), ('Body', 'box', (1.0, .3, .032), (0, .5, .016), 'white')])
-build('PalmTree', [
-    *[('Body', 'cyl', (.35 - i * .03, .35 - i * .03, 1.0), (i * .12, 0, .5 + i * .95), 'brown', None, (0, 7, 0), 6) for i in range(5)],
-    *[('Body', 'box', (.4, 2.0, .05), (.6 + math.cos(a) * .8, math.sin(a) * .8, 4.9), 'leaf', None, (-20 if i % 2 else 20, 0, math.degrees(a) + 90))
-      for i, a in enumerate([k * math.pi / 3 for k in range(6)])],
-    *[('Body', 'ball', (.25, .25, .25), (.6 + p[0], p[1], 4.75), 'brown') for p in ring(3, .2, 0)],
-])
+# A curved trunk and a crown of fronds that arc up and droop, each with a narrowing tip
+palm = []
+for i in range(6):
+    r = .34 - i * .035
+    palm.append(('Body', 'cyl', (r, r, 1.0), (i * i * .025, 0, .45 + i * .82), 'brown' if i % 2 else 'woodD', None, (0, i * 2.4, 0), 7))
+crown = (.65, 0, 4.75)
+for i in range(8):
+    a = i * math.pi / 4 + (.2 if i % 2 else 0)
+    dx, dy = math.cos(a), math.sin(a)
+    deg = math.degrees(a)
+    for k, (reach, drop, width, pitch) in enumerate(((.5, .12, .46, -14), (1.2, .08, .42, 12), (1.85, -.22, .3, 34), (2.35, -.68, .15, 58))):
+        lift = (.1 if i % 2 else 0)
+        palm.append(('Body', 'box', (.82, width, .05), (crown[0] + dx * reach, crown[1] + dy * reach, crown[2] + drop + lift), 'leaf' if (i + k) % 3 else 'greenD', None, (0, pitch, deg)))
+palm += [('Body', 'ball', (.26, .26, .26), (crown[0] + p[0], crown[1] + p[1], crown[2] - .18), 'brown') for p in ring(4, .2, 0)]
+build('PalmTree', palm)
 build('Rock', [('Body', 'ball', (1.4, 1.1, .8), (0, 0, .3), 'grey'), ('Body', 'ball', (.7, .6, .5), (.5, .3, .2), 'greyD')])
 build('Torch', [('Body', 'cyl', (.1, .1, 1.8), (0, 0, .9), 'woodD', None, None, 6), ('Body', 'cyl', (.25, .25, .2), (0, 0, 1.85), 'greyD', None, None, 6),
                 ('Body', 'cone', (.22, .22, .45), (0, 0, 2.15), 'flame', None, None, 5)], sockets=[('Flame', (0, 0, 2.15))])
@@ -1304,3 +1313,41 @@ def laser_part(name, lens):
 laser_part('AttLaserRed', 'red')
 laser_part('AttLaserGreen', 'glow')
 laser_part('AttLaserBlue', 'shockTip')
+
+# Damage on a wall section, added in stages over its intact model (Wall.Scars): cracks, then holes, then a heap at the foot
+def crack(x, z, y, n, seed):
+    out = []
+    a = 25 + seed * 40
+    for k in range(n):
+        a += 55 if k % 2 else -48
+        ln = .34 - k * .02
+        out.append(('Body', 'box', (ln, .03, .035), (x, y, z), 'black', None, (0, a, 0)))
+        x += math.cos(math.radians(a)) * ln * .9
+        z -= math.sin(math.radians(a)) * ln * .9
+    return out
+scar1 = []
+for y in (-.56, .56):
+    scar1 += crack(-1.1, 1.05, y, 5, 0) + crack(.9, .9, y, 5, 1) + crack(.1, .55, y, 4, 2)
+build('WallDamage1', scar1)
+scar2 = []
+for y in (-.56, .56):
+    scar2 += crack(-.3, 1.1, y, 6, 1) + crack(1.5, .6, y, 4, 2)
+    scar2 += [('Body', 'box', (.62, .07, .3), (-1.15, y, .62), 'black', None, (0, 8, 0)), ('Body', 'box', (.5, .08, .26), (.75, y, 1.0), 'black', None, (0, -12, 0)),
+              ('Body', 'box', (.4, .07, .22), (.1, y, .3), 'black', None, (0, 5, 0))]
+scar2 += [('Body', 'box', (.36, .3, .22), (x, y, .12), 'stone', None, (r, r * 2, r * 3)) for x, y, r in ((-1.2, -.85, 10), (.7, -.95, -14), (.1, -.8, 22), (-.5, -1.05, -6))]
+scar2 += [('Body', 'box', (.8, .96, .1), (1, -.05, 1.76), 'black')]   # a merlon's cap is gone
+build('WallDamage2', scar2)
+scar3 = []
+for y in (-.57, .57):
+    scar3 += [('Body', 'ball', (1.5, .1, .85), (-.2, y, .62), 'black'), ('Body', 'ball', (.9, .1, .55), (1.25, y, 1.02), 'black')]
+scar3 += [('Body', 'box', (.5, .45, .32), (x, y, .16), 'stoneL' if k % 2 else 'stone', None, (k * 17, k * 29, k * 41))
+          for k, (x, y) in enumerate(((-1.5, -.8), (-.9, -1.1), (-.3, -.85), (.2, -1.2), (.8, -.9), (1.4, -1.05)))]
+scar3 += [('Body', 'box', (.8, .96, .46), (-1, -.05, 1.56), 'greyD')]    # one merlon knocked to a stump
+build('WallDamage3', scar3)
+
+# First-person hand and sleeve (the coat colour is the player's)
+build('ViewArm', [
+    ('Body', 'ball', (.14, .17, .17), (0, .01, -.08), 'skin'),
+    ('Body', 'box', (.13, .55, .14), (.03, .34, -.27), 'coat', None, (-34, 0, 4)),
+    ('Body', 'box', (.15, .07, .16), (.012, .1, -.13), 'white', None, (-34, 0, 4)),
+])

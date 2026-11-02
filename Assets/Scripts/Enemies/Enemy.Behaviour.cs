@@ -8,13 +8,14 @@ namespace TideWall
     public partial class Enemy
     {
         // ------------------------------------------------------------------ targeting & movement
-        float Speed => Def.speed * speedMult * gm.Cards.EnemySpeed * (Arena.InWater(transform.position) ? Def.waterSpeedMult : 1) * (snaredT > 0 ? 1 - snareSlow : 1);
+        float Speed => Def.speed * speedMult * swarmMult * gm.Cards.EnemySpeed * (Arena.InWater(transform.position) ? Def.waterSpeedMult : 1) * (snaredT > 0 ? 1 - snareSlow : 1);
 
         /// <summary>A kelp snare has hold of it for a moment.</summary>
         public void Snare(float slow, float seconds) { snareSlow = slow; snaredT = Mathf.Max(snaredT, seconds); }
 
         Player NearestPlayer(float range, bool beachOnly)
         {
+            if (headless) return null;   // it can't see you
             Player best = null; float bd = range;
             foreach (var p in gm.Players.All)
             {
@@ -108,7 +109,8 @@ namespace TideWall
             if (p == null || !p.IsTargetable) return;
             if (FlatDist(p.transform.position) <= Def.attackRange * 1.3f + Radius * .7f + .35f)
             {
-                p.TakeDamage(Damage, this, Def.displayName);
+                p.TakeDamage(Damage, this, Def.displayName, Def.hitPush > 0 ? (p.transform.position - transform.position).normalized * Def.hitPush : default);
+                if (Def.slowSeconds > 0) p.Statuses.Add(StatusType.Slow, Def.slowSeconds);
                 Sfx.Play("bite", .6f, .05f);
             }
             else
@@ -144,7 +146,7 @@ namespace TideWall
                 var goal = gm.Level.Goal(transform.position, Radius, out var kind);
                 bool there = MoveToward(goal, Speed * speedScale, dt, .05f);
                 if (kind == GoalKind.Plant) { if (there || gm.World.plant.InReach(transform.position, Def.attackRange)) TryAttackPlant(dt); }
-                else if (kind == GoalKind.Wall && there) TryAttackWall(dt);
+                else if (kind == GoalKind.Wall && (there || AtWall())) { if (!WantsToClimb(dt)) TryAttackWall(dt); }
             }
         }
 
@@ -152,6 +154,7 @@ namespace TideWall
         void HitDefences(float amount)
         {
             if (gm.World == null) return;   // Part II: there's no wall or powerplant out here
+            amount *= Def.wallDamage;
             if (gm.World.plant.InReach(transform.position, Mathf.Max(2, Def.attackRange))) gm.World.plant.Damage(amount, transform.position);
             else if (!Arena.Inside(transform.position)) gm.Wall.Damage(amount, transform.position);
         }
@@ -171,7 +174,7 @@ namespace TideWall
             return true;
         }
 
-        float Damage => Def.damage * attackMult * damageScale * gm.Cards.EnemyDamage;
+        float Damage => Def.damage * attackMult * damageScale * gm.Cards.EnemyDamage * swarmMult;
 
         void TryAttackPlayer(Player p, float dt)
         {
@@ -185,7 +188,7 @@ namespace TideWall
         {
             if (!AttackReady(dt)) return;
             Lunge();
-            gm.Wall.Damage(Damage, transform.position);
+            gm.Wall.Damage(Damage * Def.wallDamage, transform.position);
         }
 
         void Lunge() { swingT = .25f; }
@@ -198,14 +201,28 @@ namespace TideWall
             {
                 lungeT -= dt;
                 transform.position += transform.forward * Speed * 2.5f * dt;
+                // The lunge itself bites: the first sailor it goes through
+                if (!lungeHit)
+                    foreach (var pl in gm.Players.All)
+                        if (pl.IsTargetable && FlatDist(pl.transform.position) < 1.1f + Radius * .5f)
+                        {
+                            lungeHit = true;
+                            pl.TakeDamage(Damage, this, Def.displayName, transform.forward * 3);
+                            Sfx.Play("bite", .7f, .05f);
+                            break;
+                        }
                 hop = lungeT > 0 ? Mathf.Sin(Mathf.PI * (1 - lungeT / .45f)) * .9f : 0;
                 return;
             }
             Walker(dt, 1);
             if (lungeCd <= 0 && hasTail)
             {
+                // Only worth leaping at something: a sailor it can see, close enough
+                if (NearestPlayer(7, true) is not { } prey) { lungeCd = .3f; return; }
+                Face(prey.transform.position - transform.position, 1);
                 lungeCd = Random.Range(1.6f, 3f);
                 lungeT = .45f;
+                lungeHit = false;
             }
         }
 
@@ -570,6 +587,7 @@ namespace TideWall
 
         void ClampToArena()
         {
+            if (climbT > 0) return;   // on its way over the wall
             var p = transform.position;
             bool flying = Def.behaviour == EnemyBehaviour.Flyer && !grounded;
             if (!flying)

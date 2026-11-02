@@ -244,6 +244,120 @@ namespace TideWall.Tests
             Assert.AreEqual(0, e.Windup, "staggered");
         }
 
+        // ------------------------------------------------------------------ the wall (a crowd, for real, with nobody calling Damage by hand)
+        [UnityTest]
+        public IEnumerator ACrowdAtTheWallBattersTheSectionItsAt()
+        {
+            var p = JoinPad(out _);
+            yield return Frames(2);
+            p.Place(new Vector3(30, 0, -15));   // well out of their way
+            var section = gm.Wall.Sections.Find(s => Mathf.Abs(s.x - 2) < 2.1f);
+            float full = gm.Wall.Hp;
+            float neighbourFar = gm.Wall.Sections.Find(s => Mathf.Abs(s.x - (section.x + 16)) < .1f).hp;
+            for (int i = 0; i < 12; i++)
+                gm.Waves.SpawnExtra(gm.DB.Enemy("crab"), new Vector3(section.x + (i % 4 - 1.5f) * .5f, 0, 3 + i % 3));
+            float waited = 0;
+            Time.timeScale = 4;
+            while (section.hp > section.max * .6f && !section.breached && waited < 40) { waited += Time.unscaledDeltaTime; yield return null; }
+            Time.timeScale = 1;
+            Assert.Less(gm.Wall.Hp, full, "they hurt the wall");
+            Assert.Less(section.hp, section.max * .75f, "that section, on the crowd, including those in the second rank");
+            Assert.AreEqual(neighbourFar, gm.Wall.Sections.Find(s => Mathf.Abs(s.x - (section.x + 16)) < .1f).hp, "and not one far away");
+            Assert.GreaterOrEqual(section.stage, 1, "and the damage shows");
+            Assert.IsNotNull(section.scars[0]);
+            StringAssert.Contains("%", gm.Level.StatusLine());
+            gm.Wall.Repair(1);
+            Assert.AreEqual(0, section.stage, "repairs clear the scars");
+            Assert.IsFalse(section.scars[0].activeSelf);
+        }
+
+        // ------------------------------------------------------------------ surviving limb loss
+        [UnityTest]
+        public IEnumerator HeadlessCreaturesStumbleOnAndBleedOut()
+        {
+            var p = JoinPad(out _);
+            yield return Frames(2);
+            float chance = gm.DB.headlessChance;
+            Vector2 seconds = gm.DB.headlessSeconds;
+            try
+            {
+                gm.DB.headlessChance = 1;
+                gm.DB.headlessSeconds = new Vector2(.6f, .6f);
+                p.Place(new Vector3(30, 0, -15));
+                var e = gm.Waves.SpawnExtra(gm.DB.Enemy("drowner"), new Vector3(-8, 0, 14));
+                var head = e.Limbs.Find(l => l.Def.part == "Head");
+                e.TakeHit(new DamageInfo { amount = head.Hp + 1, ignoreArmor = true, source = p, dir = Vector3.forward, point = e.transform.position }, head);
+                Assert.IsFalse(e.Dead, "its head is off, and it doesn't know yet");
+                Assert.IsTrue(e.Headless);
+                int kills = p.Kills;
+                yield return null;
+                float t = 0;
+                while (!e.Dead && t < 3) { t += Time.deltaTime; yield return null; }
+                Assert.IsTrue(e.Dead, "it bleeds out");
+                Assert.AreEqual(kills + 1, p.Kills, "and whoever took its head gets the kill");
+
+                // An explosion that doesn't kill blows a limb off, and it carries on
+                gm.DB.blastLimbChance = 1;
+                var d = gm.Waves.SpawnExtra(gm.DB.Enemy("drowner"), new Vector3(-8, 0, 16));
+                d.TakeHit(new DamageInfo { amount = 1, explosion = true, ignoreArmor = true, source = p }, null);
+                Assert.IsFalse(d.Dead);
+                Assert.IsTrue(d.Limbs.Exists(l => l.Severed));
+            }
+            finally { gm.DB.headlessChance = chance; gm.DB.headlessSeconds = seconds; gm.DB.blastLimbChance = .6f; }
+        }
+
+        // ------------------------------------------------------------------ what each kind is for
+        [UnityTest]
+        public IEnumerator EveryCreatureHasAJobAndItsOwnTrick()
+        {
+            var p = JoinPad(out _);
+            yield return Frames(2);
+            p.Place(new Vector3(30, 0, -15));
+            foreach (var def in gm.DB.enemies)
+            {
+                Assert.IsNotEmpty(def.role, $"{def.id} has a job");
+                Assert.IsNotEmpty(def.counter, $"{def.id} has an answer");
+            }
+            Assert.AreEqual(gm.DB.enemies.Count, Menus.FieldGuide(p).Items.Count, "the field guide lists them all");
+
+            // Clawback: claws block from the front, not from behind, and not once one's gone
+            var lob = gm.Waves.SpawnExtra(gm.DB.Enemy("lobster"), new Vector3(-10, 0, 14));
+            lob.transform.rotation = Quaternion.identity;   // faces +Z
+            float hp = lob.Hp;
+            lob.TakeHit(new DamageInfo { amount = 50, ignoreArmor = true, dir = Vector3.back, point = lob.transform.position + Vector3.forward }, null);
+            float front = hp - lob.Hp; hp = lob.Hp;
+            lob.transform.rotation = Quaternion.identity;
+            lob.TakeHit(new DamageInfo { amount = 50, ignoreArmor = true, dir = Vector3.forward, point = lob.transform.position - Vector3.forward }, null);
+            float back = hp - lob.Hp;
+            Assert.Less(front, back * .5f, "guarded from the front");
+
+            // Shellback: softens hits on its neighbours
+            var alone = gm.Waves.SpawnExtra(gm.DB.Enemy("drowner"), new Vector3(20, 0, 14));
+            hp = alone.Hp; alone.TakeHit(new DamageInfo { amount = 10, ignoreArmor = true, source = p, point = alone.transform.position }, null);
+            float bare = hp - alone.Hp;
+            gm.Waves.SpawnExtra(gm.DB.Enemy("turtle"), new Vector3(-20, 0, 14));
+            var covered = gm.Waves.SpawnExtra(gm.DB.Enemy("drowner"), new Vector3(-19, 0, 15));
+            hp = covered.Hp; covered.TakeHit(new DamageInfo { amount = 10, ignoreArmor = true, source = p, point = covered.transform.position }, null);
+            Assert.Less(hp - covered.Hp, bare, "a Shellback covers those close by");
+
+            // Hermit Crab: hurt, it pulls into its shell and takes far less
+            var hermit = gm.Waves.SpawnExtra(gm.DB.Enemy("hermit"), new Vector3(25, 0, 14));
+            hermit.TakeHit(new DamageInfo { amount = hermit.MaxHp * .5f, ignoreArmor = true, point = hermit.transform.position }, null);
+            Assert.IsTrue(hermit.Tucked);
+
+            // Drowner: climbs over an unbroken wall. Force the choice with a high climb chance
+            float chance = gm.DB.Enemy("drowner").climbChance;
+            gm.DB.Enemy("drowner").climbChance = 1;
+            var climber = gm.Waves.SpawnExtra(gm.DB.Enemy("drowner"), new Vector3(6, 0, 4));
+            gm.DB.Enemy("drowner").climbChance = chance;
+            Time.timeScale = 4;
+            float t = 0;
+            while (t < 25 && !Arena.Inside(climber.transform.position)) { t += Time.unscaledDeltaTime; yield return null; }
+            Time.timeScale = 1;
+            Assert.IsTrue(Arena.Inside(climber.transform.position), "it's over the wall without a breach");
+            Assert.AreEqual(0, gm.Wall.BreachCount);
+        }
+
         [UnityTest]
         public IEnumerator CreaturesAreJointedAndTumbleWhenTheyDie()
         {

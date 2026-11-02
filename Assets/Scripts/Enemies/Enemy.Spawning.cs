@@ -55,7 +55,7 @@ namespace TideWall
             if (def.mark)
             {
                 // The Mark, painted on its back where only someone looking down (a defender on the wall) would see it
-                Glyphs.Decal(transform, "mark", new Vector3(0, bounds.max.y - transform.position.y + .01f, 0), Quaternion.Euler(90, 0, 0),
+                Glyphs.Decal(transform, "mark", new Vector3(0, def.markHeight > 0 ? def.markHeight * def.scale : bounds.max.y - transform.position.y + .01f, 0), Quaternion.Euler(90, 0, 0),
                              Mathf.Clamp(Radius * 1.1f, .4f, 3f), new Color(.55f, .1f, .12f, .85f));
                 // The Tidemother's flanks are scratched with tallies: she has done this before
                 if (def.id == "tidemother")
@@ -67,6 +67,9 @@ namespace TideWall
             if (def.behaviour == EnemyBehaviour.Flyer) { flyHeight = Random.Range(4f, 6f); Wet = 0; }
             lungeCd = Random.Range(1f, 3f);
             paceMult = Random.Range(.9f, 1.12f);
+            climbs = Random.value < def.climbChance;
+            climbWait = Random.Range(3f, 7f);
+            spineCd = Random.Range(2f, 4f);
             weavePhase = Random.value * 6.28f;
             flankSide = Random.value < .5f ? -1 : 1;
             lastYaw = transform.eulerAngles.y;

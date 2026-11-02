@@ -23,7 +23,10 @@ namespace TideWall
         string gunId, meleeId;
 
         static readonly Vector3 GunRest = new(.3f, -.27f, .6f);
-        static readonly Vector3 SightRest = new(0, -.115f, .46f);   // centred, with the sights on the crosshair
+        static readonly Vector3 SightRest = new(0, -.165f, .46f);   // centred, the sights just under the crosshair
+        Model gunArm, meleeArm;
+        public bool HasMuzzle => gunRoot != null && gunRoot.gameObject.activeInHierarchy && flash != null;
+        public Vector3 Muzzle => flash.position;
 
         public static ViewModel Create(Player p, PlayerCamera cam)
         {
@@ -61,6 +64,7 @@ namespace TideWall
                 Skins.Apply(gun, p.SkinOn(p.Gun.id));
                 Player.DressGun(gun, p.AttachmentsOn(p.Gun.id));
                 Prepare(gun);
+                gunArm = Arm(gunArm, gunRoot, new Vector3(0, -.05f, -.02f), .55f);
                 gunId = p.Gun.id;
                 lastAmmo = p.Ammo;
                 if (flash != null) flash.localPosition = gun.Sockets.TryGetValue("Muzzle", out var mz) ? gunRoot.InverseTransformPoint(mz.position) : new Vector3(0, .03f, .3f);
@@ -71,6 +75,7 @@ namespace TideWall
                 melee = ModelFactory.Spawn(p.Melee.model, meleeRoot, Vector3.zero, .42f);
                 Skins.Apply(melee, p.SkinOn(p.Melee.id));
                 Prepare(melee);
+                meleeArm = Arm(meleeArm, meleeRoot, new Vector3(0, 0, .02f), .55f);
                 meleeId = p.Melee.id;
                 // A streak behind the blade through the strike
                 if (trail == null)
@@ -98,6 +103,16 @@ namespace TideWall
             Prepare(gun);
         }
 
+        /// <summary>A hand on the grip and a sleeve in this sailor's colour, so a weapon doesn't float in the air.</summary>
+        Model Arm(Model arm, Transform under, Vector3 at, float scale)
+        {
+            if (arm != null) return arm;
+            arm = ModelFactory.Spawn("ViewArm", under, at, scale);
+            ModelFactory.Recolor(arm, "coat", p.Color);
+            Prepare(arm);
+            return arm;
+        }
+
         void Prepare(Model mi)
         {
             foreach (var t in mi.root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Player.ViewLayer + p.Index;
@@ -112,7 +127,7 @@ namespace TideWall
             bool show = p.FirstPerson && !p.IsDowned && !p.IsOut;
             bool locked = p.GunsLocked;
             float sp = p.SwingProgress;
-            gunRoot.gameObject.SetActive(show && p.CarryCount == 0 && !locked);
+            gunRoot.gameObject.SetActive(show && p.CarryCount == 0 && !locked && !p.ScopedIn);
             meleeRoot.gameObject.SetActive(show && p.CarryCount == 0 && (sp >= 0 || locked));
             if (!show) { lastAmmo = p.Ammo; return; }
 

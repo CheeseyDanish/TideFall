@@ -231,10 +231,18 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: bdc0652c8ca4ebd4fbcba68911fbd813, type: 3}
   - name: VendorFish
     prefab: {fileID: 919132149155446097, guid: 3b54af00ae12be440a4221740b847db8, type: 3}
+  - name: ViewArm
+    prefab: {fileID: 919132149155446097, guid: 45579995d98685640bd90afe192e886d, type: 3}
   - name: Volleyball
     prefab: {fileID: 919132149155446097, guid: 782be5a5802c65046b7cae86c2d9492c, type: 3}
   - name: VolleyNet
     prefab: {fileID: 919132149155446097, guid: 7cc05f7b4a390ed489c8824a5175e161, type: 3}
+  - name: WallDamage1
+    prefab: {fileID: 919132149155446097, guid: 6bcbabdcbeea5fa4ab54f3d366b7279e, type: 3}
+  - name: WallDamage2
+    prefab: {fileID: 919132149155446097, guid: f79bcf33fe57eda47a2fcce3ba875397, type: 3}
+  - name: WallDamage3
+    prefab: {fileID: 919132149155446097, guid: 4b0072cedbcbd2547b7f8b53a94b4192, type: 3}
   - name: WallEnd
     prefab: {fileID: 919132149155446097, guid: 59b684c9cd6831b4c9173c65a183cf48, type: 3}
   - name: WallGate

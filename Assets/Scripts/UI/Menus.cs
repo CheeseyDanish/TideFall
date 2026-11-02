@@ -286,6 +286,7 @@ namespace TideWall
             m.Add(p.PrefersFirstPerson ? "Switch to third person" : "Switch to first person", Glyph(p, Btn.View), "You can also switch any time with the View button.",
                   pick: () => { p.CloseMenu(); p.SwitchView(); });
             m.Add("Inventory", Glyph(p, Btn.Inventory), "Your guns, their attachments and skins.", open: () => InventoryMenus.Main(p), blocked: () => p.Kind == PlayerKind.LocalProxy ? $"Use {p.Glyph(Btn.Inventory)} while playing online" : null);
+            m.Add("Field guide", ">", "What each creature is for, and how to beat it.", open: () => FieldGuide(p));
             m.Add("Stats & mods", p.StatPoints > 0 || p.PendingMods > 0 ? "!" : ">", "Spend stat points, choose weapon mods, respec.",
                   pick: () => { if (p.Kind == PlayerKind.LocalProxy) p.RequestStats(); else p.OpenMenu(Stats(p)); });
             m.Add("Settings", ">", "Audio, game and controls.", open: () => Settings(() => Pause(p), p));
@@ -437,6 +438,16 @@ namespace TideWall
             return m;
         }
         // ------------------------------------------------------------------ stats, mods, respec
+        /// <summary>Every creature, its job and how to beat it.</summary>
+        public static Menu FieldGuide(Player p)
+        {
+            var m = new Menu { Title = "FIELD GUIDE", Layout = MenuLayout.Grid, Rebuild = () => FieldGuide(p), Parent = () => Pause(p) };
+            foreach (var e in GameManager.I.DB.enemies)
+                m.Items.Add(new MenuItem { Label = e.displayName, Icon = e.model, Info = e.role, Detail = $"{e.role} {e.counter}" });
+            m.Selected = 0;
+            return m;
+        }
+
         public const string StatsTitle = "STATS & MODS";
 
         /// <summary>Level, stat points to spend, weapon mods to choose, and a respec. Runs on the host for online players.</summary>

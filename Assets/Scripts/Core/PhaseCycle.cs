@@ -74,15 +74,15 @@ namespace TideWall
                     id = "evening", displayName = "Evening", subtitle = "The tide turns. Something is coming ashore.",
                     endWhenWavesCleared = true, waves = 2, budgetMultiplier = .55f, tidalDraft = true,
                     enemyPool = new List<string> { "crab", "drowner", "gull", "hermit", "puffer", "jelly", "urchin", "eel", "shark" },
-                    skyColor = new Color(.95f, .55f, .35f), sunColor = new Color(1f, .6f, .35f), sunIntensity = 1.0f, sunPitch = 10, sunYaw = 110,
-                    ambientColor = new Color(.55f, .4f, .38f), fogColor = new Color(.9f, .55f, .4f), fogDensity = .006f, torchesLit = true,
+                    skyColor = new Color(.95f, .55f, .35f), sunColor = new Color(1f, .78f, .6f), sunIntensity = 1.1f, sunPitch = 10, sunYaw = 110,
+                    ambientColor = new Color(.52f, .48f, .54f), fogColor = new Color(.88f, .66f, .56f), fogDensity = .004f, torchesLit = true,
                 },
                 new()
                 {
                     id = "night", displayName = "Night", subtitle = "Hold the wall until dawn.",
                     endWhenWavesCleared = true, advancesDay = true, waves = 3, budgetMultiplier = 1f, bossEveryDays = 5, tidalDraft = true,
                     skyColor = new Color(.04f, .06f, .14f), sunColor = new Color(.55f, .65f, 1f), sunIntensity = .35f, sunPitch = 45, sunYaw = 160,
-                    ambientColor = new Color(.13f, .15f, .25f), fogColor = new Color(.05f, .07f, .15f), fogDensity = .012f, torchesLit = true, lanterns = true,
+                    ambientColor = new Color(.2f, .22f, .34f), fogColor = new Color(.05f, .07f, .15f), fogDensity = .012f, torchesLit = true, lanterns = true,
                 },
             };
         }

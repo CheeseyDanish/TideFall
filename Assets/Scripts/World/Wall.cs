@@ -22,6 +22,11 @@ namespace TideWall
             public Vector3 basePos;
             /// <summary>Broken-end caps shown when the neighbour on that side is breached, and this section's rubble.</summary>
             public GameObject capL, capR, rubble;
+            /// <summary>Damage so far, shown as cracks, then holes, then a heap at the foot (made the first time they're needed).</summary>
+            [NonSerialized] public GameObject[] scars;
+            [NonSerialized] public int stage;
+            /// <summary>Seconds since it was last hit (the HUD's strip flashes).</summary>
+            [NonSerialized] public float hitAt = -9;
         }
 
         public List<Section> Sections = new();
@@ -108,9 +113,18 @@ namespace TideWall
             var s = Nearest(where.x, true);
             if (s == null) return;
             s.hp = Mathf.Max(0, s.hp - amount);
+            s.hitAt = Time.time;
+            int before = s.stage;
             Look(s);
             Fx.Debris(new Vector3(where.x, 1, Arena.WallFront), new Color(.5f, .48f, .45f), 3);
-            Sfx.Play("hit", .5f, .08f);
+            Sfx.Play("thud", .4f, .1f);
+            if (s.stage > before && s.hp > 0)
+            {
+                // A piece of it comes away
+                Fx.Debris(s.t.position + new Vector3(where.x - s.x, 1.1f, .6f), new Color(.6f, .58f, .54f), 14);
+                Fx.Smoke(s.t.position + new Vector3(where.x - s.x, .9f, .7f), 5, .5f, new Color(.75f, .7f, .62f, .6f));
+                Sfx.Play("boom", .35f, .2f);
+            }
             if (s.hp <= 0) Breach(s);
         }
 
@@ -134,6 +148,7 @@ namespace TideWall
             s.t.gameObject.SetActive(!s.breached);
             if (s.rubble) s.rubble.SetActive(s.breached);
             RefreshCaps();
+            Scars(s, s.breached ? 0 : dmg);
             if (dmg <= .001f && !s.breached) { foreach (var r in s.rs) r.SetPropertyBlock(null); return; }
             var c = Color.Lerp(Color.white, new Color(.35f, .3f, .28f), s.breached ? 1 : dmg);
             foreach (var r in s.rs)
@@ -141,6 +156,22 @@ namespace TideWall
                 r.GetPropertyBlock(mpb);
                 mpb.SetColor("_BaseColor", c * new Color(.55f, .53f, .5f, 1) * 1.6f);
                 r.SetPropertyBlock(mpb);
+            }
+        }
+
+        void Scars(Section s, float dmg)
+        {
+            s.stage = dmg >= .85f ? 3 : dmg >= .6f ? 2 : dmg >= .3f ? 1 : 0;
+            if (s.stage == 0 && s.scars == null) return;
+            s.scars ??= new GameObject[3];
+            for (int i = 0; i < 3; i++)
+            {
+                if (s.scars[i] == null && s.stage > i)
+                {
+                    s.scars[i] = ModelFactory.Spawn("WallDamage" + (i + 1), transform, s.basePos).root;
+                    s.scars[i].transform.localRotation = Quaternion.Euler(0, (s.x * 53) % 2 > 1 ? 0 : 0, 0);
+                }
+                if (s.scars[i] != null) s.scars[i].SetActive(s.stage > i);
             }
         }
 

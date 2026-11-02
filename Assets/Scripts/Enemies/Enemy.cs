@@ -57,6 +57,17 @@ namespace TideWall
         readonly List<JointedPart> parts = new();
         struct JointedPart { public Transform t; public Quaternion rest; public string kind; public int side, index; }
         public float Windup => windupT;
+        // Losing limbs and what each kind does about it (Enemy.Traits.cs)
+        bool headless;
+        float bleedT, stumpT, stumbleT, climbT, climbWait, tuckT, tuckCd, spineCd, swarmT, swarmMult = 1;
+        int legsLost;
+        bool lungeHit, climbs;
+        Player headlessKiller;
+        Vector3 stumbleDir, climbFrom;
+        readonly List<(Transform parent, Vector3 local, float until)> stumps = new();
+        public bool Headless => headless;
+        public bool Climbing => climbT > 0;
+        public bool Tucked => tuckT > 0;
         public bool Thief => thief;
         public float ClamOpen => clamOpen;
 
@@ -74,6 +85,8 @@ namespace TideWall
             if (Dead) return;
             if (flinch > 0) flinch -= dt;
             poiseAcc = Mathf.MoveTowards(poiseAcc, 0, dt * .12f);
+            UpdateTraits(dt);
+            if (Dead) return;
             if (snaredT > 0) snaredT -= dt;
             if (ride != null)
             {
@@ -105,6 +118,9 @@ namespace TideWall
             if (grabbed != null) UpdateGrab(dt);
             else if (stunT > 0) stunT -= dt;
             else if (stallT > 0) stallT -= dt;
+            else if (climbT > 0) UpdateClimb(dt);
+            else if (headless) Stumble(dt);
+            else if (tuckT > 0) { }   // shut up tight in its shell
             else if (windupT > 0) UpdateWindup(dt);
             else
             {

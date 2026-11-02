@@ -72,7 +72,7 @@ namespace TideWall
         public override string StatusLine()
         {
             int breached = wall.BreachCount, sections = wall.Sections.Count;
-            return $"Powerplant {Mathf.CeilToInt(plant.Hp)}/{Mathf.RoundToInt(plant.MaxHp)} · Wall {sections - breached}/{sections}" +
+            return $"Powerplant {Mathf.CeilToInt(plant.Hp)}/{Mathf.RoundToInt(plant.MaxHp)} · Wall {Mathf.CeilToInt(wall.Hp / Mathf.Max(1, wall.MaxHp) * 100)}%, {sections - breached}/{sections} standing" +
                    (breached > 0 ? $" <color=#fca5a5>({breached} breached)</color>" : "");
         }
 
