@@ -55,6 +55,8 @@ namespace TideWall
         public virtual string Heading() => null;
         /// <summary>The game-over panel's line about how far you got, or null for the days.</summary>
         public virtual string ReachedLine(Player p) => null;
+        /// <summary>The words over the game-over panel, for this player (null: everyone's, and "RUN OVER").</summary>
+        public virtual string GameOverTitle(Player p) => null;
         /// <summary>Fold a finished run into the record (null: the caller does it the usual way).</summary>
         public virtual Legacy RecordRun(int level, int kills) => null;
         /// <summary>What creatures attack when they aren't after a sailor (Part I: the powerplant; Part II: nothing).</summary>
@@ -63,6 +65,7 @@ namespace TideWall
         /// <summary>A corpse went to the fishmonger, or a fish was landed: anything extra this level does about it.</summary>
         public virtual void OnCorpseSold(int value) { }
         public virtual void OnFishCaught(FishDef fish) { }
+        public virtual void OnPlayerDown(Player p) { }
 
         /// <summary>Online: anything about the level the host's snapshots carry beyond the shared state.</summary>
         public virtual void WriteNet(BinaryWriter w) { }

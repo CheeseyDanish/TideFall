@@ -12,7 +12,7 @@ using UnityEngine;
 
 namespace TideWall
 {
-    public class Lighthouse : Level
+    public partial class Lighthouse : Level
     {
         public const string SceneName = "The Last Light", PartId = "lastlight";
         public enum Tide : byte { Slack, Flood, Boss, LowTide }
@@ -48,11 +48,12 @@ namespace TideWall
         public override PhaseDefinition HoldLook => GameManager.I.DB.lastLight.look;
         public override string Heading()
         {
+            if (Mustering) return "<b>Tide Caller</b> · Someone take the conch by the tower";
             string what = State switch { Tide.Slack => $"Slack water · {Mathf.CeilToInt(StateLeft)}s", Tide.Flood => $"{gm.EnemiesLeft} creatures", Tide.Boss => "BOSS", _ => $"Low tide · {Mathf.CeilToInt(StateLeft)}s to salvage" };
-            return $"<b>The Last Light · Tide {Mathf.Max(1, Wave)}</b> · {what}";
+            return Versus ? $"<b>Tide Caller · Tide {Mathf.Max(1, Wave)} of {def.callerTides}</b> · {what}" : $"<b>The Last Light · Tide {Mathf.Max(1, Wave)}</b> · {what}";
         }
-        public override string ReachedLine(Player p) => $"You kept the light through tide {Wave}, and bring home {Banked} lamp oil";
-        public override Legacy RecordRun(int level, int kills) => Legacy.RecordLight(Wave, level, kills, Banked);
+        public override string ReachedLine(Player p) => Versus ? $"It ended on tide {Wave} of {def.callerTides}" : $"You kept the light through tide {Wave}, and bring home {Banked} lamp oil";
+        public override Legacy RecordRun(int level, int kills) => Versus ? Legacy.Load() : Legacy.RecordLight(Wave, level, kills, Banked);   // (a match isn't a run)
 
         public override void Init(GameDatabase db)
         {
@@ -66,7 +67,8 @@ namespace TideWall
         public void Begin()
         {
             var log = Legacy.Load();
-            float L(KeeperUpgradeKind k) => log.KeeperBonus(def, k);
+            BeginVersus(gm.Loaded);
+            float L(KeeperUpgradeKind k) => Versus ? 0 : log.KeeperBonus(def, k);   // a fair fight: the log's upgrades stay out of it
             MaxHp = Hp = def.towerHp * (1 + L(KeeperUpgradeKind.TowerHp));
             MaxOil = Oil = def.oilTank * (1 + L(KeeperUpgradeKind.OilTank));
             power = 1 + L(KeeperUpgradeKind.LampPower);
@@ -74,7 +76,8 @@ namespace TideWall
             gm.AddSandDollars(def.startSandDollars + Mathf.RoundToInt(L(KeeperUpgradeKind.Purse)));
             gm.Waves.Day = 1;
             Enter(Tide.Slack, def.firstSlackSeconds);
-            gm.Banner("THE LAST LIGHT", "Keep the lamp burning. The sea is coming up.");
+            if (Versus) gm.Banner("TIDE CALLER", "One of you takes the conch. The rest keep the light.");
+            else gm.Banner("THE LAST LIGHT", "Keep the lamp burning. The sea is coming up.");
         }
 
         void Enter(Tide s, float seconds)
@@ -110,7 +113,8 @@ namespace TideWall
                 var bossDef = gm.DB.Enemy(def.bosses[Mathf.Min(bossesBeaten, def.bosses.Count - 1)]);
                 if (bossDef != null)
                 {
-                    SpawnAtRing(bossDef);
+                    boss = SpawnAtRing(bossDef);
+                    if (CallerActive) toSpawn = 0;
                     gm.Banner(bossDef.displayName.ToUpperInvariant() + " RISES", "It's coming up out of the deep. Hold the light!");
                     Sfx.Play("horn", 1, .2f);
                     toSpawn /= 2;
@@ -123,12 +127,15 @@ namespace TideWall
             Enter(Tide.Flood, def.floodSeconds);
         }
 
-        void SpawnAtRing(EnemyDef e)
+        Enemy SpawnAtRing(EnemyDef e)
         {
-            var at = Quaternion.Euler(0, Random.Range(0, 360f), 0) * Vector3.forward * def.spawnRadius;
+            // (Tide Caller: a boss rises wherever the Caller's looking)
+            var from = CallerActive ? Caller.transform.position : Vector3.zero; from.y = 0;
+            var at = (from.sqrMagnitude > 1 ? from.normalized : Quaternion.Euler(0, Random.Range(0, 360f), 0) * Vector3.forward) * def.spawnRadius;
             if (e.behaviour == EnemyBehaviour.Flyer) at.y = 9; else at.y = Arena.GroundAt(at);
-            gm.Waves.SpawnExtra(e, at);
+            var made = gm.Waves.SpawnExtra(e, at);
             Fx.Splash(new Vector3(at.x, Arena.WaterLevel, at.z), 8);
+            return made;
         }
 
         void SpawnFromSea(float dt)
@@ -157,13 +164,17 @@ namespace TideWall
             if (gm == null) return;
             float dt = Time.deltaTime;
             UpdateBeamLook(dt);
+            UpdateRiderMark();
             if (Net.IsClient) { WaterVisualOnly(); return; }
             if (gm.State != GameState.Playing) return;
 
             Arena.WaterLevel = Mathf.MoveTowards(Arena.WaterLevel, waterTarget, dt * (State == Tide.LowTide ? def.lowTideRate : def.riseRate));
             if (Keeper != null && (Keeper.IsOut || Keeper.IsDowned)) SetKeeper(null);
             UpdateLamp(dt);
+            if (gm.State != GameState.Playing) return;
+            UpdateCaller(dt);
 
+            if (Mustering) { StateLeft = def.firstSlackSeconds; return; }
             StateLeft -= dt;
             switch (State)
             {
@@ -171,12 +182,20 @@ namespace TideWall
                     if (StateLeft <= 0) StartFlood();
                     break;
                 case Tide.Flood:
-                    SpawnFromSea(dt);
-                    if ((toSpawn <= 0 && GameManager.Enemies.Count == 0) || StateLeft <= 0) { Banked += def.oilPerTide; Enter(Tide.Slack, def.slackSeconds); }
+                    // (With a Caller the tide runs its full time: the sea only stops when they've no more to send)
+                    if (!CallerActive) SpawnFromSea(dt);
+                    if ((!CallerActive && toSpawn <= 0 && GameManager.Enemies.Count == 0) || StateLeft <= 0)
+                    {
+                        if (LightHeld()) break;
+                        Banked += def.oilPerTide; Enter(Tide.Slack, def.slackSeconds);
+                    }
                     break;
                 case Tide.Boss:
-                    SpawnFromSea(dt);
-                    if (toSpawn <= 0 && GameManager.Enemies.Count == 0) StartLowTide();
+                    if (!CallerActive) SpawnFromSea(dt);
+                    if (CallerActive ? boss == null || boss.Dead : toSpawn <= 0 && GameManager.Enemies.Count == 0)
+                    {
+                        if (!LightHeld()) StartLowTide();
+                    }
                     break;
                 case Tide.LowTide:
                     if (!warnedLow && StateLeft < def.lowTideWarning) { warnedLow = true; gm.Banner("THE TIDE IS TURNING", "Back to high ground!"); Sfx.Play("horn"); }
@@ -359,7 +378,8 @@ namespace TideWall
         public override string StatusLine()
         {
             string oil = Oil > 0 ? $"Oil {Mathf.CeilToInt(Oil)}/{Mathf.RoundToInt(MaxOil)}" : $"<color=#fca5a5>LIGHT OUT {Mathf.CeilToInt(DarkLeft)}s</color>";
-            return $"Lighthouse {Mathf.CeilToInt(Hp)}/{Mathf.RoundToInt(MaxHp)} · {oil} · Sea {Arena.ShoreRadius():0} m out";
+            string brine = CallerActive ? $" · Caller's brine {Mathf.FloorToInt(Brine)}" : "";
+            return $"Lighthouse {Mathf.CeilToInt(Hp)}/{Mathf.RoundToInt(MaxHp)} · {oil} · Sea {Arena.ShoreRadius():0} m out{brine}";
         }
         public override float StatusFraction() => Mathf.Clamp01(Hp / Mathf.Max(1, MaxHp));
 
@@ -368,6 +388,7 @@ namespace TideWall
         {
             w.Write((byte)State); w.Write((short)Wave); w.Write(Hp); w.Write(MaxHp); w.Write(Oil); w.Write(MaxOil); w.Write(StateLeft); w.Write(DarkLeft);
             w.Write(Arena.WaterLevel); w.Write(beamDir); w.Write((short)Banked); w.Write(Keeper != null);
+            WriteCaller(w);
         }
 
         public override void ReadNet(BinaryReader r)
@@ -375,6 +396,7 @@ namespace TideWall
             State = (Tide)r.ReadByte(); Wave = r.ReadInt16(); Hp = r.ReadSingle(); MaxHp = r.ReadSingle(); Oil = r.ReadSingle(); MaxOil = r.ReadSingle();
             StateLeft = r.ReadSingle(); DarkLeft = r.ReadSingle(); Arena.WaterLevel = r.ReadSingle(); beamDir = r.ReadVector3(); Banked = r.ReadInt16();
             manned = r.ReadBoolean();
+            ReadCaller(r);
         }
         bool manned;
     }

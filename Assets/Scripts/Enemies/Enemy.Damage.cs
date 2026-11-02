@@ -165,6 +165,7 @@ namespace TideWall
             Release();
             GameManager.Enemies.Remove(this);
             gm.Waves.OnEnemyDied(this);
+            if (Rider != null) gm.Lighthouse?.OnRiddenKilled(this, d.source);
             if (ride != null) ride = null;
             // Sand dollars wash out of it onto the sand; XP for the killer (and a share for the team)
             SandDollarPickup.Drop(bounds.center, Mathf.RoundToInt(Def.bounty * gm.Cards.SandDollars), d.source);

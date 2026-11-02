@@ -15,7 +15,10 @@ namespace TideWall
         Player player;
         float shake, roll, fovExtra;
         Vector3 smoothPos;
-        bool wasFirstPerson;
+        bool wasFirstPerson, wasCaller;
+        Vector3 callerFocus;
+        Quaternion callerLook = Quaternion.identity;
+        float callerBack;
         /// <summary>Third person: the camera's place relative to the head pivot, in the look's frame (right, up, back).</summary>
         public static readonly Vector3 Shoulder = new(.75f, .45f, -3.6f);
         const float PivotHeight = 1.55f;
@@ -85,7 +88,7 @@ namespace TideWall
             var st = player.Statuses;
             Level.SetupCameraSky(Camera, GameManager.I.Phases.SkyColor);
             shake = Mathf.MoveTowards(shake, 0, dt * 2.5f);
-            bool fp = player.FirstPerson && !player.IsOut;
+            bool fp = player.FirstPerson && !player.IsOut && !player.IsCaller;
             Camera.cullingMask = Mask(fp);
             float targetRoll = st.Has(StatusType.UpsideDown) ? 180 : st.Has(StatusType.DutchTilt) ? 22 : 0;
             if (player.IsDowned && fp) targetRoll += 25;
@@ -97,6 +100,26 @@ namespace TideWall
             kickYaw = Mathf.Lerp(kickYaw, 0, 1 - Mathf.Exp(-dt * 12));
             punch = Mathf.Lerp(punch, 0, 1 - Mathf.Exp(-dt * 10));
             Camera.fieldOfView = FirstPersonFov((Settings.Current.fov + fovExtra - punch) * player.AimZoom, Camera.aspect);
+            if (player.IsCaller)
+            {
+                // The Tide Caller: high above the marker, or close behind the creature they're driving
+                player.CallerView(out var focus, out var over, out float back, out float ortho);
+                float k = 1 - Mathf.Exp(-dt * 10);
+                bool jump = !wasCaller || (callerFocus - focus).sqrMagnitude > 2500;
+                callerFocus = jump ? focus : Vector3.Lerp(callerFocus, focus, k);
+                callerLook = jump ? over : Quaternion.Slerp(callerLook, over, k);
+                callerBack = jump ? back : Mathf.Lerp(callerBack, back, k);
+                wasCaller = true;
+                wasFirstPerson = false;
+                Camera.fieldOfView = 50;
+                Camera.orthographic = ortho > 0;
+                if (ortho > 0) Camera.orthographicSize = ortho;
+                smoothPos = callerFocus - callerLook * Vector3.forward * callerBack;
+                transform.SetPositionAndRotation(smoothPos, callerLook);
+                return;
+            }
+            wasCaller = false;
+            Camera.orthographic = false;
             var look = player.LookRotation * Quaternion.Euler(jitter.x * 3 - kickPitch, jitter.y * 3 + kickYaw, 0);
             if (fp)
             {

@@ -369,6 +369,7 @@ namespace TideWall
                                $"<color=#cbd5e1>{p.Melee.displayName}</color>" +
                                (p.CarryCount > 0 ? $"\n<color=#fde68a>Carrying {p.CarryCount} (weight {weight}/{Player.MaxCarry:0}) · {p.Glyph(Btn.Fire)} throw</color>" : "");
 
+            UpdateCaller();
             Ui.Set(promptText, Prompt());
 
             bannerT -= dt; toastT -= dt; hitT -= dt;
@@ -387,7 +388,7 @@ namespace TideWall
             bool cardsOpen = p.ShownMenu != null && p.ShownMenu.Layout == MenuLayout.Cards;
             Ui.Set(previewText, cardsOpen || gm.Level.HoldLook != null ? "" : gm.Waves.Preview);
             if (cardsOpen) { voteText.text = ""; voteLine = default; SetAlpha(bannerTitle, 0); SetAlpha(bannerSub, 0); }   // the cards have the screen
-            bool cross = !p.IsOut && p.ShownMenu == null && gm.State == GameState.Playing;
+            bool cross = !p.IsOut && !p.IsCaller && p.ShownMenu == null && gm.State == GameState.Playing;
             crossH.enabled = crossV.enabled = cross;
             fpsText.enabled = Settings.Current.showFps;
             if (fpsText.enabled)
@@ -401,7 +402,7 @@ namespace TideWall
                 RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)transform, p.AimScreen, p.Cam.Camera, out reticlePos);
             if (hitT > 0) hitMarker.rectTransform.anchoredPosition = reticlePos;
             killMarker.rectTransform.anchoredPosition = reticlePos;
-            reticle.Update(p, gm, reticlePos, !p.IsOut && !p.IsDowned && gm.State == GameState.Playing && (p.ShownMenu == null || p.ShownMenu.Layout == MenuLayout.List), dt);
+            reticle.Update(p, gm, reticlePos, !p.IsOut && !p.IsDowned && !p.IsCaller && gm.State == GameState.Playing && (p.ShownMenu == null || p.ShownMenu.Layout == MenuLayout.List), dt);
 
             hurt.color = new Color(.8f, 0, 0, Mathf.Clamp01(p.HurtFlash) * .6f + (p.IsDowned ? .25f : 0));
             tunnel.color = new Color(0, 0, 0, p.Statuses.Has(StatusType.Tunnel) ? .97f : 0);
@@ -410,9 +411,42 @@ namespace TideWall
             Ui.Set(centerText, CenterMessage());
         }
 
+        TMP_Text callerText;
+
+        /// <summary>Tide Caller: brine in place of health, the creatures on offer in place of the guns, and what the buttons do.</summary>
+        void UpdateCaller()
+        {
+            bool on = p.IsCaller && gm.Level is Lighthouse;
+            if (callerText == null)
+            {
+                if (!on) return;
+                callerText = Ui.Text(transform.GetComponentInChildren<Canvas>().transform, "Caller", new Vector2(.5f, 0), new Vector2(0, 20), new Vector2(1180, 92), 16, TextAnchor.LowerCenter, Color.white);
+                callerText.rectTransform.pivot = new Vector2(.5f, 0);
+            }
+            callerText.gameObject.SetActive(on);
+            if (!on) return;
+            var l = (Lighthouse)gm.Level;
+            hpFill.fillAmount = Mathf.Clamp01(l.Brine / Mathf.Max(1, l.MaxBrine));
+            hpFill.color = new Color(.3f, .85f, .85f);
+            xpFill.fillAmount = 0;
+            Ui.Set(nameText, "<b>TIDE CALLER</b>");
+            Ui.Set(hpText, $"Brine {Mathf.FloorToInt(l.Brine)}/{Mathf.RoundToInt(l.MaxBrine)}");
+            Ui.Set(levelText, ""); Ui.Set(gunText, ""); Ui.Set(statusText, "");
+            nameLine = hpLine = levelLine = gunLine = statusLine = default;   // (they rebuild if the conch is put down)
+            var sb = new StringBuilder();
+            if (l.Ridden == null)
+                foreach (var e in l.Roster())
+                {
+                    string colour = e == l.Pick ? "#fde68a" : l.Brine >= e.cost ? "#e2e8f0" : "#64748b";
+                    sb.Append(e == l.Pick ? $"<color={colour}><b>[{e.displayName} {e.cost}]</b></color>   " : $"<color={colour}>{e.displayName} {e.cost}</color>   ");
+                }
+            else sb.Append($"<color=#fde68a><b>Driving a {l.Ridden.Def.displayName}</b></color>  {Mathf.CeilToInt(l.Ridden.Hp)} HP");
+            Ui.Set(callerText, $"{sb}\n<size=14><color=#cbd5e1>{l.CallerHelp(p)}</color></size>");
+        }
+
         string Prompt()
         {
-            if (p.ShownMenu != null || gm.State != GameState.Playing) return "";
+            if (p.ShownMenu != null || gm.State != GameState.Playing || p.IsCaller) return "";
             return p.PromptText().Replace("{btn}", p.Glyph(Btn.Interact));
         }
 
@@ -426,7 +460,7 @@ namespace TideWall
                 var rec = gm.RunRecord;
                 string best = rec != null ? $"\n<size=16>Runs: {rec.runs} · best day {rec.bestDay} · best level {rec.bestLevel}</size>" : "";
                 string reached = gm.Level.ReachedLine(p) ?? (gm.Assault ? $"The expedition reached {gm.Expedition.Stage.title}" : $"You held out until day {gm.Phases.Day}");
-                return $"<size=44><b>RUN OVER</b></size>\n{gm.GameOverReason}\n{reached} (level {p.Level}).{best}\n\n" +
+                return $"<size=44><b>{gm.Level.GameOverTitle(p) ?? "RUN OVER"}</b></size>\n{gm.GameOverReason}\n{reached} (level {p.Level}).{best}\n\n" +
                        $"<size=20>{retry} · {p.Glyph(Btn.Back)} {(Net.IsClient ? "Leave" : "Main menu")}</size>";
             }
             if (Net.IsClient && !Net.Client.Connected) return "<b>Connection lost</b>\nReturning to the main menu…";

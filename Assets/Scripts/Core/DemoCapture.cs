@@ -55,10 +55,12 @@ namespace TideWall
             if (st >= 0 && st + 1 < args.Length && int.TryParse(args[st + 1], out var stage)) d.hostStage = stage - 1;
         }
 
+        Vector2 stickDemo;
+
         void Update()
         {
             // Hold the virtual sticks/triggers every frame (state events are one-shot).
-            if (pad1 != null && pad1.added) InputSystem.QueueStateEvent(pad1, new GamepadState { rightStick = look1, rightTrigger = fire ? 1 : 0, leftTrigger = sights ? 1 : 0 });
+            if (pad1 != null && pad1.added) InputSystem.QueueStateEvent(pad1, new GamepadState { leftStick = stickDemo, rightStick = look1, rightTrigger = fire ? 1 : 0, leftTrigger = sights ? 1 : 0 });
         }
 
         IEnumerator Start()
@@ -411,10 +413,11 @@ namespace TideWall
                 Debug.Log($"TIDEWALL_JOIN_CODE {Net.Host.JoinCode}");
             }
             else if (Net.StartHost(NetProtocol.DefaultPort, "Host Bot", DemoPassword, out var error) == null) { Debug.LogError($"TIDEWALL_HOST_FAILED {error}"); Application.Quit(1); yield break; }
-            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-tidewall-host-light") >= 0)
+            bool callerDemo = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-tidewall-host-caller") >= 0;
+            if (callerDemo || System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-tidewall-host-light") >= 0)
             {
                 StoryCard.Disabled = true;
-                GameManager.Load(Lighthouse.SceneName, new RunRequest { save = new SaveData { slot = 0, part = Lighthouse.PartId } });
+                GameManager.Load(Lighthouse.SceneName, new RunRequest { save = new SaveData { slot = 0, part = Lighthouse.PartId, versus = callerDemo } });
                 yield return new WaitForSecondsRealtime(1.5f);
                 gm = GameManager.I;
             }
@@ -432,15 +435,25 @@ namespace TideWall
             var p = gm.Players.Join(new InputDevice[] { pad1 });
             Debug.Log($"TIDEWALL_HOST_READY {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
             if (!gm.Assault) gm.Phases.Advance();   // evening: a fight to watch
-            float end = Time.time + hostSeconds;
+            float end = Time.time + hostSeconds, callerMoved = 0;
+            Vector3 callerAt = Vector3.zero;
             while (Time.time < end)
             {
-                if (GameManager.Enemies.Count < 6)
+                if (callerDemo && gm.Lighthouse.Caller != null)
+                {
+                    var now = gm.Lighthouse.Caller.transform.position;
+                    if (callerAt != Vector3.zero) callerMoved += Vector3.Distance(callerAt, now);
+                    callerAt = now;
+                }
+                if (!callerDemo && GameManager.Enemies.Count < 6)
                     foreach (var id in new[] { "crab", "drowner", "shark", "croc" })
                         gm.Waves.SpawnExtra(gm.DB.Enemy(id), p.transform.position + new Vector3(UnityEngine.Random.Range(-8f, 8f), 0, UnityEngine.Random.Range(12f, 18f)));
                 fire = Time.time % 3 < 1;
+                // The Tide Caller check: the client's player takes the conch
+                if (callerDemo && gm.Lighthouse is { Caller: null } cl && gm.Players.Count >= 2) cl.SetCaller(gm.Players.All.Find(x => x.Kind == PlayerKind.Remote));
                 yield return new WaitForSecondsRealtime(.5f);
             }
+            if (callerDemo) Debug.Log($"TIDEWALL_HOST_CALLER moved={callerMoved:0.0} stillHere={gm.Lighthouse.Caller != null}");
             Debug.Log($"TIDEWALL_HOST_DONE clients={Net.Host.ClientCount} players={gm.Players.Count}");
             Application.Quit();
         }
@@ -451,6 +464,7 @@ namespace TideWall
             Directory.CreateDirectory(dir);
             yield return new WaitForSecondsRealtime(1.5f);
             var gm = GameManager.I;
+            InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;   // this window may not have focus
             pad1 = InputSystem.AddDevice<Gamepad>();
             if (joinCode != null) Net.StartRelayClient(joinCode, "Client Bot", DemoPassword, new InputDevice[] { pad1 });
             else Net.StartClient(join, NetProtocol.DefaultPort, "Client Bot", DemoPassword, new InputDevice[] { pad1 });
@@ -470,6 +484,16 @@ namespace TideWall
             yield return Shot("net-02-client-third-person");
             int enemies = 0;
             foreach (var e in FindObjectsByType<Enemy>()) if (e.Proxy) enemies++;
+            if (gm.Lighthouse is { Versus: true } vs)
+            {
+                // Hold the marker's stick over: it should glide (predicted here, confirmed by the host), and the HUD should show the Caller's
+                var from = me.transform.position;
+                stickDemo = new Vector2(1, 0);
+                yield return new WaitForSecondsRealtime(2f);
+                stickDemo = Vector2.zero;
+                yield return Shot("net-03-client-tide-caller");
+                Debug.Log($"TIDEWALL_CLIENT_CALLER mine={me.IsCaller} moved={Vector3.Distance(from, me.transform.position):0.0} brine={vs.Brine:0.0} roster={vs.Roster().Count} conchTaken={vs.Caller != null}");
+            }
             Debug.Log($"TIDEWALL_CLIENT_OK players={gm.Players.Count} enemyProxies={enemies} sandDollars={gm.SandDollars} phase={gm.Phases.Current?.id}");
             Net.Shutdown(null);
             Application.Quit();

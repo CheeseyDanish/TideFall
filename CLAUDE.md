@@ -52,6 +52,7 @@ The design documents in `docs/` define the game. These rules are binding for any
 - **R9b — Creatures arrive on the waves.** Anything that comes from the sea rides a `Breaker` in (flyers fly in; in The Last Light, with no straight shore, they wade up out of the deep); nothing pops into existence on the beach except boss summons and test/capture spawns.
 - **R9e — Blows can be dodged.** A creature's attack on a player goes through its wind-up (`EnemyDef.windup`, `TryAttackPlayer`): it telegraphs, and only lands if the target is still in reach.
 - **R9f — Every creature has a job.** A new creature fills `EnemyDef.role` and `counter` (the Field guide shows them) and does something no other creature does, from data where it can (`Enemy.Traits.cs`). A limb coming off shouldn't usually end it.
+- **R9g — Anything a player can do to a creature, a creature must survive being driven.** A new `EnemyBehaviour` must work with `Enemy.Rider` and `Order` (Tide Caller), or be excluded in `Lighthouse.CanCommand`.
 - **R10 — Wetness is always visible.** Drip count is proportional to wetness (`Fx.Drip`, `maxDripsPerSecond`). Anything that changes wetness must keep drips and gloss in sync.
 - **R10a — The money is sand dollars.** Never call it coins in anything a player sees; show the sand dollar icon (`Ui.SandDollarIcon`) or "SD" next to amounts.
 - **R11 — Feedback for every hit**: hit flash, gore/sparks, a sound, a hit marker for the shooter; severed limbs fly off with physics; big events shake the cameras of nearby players (scaled by the screen-shake setting).

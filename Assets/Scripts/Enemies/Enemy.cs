@@ -122,6 +122,8 @@ namespace TideWall
             else if (headless) Stumble(dt);
             else if (tuckT > 0) { }   // shut up tight in its shell
             else if (windupT > 0) UpdateWindup(dt);
+            else if (Rider != null) UpdateRidden(dt);
+            else if (orderT > 0) FollowOrder(dt);
             else
             {
                 switch (Def.behaviour)

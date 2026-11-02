@@ -36,6 +36,7 @@ the epigraphs and endings may hint, never explain.
 | Weapon skins: names and descriptions | `GameDatabase.asset` → `skins` (defaults in `GameDatabase.cs`) |
 | Fish names and lines | `GameDatabase.asset` → `fish` |
 | The Last Light's upgrades, banners | `GameDatabase.asset` → `lastLight.upgrades`; `World/Lighthouse.cs` |
+| Tide Caller's banners, prompts and help line | `World/Lighthouse.Caller.cs`, `World/ConchShell.cs`; its menu rows in `UI/MainMenu.cs` |
 | The Inventory's menus | `UI/InventoryMenus.cs` |
 | Gun attachments: names and descriptions | `GameDatabase.asset` → `attachments` (defaults in `GameDatabase.cs`); the shop tab's effect line in `Menus.cs` (`AttachmentEffects`) |
 | The debug menu (every row and description) and the stats overlay | `Assets/Scripts/Debug/DebugMenu.cs`, `DebugTools.cs` |

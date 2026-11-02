@@ -235,6 +235,7 @@ namespace TideWall
             var log = Legacy.Load();
             var m = new Menu { Title = "THE LAST LIGHT", Parent = Root, Rebuild = LastLightPage };
             m.Add("Light the lamp", null, "Start a run. Runs don't save: how far can the light last?", pick: () => StartOffline(new SaveData { slot = 0, part = Lighthouse.PartId }, 0));
+            m.Add("Tide Caller", "2+ players", "One player takes the conch and sends the sea against everyone else, for ten tides. Split screen here, or host it online.", pick: () => StartOffline(new SaveData { slot = 0, part = Lighthouse.PartId, versus = true }, 0));
             m.Add("Keeper's Log", $"{log.lampOil} oil", "Spend the lamp oil you bring home on permanent upgrades for this mode.", open: () => LastLightMenus.KeepersLog(LastLightPage));
             m.Header("");
             m.Header($"<size=13>Runs: {log.lightRuns} · deepest tide: {log.bestTide} · fish found: {log.fishLog.Count} of {gm.DB.fish.Count}</size>");
@@ -249,6 +250,7 @@ namespace TideWall
             Action<SaveData, int> go = (save, slot) => { if (hostWithCode) StartRelayHost(save, slot); else StartHost(save, slot); };
             m.Add("Host Part I", ">", "Saves to a slot like a normal run.", open: () => Slots("HOST PART I", true, go));
             m.Add("Host The Last Light", ">", "The sandbar, together. It doesn't save: every run starts fresh.", pick: () => go(new SaveData { slot = 0, part = Lighthouse.PartId }, 0));
+            m.Add("Host Tide Caller", ">", "One of you sends the sea against the rest, for ten tides. Whoever takes the conch by the tower calls the tide.", pick: () => go(new SaveData { slot = 0, part = Lighthouse.PartId, versus = true }, 0));
             m.Add("Host Part II", ">", "The Undertow, together. Saves between stages.", open: () => Slots("HOST PART II", true, (save, slot) => go(Expedition.NewSave(gm, slot, 0), slot)));
             if (SaveSystem.Latest() != null)
                 m.Add("Host a saved run", ">", "Continue a run with friends.", open: () => Slots("HOST A SAVED RUN", false, go));

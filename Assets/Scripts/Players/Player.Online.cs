@@ -54,7 +54,7 @@ namespace TideWall
             float k = 1 - Mathf.Exp(-dt * 14);
             cc.enabled = false;
             transform.position = Vector3.Distance(transform.position, netPos) > 6 ? netPos : Vector3.Lerp(transform.position, netPos, k);
-            cc.enabled = true;
+            cc.enabled = !IsCaller;
             swingT -= dt;
             visual.gameObject.SetActive(!IsOut);
             visual.rotation = Quaternion.Slerp(visual.rotation, Quaternion.Euler(0, netYaw, 0), k);
@@ -98,6 +98,9 @@ namespace TideWall
             if (laser) Destroy(laser.gameObject);
             if (laserDot) Destroy(laserDot.gameObject);
             if (fishLine) Destroy(fishLine.gameObject);
+            if (callerRing) Destroy(callerRing.gameObject);
+            foreach (var r in sailorRings) if (r) Destroy(r.gameObject);
+            if (callerTarget) Destroy(callerTarget.gameObject);
             if (Cam) Destroy(Cam.gameObject);
             if (Hud) Destroy(Hud.gameObject);
             if (gm != null && gm.Level != null) gm.Level.lanterns.Remove(lantern);

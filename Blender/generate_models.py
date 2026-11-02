@@ -1393,6 +1393,8 @@ build('FishSword', [
     ('Body', 'cone', (.05, .05, .7), (0, -.75, .02), 'steel', None, (90, 0, 0), 5),
     ('Body', 'cone', (.03, .3, .5), (0, -.05, .32), 'navy', None, None, 4), ('Body', 'cone', (.03, .3, .4), (0, .52, 0), 'navy', None, (-90, 0, 0), 4),
 ])
+build('Conch', [('Body', 'cone', (.24, .24, .62), (0, 0, .24), 'orange', None, (0, 72, 0), 10), ('Body', 'ball', (.26, .26, .22), (-.16, 0, .22), 'white'),
+                ('Body', 'ball', (.18, .2, .16), (.04, 0, .27), 'orange2'), ('Body', 'ball', (.1, .12, .09), (.2, 0, .31), 'white'), ('Body', 'ball', (.16, .12, .12), (-.2, -.13, .2), 'crabD')])
 build('FishBoot', [('Body', 'box', (.2, .24, .38), (0, .06, .19), 'brown'), ('Body', 'box', (.2, .44, .14), (0, -.05, .05), 'woodD'), ('Body', 'box', (.21, .25, .03), (0, .06, .33), 'greyD')])
 build('FishCan', [('Body', 'cyl', (.16, .16, .32), (0, 0, .16), 'red', None, None, 10), ('Body', 'cyl', (.165, .165, .03), (0, 0, .32), 'steel', None, None, 10), ('Body', 'box', (.17, .02, .1), (0, -.08, .17), 'white')])
 build('FishMimic', [('Body', 'ball', (.4, .55, .2), (0, 0, 0), 'orange'), ('Body', 'cone', (.03, .2, .2), (0, .32, 0), 'orange2', None, (-90, 0, 0), 4),

@@ -15,6 +15,7 @@ namespace TideWall
         public int slot;
         [Tooltip("Campaign part id: \"wall\" (Part I) or \"undertow\" (Part II)")] public string part = "wall";
         [Tooltip("Part II: the stage to play next (0-based)")] public int stage;
+        [Tooltip("The Last Light: one player calls the tide against the rest (never written to a slot)")] public bool versus;
         public string savedAt;          // ISO 8601, for "Continue" (most recent wins)
         public int day = 1, phaseIndex;
         public int sandDollars, pearls, runWave;

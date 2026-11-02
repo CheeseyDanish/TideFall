@@ -246,7 +246,7 @@ namespace TideWall
             GameOverReason = reason;
             Time.timeScale = .25f;   // slow-motion fall; HUDs show the game-over panel
             Sfx.Play("horn");
-            Banner("RUN OVER", reason);
+            Banner(Level.GameOverTitle(null) ?? "RUN OVER", reason);
             // Roguelike: the run's save goes with it; the legacy record keeps the best
             if (SaveSlot > 0) SaveSystem.Delete(SaveSlot);
             int level = 0, kills = 0;
@@ -267,6 +267,7 @@ namespace TideWall
         {
             if (Net.IsClient) return;   // the host decides
             var req = new RunRequest { slot = SaveSlot, save = null };   // (The Last Light simply starts over in its scene)
+            if (Lighthouse is { Versus: true }) req.save = new SaveData { slot = 0, part = Lighthouse.PartId, versus = true };
             foreach (var p in Players.All) if (p.Controls != null) req.devices.Add(p.Controls.Devices);
             // Part II starts over from its first stage
             string scene = SceneManager.GetActiveScene().name;

@@ -95,6 +95,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: 298ecae3869c06a4888e0e9085ac801f, type: 3}
   - name: Cloud
     prefab: {fileID: 919132149155446097, guid: 989d107b65e19d04d8cd860cf5130ee5, type: 3}
+  - name: Conch
+    prefab: {fileID: 919132149155446097, guid: c652e1e664459d043a34b0684220863b, type: 3}
   - name: Crab
     prefab: {fileID: 919132149155446097, guid: 5b459f983c1e9fc4499db86f8ae7d396, type: 3}
   - name: Crate

@@ -38,6 +38,7 @@ namespace TideWall
         /// </summary>
         Vector3 StepMove(Vector2 move, bool dash, float yaw, float dt)
         {
+            if (IsCaller) { CallerMove(move, yaw, dt); return Vector3.zero; }
             if (Perch > 0) return Vector3.zero;   // up at the lamp
             if (IsOut || dt <= 0) return Vector3.zero;
             if (Noclip(move, dash, yaw, dt)) return Vector3.zero;
@@ -194,7 +195,7 @@ namespace TideWall
         /// <summary>Put the player somewhere directly (respawns, tests). The CharacterController has to be off for it.</summary>
         public void Place(Vector3 at)
         {
-            cc.enabled = false; transform.position = at; cc.enabled = true;
+            cc.enabled = false; transform.position = at; cc.enabled = !IsCaller;
         }
     }
 }

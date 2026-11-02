@@ -41,7 +41,7 @@ namespace TideWall
 
     public static class NetProtocol
     {
-        public const int Version = 11;
+        public const int Version = 12;
         public const int DefaultPort = 7777;
         public const int DiscoveryPort = 47777;
         public const string DiscoveryTag = "TIDEWALL2";

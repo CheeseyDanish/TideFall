@@ -57,7 +57,7 @@ namespace TideWall
         public float MaxHp => Simulated ? (db.playerMaxHp + gm.Team.PlayerHpBonus + StatBonus(StatKind.MaxHp)) * gm.Cards.PlayerMaxHp : netMaxHp;
         public bool IsDowned { get; private set; }
         public bool IsOut { get; private set; }          // bled out: back at the next phase
-        public bool IsTargetable => Simulated && !IsDowned && !IsOut && Perch <= 0 && gm.State == GameState.Playing;
+        public bool IsTargetable => Simulated && !IsDowned && !IsOut && !IsCaller && Perch <= 0 && gm.State == GameState.Playing;
         public float BleedLeft { get; private set; }
         public float ReviveProgress { get; private set; }
         public bool Ready { get; set; }
@@ -342,6 +342,8 @@ namespace TideWall
                 default: ProxyUpdate(dt); break;
             }
             Remote?.EndFrame();
+            if (IsCaller) { visual.gameObject.SetActive(false); reticle.enabled = false; }
+            UpdateCallerRings();
             UpdateNameTag();
         }
 
@@ -351,12 +353,13 @@ namespace TideWall
             if (hurtFlash > 0) hurtFlash -= dt;
             if (Kind == PlayerKind.Local) LocalButtons();
             else PrefersFirstPerson = Remote.FirstPerson;
-            if (Pressed(Btn.Stats) && !Rebinder.Busy) ToggleStats();
-            if (Pressed(Btn.Inventory) && !Rebinder.Busy && gm.State == GameState.Playing && !IsOut) ToggleInventory();
+            if (Pressed(Btn.Stats) && !Rebinder.Busy && !IsCaller) ToggleStats();
+            if (Pressed(Btn.Inventory) && !Rebinder.Busy && gm.State == GameState.Playing && !IsOut && !IsCaller) ToggleInventory();
             float udt = Time.unscaledDeltaTime;
             if (gm.State == GameState.GameOver) { UpdateReticle(false); return; }
             if (dt <= 0) { if (OpenedMenu != null) UpdateMenu(udt); UpdateReticle(false); return; }   // paused (offline)
 
+            if (IsCaller) { CallerUpdate(dt, udt); return; }
             UpdateWet(dt);
             if (IsOut) { visual.gameObject.SetActive(false); reticle.enabled = false; if (OpenedMenu != null) UpdateMenu(udt); return; }
             visual.gameObject.SetActive(true);
@@ -401,6 +404,7 @@ namespace TideWall
 
         public void SwitchView()
         {
+            if (IsCaller) { ToggleCallerView(); return; }
             PrefersFirstPerson = !PrefersFirstPerson;
             Toast(PrefersFirstPerson ? "First person" : "Third person", new Color(.8f, .9f, 1f));
             Sfx.Play("ui");

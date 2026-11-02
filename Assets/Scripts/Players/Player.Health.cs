@@ -28,6 +28,7 @@ namespace TideWall
             for (int i = Carrying.Count - 1; i >= 0; i--) Drop(Carrying[i]);
             if (grabbedBy != null) Release(grabbedBy);
             if (OpenedMenu != null && !OpenedMenu.System) CloseMenu();
+            gm.Level.OnPlayerDown(this);
             gm.Banner($"{Name.ToUpperInvariant()} IS DOWN", what != null ? $"Taken out by {what}. Hold Interact next to them to revive!" : "Hold Interact next to them to revive!");
             gm.Players.CheckWipe();
         }

@@ -304,6 +304,16 @@ namespace TideWall
         [Range(0, 1)] public float salvagePearlChance = .15f, salvagePartChance = .35f;
         [Header("Lamp oil brought home")]
         public int oilPerTide = 4, oilPerBoss = 25;
+        [Header("Tide Caller (one player against the rest)")]
+        [Tooltip("The sailors win if the light lasts this many tides")] public int callerTides = 10;
+        public float brineStart = 6, brineBase = .12f, brinePerTide = .05f, brineCapBase = 12, brineCapPerTide = 4;
+        [Tooltip("Creatures can't be called this close to a sailor")] public float callerSafeRadius = 12;
+        public float callerMinDepth = .4f, callerMoveSpeed = 28, callerViewDistance = 34, callerIsoSize = 34, callerIsoDistance = 110;
+        [Tooltip("Brine the Caller gets for each sailor downed")] public float brinePerDown = 6;
+        [Tooltip("Killing the creature the Caller's driving: sand dollars, and seconds before they can take another")] public int rideBounty = 60;
+        public float rideKnockout = 8;
+        public float rallyCost = 2, rallyRadius = 18, rallySeconds = 7, rallyCooldown = 8;
+        public float rideRange = 9, rideCooldown = 3, rideSpeed = 1.3f, rideDamage = 1.5f, rideDashCooldown = 3, rideDashSpeed = 14;
         public List<KeeperUpgradeDef> upgrades = new();
         [Tooltip("The sky and light")] public PhaseDefinition look = new();
     }

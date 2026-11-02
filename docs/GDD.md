@@ -208,6 +208,22 @@ A lighthouse on a hill of sand in the open sea, with creatures coming from every
 - **Oil:** fish, sea chests, and corpses thrown in the **try-pot**. With no oil in a fight you have 25 s to find some, or **the light goes out and the run ends**. It also ends if the lighthouse falls, or everyone's down.
 - **The Keeper's Log:** tides and bosses bring lamp oil home, which buys permanent upgrades for this mode only (stone, reservoir, lens, purse, tide tables). Part I's losses stay final.
 
+## Tide Caller (The Last Light, 2 to 4 players)
+
+One player sends the sea against everyone else, on The Last Light's sandbar. **The Last Light → Tide Caller** in split screen, or **Host Tide Caller** online. The first tide waits until someone takes **the conch** from its rock by the tower (it needs a second player to fight).
+
+**The sailors** play The Last Light as usual, without the Keeper's Log's upgrades. They win if the light lasts **10 tides**; the fifth and tenth are bosses, and the last boss has to die.
+
+**The Tide Caller** has no body and can't be hurt. They win if the lighthouse falls, the lamp stays dark too long, or every sailor is down at once. They see the whole sandbar in an **isometric view** and move a marker over the water; **Melee** swings the view round a quarter turn, and **View** switches to a closer view that the mouse or right stick can turn. Rings show each sailor and the circle no creature can be called inside:
+
+- **Call (Fire; hold to keep calling).** Spends brine: a creature rises at the marker. It has to be water at least knee deep, at least 12 m from any sailor, and not in slack water. Brine keeps filling through slack water, faster each tide, up to a cap that also grows. The creatures on offer widen with the tide. Next creature: **Swap**, the d-pad, arrows or wheel.
+- **Rally (Aim; 2 brine, 8 s).** Everything within 18 m makes for the marker, faster than usual, for 7 s. It still bites whoever it meets. Not flyers, clams or bosses.
+- **Take over (Interact).** Drive the nearest creature within 9 m from just behind it: 30% faster and 50% harder-hitting than on its own. **Fire** strikes (the usual wind-up, so it can be dodged), **Dash** lunges, **Interact** lets go. It takes the same damage it always would; when it dies you're back above, with 3 s before the next one. Not flyers or clams.
+
+**Each side's best moment pays.** Downing a sailor gives the Caller 6 brine. The driven creature wears a "TIDE CALLER" sign anyone can see: killing it drops a 60 sand dollar bounty and locks the Caller out of taking over for 8 s. The sailors' status line shows how much brine the Caller is holding.
+
+A boss rises in the direction the Caller is looking. Until the first tide starts, **Back** puts the conch down. If the Caller leaves, the usual waves take over and the conch goes back on its rock for anyone to take. A match doesn't count as a Last Light run: no lamp oil, no records.
+
 ## Players
 - **The sailor is animated**: legs stride with your speed, the gun arm aims where you look, the other arm swings the melee weapon in its style, both arms go up to carry, the head follows your gaze, you lean into a dash and crawl when down.
 - **Health 100** (+ Sea Legs, + Vigor). At 0 you're **down**: you crawl and bleed out over 30 s. A teammate holding Interact next to you for 2 s revives you at 40%. Bleed out and you're back at the start of the next phase.

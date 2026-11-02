@@ -175,7 +175,7 @@ namespace TideWall
             return true;
         }
 
-        float Damage => Def.damage * attackMult * damageScale * gm.Cards.EnemyDamage * swarmMult;
+        float Damage => Def.damage * attackMult * damageScale * gm.Cards.EnemyDamage * swarmMult * (Rider != null ? gm.DB.lastLight.rideDamage : 1);
 
         void TryAttackPlayer(Player p, float dt)
         {

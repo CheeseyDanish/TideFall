@@ -1,4 +1,5 @@
-// TideWall 3D — screenshots of The Last Light: `TideWall.exe -tidewall-capture-light <folder>`. Everything runs in a
+// TideWall 3D — screenshots of The Last Light: `TideWall.exe -tidewall-capture-light <folder>` (add -tidewall-caller for
+// Tide Caller's). Everything runs in a
 // temporary folder, so it never touches the player's settings or record (R17). Quits when it's done.
 using System.Collections;
 using System.IO;
@@ -30,6 +31,55 @@ namespace TideWall
             yield return new WaitForSecondsRealtime(.3f);
         }
 
+        /// <summary>Tide Caller: the conch, the view from above with a fight going on, and driving a creature.</summary>
+        IEnumerator Caller()
+        {
+            GameManager.Pending = new RunRequest { save = new SaveData { slot = 0, part = Lighthouse.PartId, versus = true } };
+            SceneManager.LoadScene(Lighthouse.SceneName);
+            yield return null; yield return null;
+            var gm = GameManager.I;
+            var level = gm.Lighthouse;
+            var p1 = gm.Players.Join(new InputDevice[] { InputSystem.AddDevice<Gamepad>() });
+            var p2 = gm.Players.Join(new InputDevice[] { InputSystem.AddDevice<Gamepad>() });
+            yield return new WaitForSecondsRealtime(1.5f);
+            var conch = FindAnyObjectByType<ConchShell>().transform.position;
+            p1.Place(conch + new Vector3(-3.5f, .1f, -2));
+            var look = Quaternion.LookRotation(conch + Vector3.up * .8f - p1.EyePos).eulerAngles;
+            p1.SetLook(look.y, look.x > 180 ? look.x - 360 : look.x);
+            yield return new WaitForSecondsRealtime(.5f);
+            yield return Shot("C1-the-conch");
+
+            level.SetCaller(p2);
+            p1.Place(level.SpawnPoint(0));
+            level.StartFloodForTests();
+            var at = p2.transform.position;
+            for (int i = 0; i < 9; i++)
+            {
+                var c = at + Quaternion.Euler(0, i * 40, 0) * Vector3.forward * 5;
+                level.CyclePick(i % 3 == 0 ? 1 : 0);
+                level.TryCall(c, false);
+                gm.Waves.SpawnExtra(gm.DB.Enemy(i % 2 == 0 ? "crab" : "drowner"), new Vector3(c.x, Arena.GroundAt(c), c.z) * .6f);
+            }
+            p2.SetLook(p2.transform.position.x > 0 ? 270 : 90, 30);
+            yield return new WaitForSecondsRealtime(2.5f);
+            yield return Shot("C2-isometric");
+            p2.SwitchView();
+            yield return new WaitForSecondsRealtime(1f);
+            yield return Shot("C2b-close-view");
+            p2.SwitchView();
+
+            p2.Place(GameManager.Enemies[0].transform.position);
+            yield return null;
+            level.TryRide(p2.transform.position);
+            var d = -level.Ridden.transform.position; d.y = 0;
+            p2.SetLook(Quaternion.LookRotation(d).eulerAngles.y, 16);
+            yield return new WaitForSecondsRealtime(1.5f);
+            yield return Shot("C3-driving-a-creature");
+            Debug.Log("TIDEWALL_CALLER_CAPTURE_DONE");
+            yield return new WaitForSecondsRealtime(.5f);
+            Application.Quit();
+        }
+
         IEnumerator Start()
         {
             Directory.CreateDirectory(folder);
@@ -39,6 +89,7 @@ namespace TideWall
             Settings.Reload();
             StoryCard.Disabled = true;
             yield return null;
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-tidewall-caller") >= 0) { yield return Caller(); yield break; }
             SceneManager.LoadScene(Lighthouse.SceneName);
             yield return null; yield return null;
             var gm = GameManager.I;

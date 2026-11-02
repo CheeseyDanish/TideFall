@@ -213,7 +213,7 @@ namespace TideWall
         public void CheckWipe()
         {
             if (All.Count == 0 || Net.IsClient || gm.State != GameState.Playing) return;
-            foreach (var p in All) if (!p.IsDowned && !p.IsOut) return;
+            foreach (var p in All) if (!p.IsDowned && !p.IsOut && !p.IsCaller) return;
             gm.GameOver(gm.Lighthouse != null ? "Everyone went down on the sandbar." : gm.Assault ? "Everyone went down on the seabed." : "Everyone went down on the beach.");
         }
 

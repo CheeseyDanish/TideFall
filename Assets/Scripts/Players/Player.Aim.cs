@@ -15,6 +15,7 @@ namespace TideWall
             var s = Settings.Current;
             Vector2 d;
             if (Controls.UsesMouse && ShownMenu != null) return;   // the mouse is pointing at the menu, not turning you
+            if (TickCallerTurn()) return;
             if (Controls.UsesMouse) d = Controls.Look.ReadValue<Vector2>() * .09f * s.mouseSensitivity;
             else
             {

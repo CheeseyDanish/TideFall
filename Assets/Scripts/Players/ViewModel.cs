@@ -140,7 +140,7 @@ namespace TideWall
             if (p == null) return;
             Rebuild();
             float dt = Time.deltaTime;
-            bool show = p.FirstPerson && !p.IsDowned && !p.IsOut;
+            bool show = p.FirstPerson && !p.IsDowned && !p.IsOut && !p.IsCaller;
             bool locked = p.GunsLocked;
             float sp = p.SwingProgress;
             var fish = p.Fish;
