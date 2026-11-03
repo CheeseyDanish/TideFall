@@ -16,7 +16,8 @@ namespace TideWall
         /// <summary>The fishing minigame as the HUD draws it (mirrored from the host online).</summary>
         public FishView Fish => !Simulated ? netFish
             : fishing == null ? default
-            : new FishView { stage = fishing.Stage, fish = fishing.FishPos, zone = fishing.Zone, zoneSize = fishing.ZoneSize, progress = fishing.Progress, at = fishingAt != null ? fishingAt.transform.position : transform.position };
+            : new FishView { stage = fishing.Stage, fish = fishing.FishPos, zone = fishing.Zone, zoneSize = fishing.ZoneSize, progress = fishing.Progress, at = fishingAt != null ? fishingAt.transform.position : transform.position,
+                nibble = fishing.Nibbling, warning = fishing.Warning, treasure = fishing.TreasurePos, treasureFill = fishing.TreasureFill };
 
         /// <summary>Metres the view is lifted (0 = on the ground).</summary>
         public float Perch { get; private set; }
@@ -74,33 +75,52 @@ namespace TideWall
         {
             if (fishing == null) return false;
             if (grabbedBy != null || fishingAt == null || FlatDistance(fishingAt.transform.position) > fishingAt.radius + 2 || Pressed(Btn.Back)) { fishing = null; return false; }
+            var was = fishing.Stage;
             var r = fishing.Update(dt, Pressed(Btn.Interact), Held(Btn.Fire));
+            if (was == FishStage.Bite && fishing.Stage == FishStage.Reeling && fishing.CleanStrike) Toast("Clean strike! A head start", new Color(.6f, .95f, 1));
             if (r == FishResult.None) return true;
             fishPause = .3f;   // the press that ended it mustn't cast again
-            if (r == FishResult.Caught) Land(fishing.Fish);
+            if (r == FishResult.Caught) Land(fishing);
             else { Toast("It got away!", new Color(.8f, .9f, 1)); Sfx.Play("splash", .5f, .1f); }
             fishing = null;
             return true;
         }
 
-        void Land(FishDef f)
+        void Land(FishingGame g)
         {
+            var f = g.Fish;
             var at = fishingAt != null ? fishingAt.transform.position : transform.position;
             fishingAt?.Caught();
             Fx.Splash(at, 12);
             Sfx.Play("perfect", .7f, .1f);
-            int sd = Mathf.RoundToInt(f.sandDollars * FortuneMultiplier);
+            float worth = g.SizeMul * (g.PerfectCatch ? db.fishPerfectBonus : 1);
+            int sd = Mathf.RoundToInt(f.sandDollars * worth * FortuneMultiplier);
             if (sd > 0) gm.AddSandDollars(sd, at, f.displayName);
             if (f.pearls > 0) gm.AddPearls(f.pearls, at);
             if (f.heal > 0) Heal(f.heal);
             gm.Level.OnFishCaught(f);
+            gm.Lighthouse?.AddOil(Mathf.Max(0, f.oil * (worth - 1)));
+            string extra = g.PerfectCatch ? " Perfect catch!" : "";
+            if (g.GotTreasure)
+            {
+                // Only yours if you landed the fish as well
+                if (Random.value < db.fishTreasurePearlChance) { gm.AddPearls(1, at); extra += " And a golden pearl!"; }
+                else
+                {
+                    int found = Mathf.RoundToInt(Random.Range(db.fishTreasure.x, db.fishTreasure.y) * FortuneMultiplier);
+                    gm.AddSandDollars(found, at, "treasure");
+                    gm.Lighthouse?.AddOil(db.fishTreasureOil);
+                    extra += $" And treasure: {found} SD!";
+                }
+            }
             Legacy.LogFish(f.id);
             if (db.Enemy(f.creature) is { } creature)
             {
                 var c = at; c.y = Arena.GroundAt(c);
                 gm.Waves.SpawnExtra(creature, c);
             }
-            Toast($"{f.displayName}! {f.description}", new Color(.6f, .95f, 1));
+            string title = f.noSize ? f.displayName : $"{(g.Trophy ? "TROPHY: a " : "A ")}{g.Kg:0.0} kg {f.displayName}";
+            Toast($"{title}! {f.description}{extra}", g.Trophy ? new Color(1, .85f, .3f) : new Color(.6f, .95f, 1));
             // It flies up out of the water toward you
             if (Content.Model(f.model) != null)
             {
@@ -115,7 +135,7 @@ namespace TideWall
         }
 
         /// <summary>Tests: this fish is landed now.</summary>
-        public void DebugLandFish() { if (fishing != null) { Land(fishing.Fish); fishing = null; } }
+        public void DebugLandFish() { if (fishing != null) { Land(fishing); fishing = null; } }
 
         /// <summary>The line from your rod to the bobber, and lifting the body up the tower.</summary>
         void UpdateFishLine()

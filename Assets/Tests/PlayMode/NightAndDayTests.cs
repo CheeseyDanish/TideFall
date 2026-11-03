@@ -90,6 +90,18 @@ namespace TideWall.Tests
         }
 
         [UnityTest]
+        public IEnumerator TheLampRoomsControlsAndEveryScriptAreReallyInTheScene()
+        {
+            yield return Boot();
+            Assert.IsNotNull(Object.FindAnyObjectByType<LampDoor>());
+            Assert.IsNotNull(Object.FindAnyObjectByType<LampFlare>(), "the lever");
+            Assert.IsNotNull(Object.FindAnyObjectByType<ShopKiosk>(), "the shop");
+            foreach (var go in Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                foreach (var c in go.GetComponents<Component>())
+                    Assert.IsNotNull(c, $"{go.name} has a missing script (a saved component must be in a file of its own name)");
+        }
+
+        [UnityTest]
         public IEnumerator DayIsForGettingReadyAndCreaturesComeAtNight()
         {
             yield return Boot();

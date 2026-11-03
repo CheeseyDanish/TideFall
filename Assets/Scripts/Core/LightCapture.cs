@@ -120,6 +120,14 @@ namespace TideWall
             yield return new WaitForSecondsRealtime(.6f);
             yield return Shot("N6-catwalk-reef");
 
+            var fishAt = new Vector3(0, 0, -Arena.ShoreRadius() - 2); fishAt.y = Arena.GroundAt(fishAt);
+            Pose(p, fishAt + new Vector3(0, 0, 5), fishAt);
+            var reel = p.StartReeling(gm.DB.fish.Find(f => f.id == "swordfish"), FishingSpot.Spawn(fishAt.normalized));
+            reel.ForceTreasure(.85f);
+            yield return new WaitForSecondsRealtime(.5f);
+            yield return Shot("N6b-fishing");
+            p.DebugLandFish();
+
             level.StartFloodForTests();
             Pose(p, new Vector3(-7, deck + .1f, -6.4f), new Vector3(20, top, -55));
             yield return new WaitForSecondsRealtime(5);

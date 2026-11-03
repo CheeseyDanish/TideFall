@@ -83,7 +83,9 @@ namespace TideWall
             float deck = top + LighthouseTower.DeckHeight;
             Interactable.Add<LampDoor>(Marker(t, "Lamp Handle", new Vector3(0, deck, -1.6f)), "LAMP", 2.2f);
             var lever = Marker(t, "Flare Lever", new Vector3(2.4f, deck, 0));
-            ModelFactory.Spawn("Breaker", lever.transform, Vector3.zero, .3f);
+            LeverPart(lever.transform, new Vector3(0, .5f, 0), new Vector3(.5f, 1, .3f), Vector3.zero, new Color(.3f, .3f, .33f));
+            LeverPart(lever.transform, new Vector3(0, 1.3f, 0), new Vector3(.09f, .9f, .09f), new Vector3(0, 0, -20), new Color(.72f, .56f, .24f));
+            LeverPart(lever.transform, new Vector3(.16f, 1.72f, 0), new Vector3(.2f, .2f, .2f), Vector3.zero, new Color(.85f, .15f, .12f));
             Interactable.Add<LampFlare>(lever, "FLARE", 2.2f);
 
             // The ground floor: the shop, and the calendar on the wall
@@ -131,6 +133,18 @@ namespace TideWall
                 }
             }
             return level;
+        }
+
+        static void LeverPart(Transform t, Vector3 at, Vector3 size, Vector3 turn, Color c)
+        {
+            var part = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Util.Destroy(part.GetComponent<Collider>());
+            part.name = "Lever Part";
+            part.transform.SetParent(t, false);
+            part.transform.localPosition = at;
+            part.transform.localRotation = Quaternion.Euler(turn);
+            part.transform.localScale = size;
+            part.GetComponent<MeshRenderer>().sharedMaterial = Mats.Lit(c);
         }
 
         static GameObject Marker(Transform t, string name, Vector3 at)

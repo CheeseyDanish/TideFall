@@ -112,7 +112,7 @@ namespace TideWall
             string btn = p.Glyph(Btn.Reload);
             caption.text = $"<b>{R.displayName.ToUpper()}</b> · {R.how.Replace("{r}", btn)}";
             zone1.color = r.Style == ReloadStyle.Heavy ? new Color(.98f, .8f, .08f, .9f) : new Color(.53f, .94f, .67f, .9f);
-            marker.color = r.Jammed ? new Color(.94f, .27f, .27f) : Color.white;
+            marker.color = r.Missed ? new Color(.94f, .27f, .27f) : Color.white;
             barBg.enabled = true;
             marker.enabled = true;
             Span(zone2, 0, 0); Span(danger, 0, 0); Span(fill, 0, 0);
@@ -161,7 +161,7 @@ namespace TideWall
                     marker.enabled = false;
                     Span(zone1, 0, 0);
                     beatDot.enabled = beatRing.enabled = true;
-                    bool fumbling = r.Fumble > 0;
+                    bool fumbling = r.WordT > 0 && !r.WordGood;
                     beatRing.rectTransform.sizeDelta = Vector2.one * (12 + 26 * r.ToNextBeat);
                     beatRing.color = fumbling ? new Color(.97f, .44f, .44f, .8f) : new Color(.99f, .88f, .28f, .8f);
                     beatDot.color = fumbling ? new Color(.94f, .27f, .27f) : new Color(.99f, .88f, .28f, .25f + .75f * Mathf.Pow(Mathf.Max(0, r.NearBeat), 3));

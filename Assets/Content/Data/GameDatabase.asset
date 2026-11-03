@@ -828,7 +828,7 @@ MonoBehaviour:
     fireRate: 1.2
     spreadDegrees: 14
     range: 14
-    reload: 2
+    reload: 3.6
     knockback: 0
     splash: 0
     pellets: 7
@@ -2246,6 +2246,8 @@ MonoBehaviour:
     heal: 0
     creature: 
     minWave: 0
+    style: 0
+    noSize: 0
   - id: mackerel
     displayName: Mackerel
     description: A decent fight, and a good price.
@@ -2258,6 +2260,8 @@ MonoBehaviour:
     heal: 0
     creature: 
     minWave: 0
+    style: 1
+    noSize: 0
   - id: oilfish
     displayName: Oilfish
     description: So greasy it nearly lights itself. Lots of lamp oil.
@@ -2270,6 +2274,8 @@ MonoBehaviour:
     heal: 0
     creature: 
     minWave: 0
+    style: 2
+    noSize: 0
   - id: sunfish
     displayName: Sunfish
     description: Warm to hold. It heals you just to look at.
@@ -2282,6 +2288,8 @@ MonoBehaviour:
     heal: 35
     creature: 
     minWave: 0
+    style: 0
+    noSize: 0
   - id: boot
     displayName: An Old Boot
     description: Still has a foot in it. You don't look.
@@ -2294,6 +2302,8 @@ MonoBehaviour:
     heal: 0
     creature: 
     minWave: 0
+    style: 0
+    noSize: 1
   - id: sodacan
     displayName: A Soda Can
     description: Unopened. You drink it. It's fine.
@@ -2306,6 +2316,8 @@ MonoBehaviour:
     heal: 10
     creature: 
     minWave: 0
+    style: 0
+    noSize: 1
   - id: swordfish
     displayName: Swordfish
     description: Fights like it means it. Worth a fortune.
@@ -2318,6 +2330,8 @@ MonoBehaviour:
     heal: 0
     creature: 
     minWave: 0
+    style: 3
+    noSize: 0
   - id: mimic
     displayName: That's Not a Fish
     description: It's got claws, and it's cross.
@@ -2330,6 +2344,8 @@ MonoBehaviour:
     heal: 0
     creature: crab
     minWave: 0
+    style: 1
+    noSize: 1
   - id: goldangler
     displayName: Golden Anglerfish
     description: There's a pearl where its lure should be.
@@ -2342,7 +2358,13 @@ MonoBehaviour:
     heal: 0
     creature: 
     minWave: 0
+    style: 2
+    noSize: 0
   fishBiteWindow: 0.9
+  fishPerfectBonus: 1.5
+  fishTreasure: {x: 30, y: 70}
+  fishTreasureOil: 10
+  fishTreasurePearlChance: 0.2
   shoreFishingSpots: 3
   lastLight:
     towerHp: 900
@@ -2963,13 +2985,10 @@ MonoBehaviour:
     how: Tap {r} in the green
     zone: {x: 0.42, y: 0.6}
     zone2: {x: 0, y: 0}
-    jam: 0.6
     bonus: 0
     perRound: 0
     beat: 0.2
     window: 0.07
-    fumble: 0.35
-    slip: 0.25
     width: 0.16
     perTap: 0.09
     perfectUnder: 0.55
@@ -2979,13 +2998,10 @@ MonoBehaviour:
     how: Tap {r} on the beat
     zone: {x: 0.42, y: 0.6}
     zone2: {x: 0, y: 0}
-    jam: 0.6
     bonus: 0
     perRound: 1
     beat: 0.2
     window: 0.07
-    fumble: 0.35
-    slip: 0.25
     width: 0.16
     perTap: 0.09
     perfectUnder: 0.55
@@ -2995,13 +3011,10 @@ MonoBehaviour:
     how: "Tap {r} in the green \xB7 fire to stop"
     zone: {x: 0.55, y: 0.85}
     zone2: {x: 0, y: 0}
-    jam: 0.6
     bonus: 0
     perRound: 1
     beat: 0.2
     window: 0.07
-    fumble: 0.35
-    slip: 0.25
     width: 0.16
     perTap: 0.09
     perfectUnder: 0.55
@@ -3011,13 +3024,10 @@ MonoBehaviour:
     how: Tap {r} in each zone
     zone: {x: 0.22, y: 0.36}
     zone2: {x: 0.62, y: 0.76}
-    jam: 0.5
     bonus: 0
     perRound: 0
     beat: 0.2
     window: 0.07
-    fumble: 0.35
-    slip: 0.25
     width: 0.16
     perTap: 0.09
     perfectUnder: 0.55
@@ -3027,13 +3037,10 @@ MonoBehaviour:
     how: "One chance \xB7 {r} in the gold"
     zone: {x: 0.3, y: 0.4}
     zone2: {x: 0, y: 0}
-    jam: 1.4
     bonus: 0.4
     perRound: 0
     beat: 0.2
     window: 0.07
-    fumble: 0.35
-    slip: 0.25
     width: 0.16
     perTap: 0.09
     perfectUnder: 0.55
@@ -3043,13 +3050,10 @@ MonoBehaviour:
     how: Tap {r} in the green
     zone: {x: 0.42, y: 0.6}
     zone2: {x: 0, y: 0}
-    jam: 0.6
     bonus: 0
     perRound: 0
     beat: 0.2
     window: 0.07
-    fumble: 0.35
-    slip: 0.25
     width: 0.16
     perTap: 0.09
     perfectUnder: 0.55
@@ -3059,13 +3063,10 @@ MonoBehaviour:
     how: Mash {r}
     zone: {x: 0.42, y: 0.6}
     zone2: {x: 0, y: 0}
-    jam: 0.6
     bonus: 0
     perRound: 0
     beat: 0.2
     window: 0.07
-    fumble: 0.35
-    slip: 0.25
     width: 0.16
     perTap: 0.09
     perfectUnder: 0.55
@@ -3075,13 +3076,10 @@ MonoBehaviour:
     how: "Hold {r} \xB7 release in the green"
     zone: {x: 0.62, y: 0.82}
     zone2: {x: 0, y: 0}
-    jam: 0.8
     bonus: 0
     perRound: 0
     beat: 0.2
     window: 0.07
-    fumble: 0.35
-    slip: 0.25
     width: 0.16
     perTap: 0.09
     perfectUnder: 0.55

@@ -658,7 +658,7 @@ namespace TideWall.Tests
             }
             foreach (var g in db.guns) Assert.IsNotNull(db.reloads.Find(r => r.style == g.reloadStyle), $"{g.displayName} has a reload minigame");
 
-            // Zone: in the green is Perfect; outside it jams (takes longer)
+            // Zone: in the green is Perfect; outside it costs nothing but the bonus
             int ammo = 0;
             var zone = ReloadGame.Begin(db.Reload(ReloadStyle.Zone), 1.5f, 6);
             Step(zone, ref ammo, 6, () => zone.Marker > (zone.Zone.x + zone.Zone.y) / 2);
@@ -666,7 +666,7 @@ namespace TideWall.Tests
             Assert.IsTrue(zone.Done && zone.Perfect, "a tap in the green finishes early, Perfect");
             var miss = ReloadGame.Begin(db.Reload(ReloadStyle.Zone), 1.5f, 6);
             miss.Press(ref ammo, 6);
-            Assert.IsTrue(miss.Jammed && miss.Need > 1.5f && !miss.Done, "a tap outside it jams");
+            Assert.IsTrue(miss.Missed && Mathf.Approximately(miss.Need, 1.5f) && !miss.Done && !miss.Perfect, "a tap outside it says so, and takes no longer");
 
             // Bolt: both zones in order
             var bolt = ReloadGame.Begin(db.Reload(ReloadStyle.Bolt), 2f, 5);
@@ -689,11 +689,11 @@ namespace TideWall.Tests
             Assert.AreEqual(6, ammo, "six beats, six rounds");
             Assert.IsTrue(rhythm.Done && rhythm.Perfect, "every round on the beat is Perfect");
 
-            // Shells: a tap outside the zone slips
+            // Shells: a tap outside the zone only loses the Perfect
             ammo = 0;
             var shells = ReloadGame.Begin(db.Reload(ReloadStyle.Shells), 2f, 6);
             shells.Press(ref ammo, 6);
-            Assert.AreEqual("SLIP", shells.Word);
+            Assert.AreEqual("MISSED", shells.Word);
             Step(shells, ref ammo, 6, () => shells.RoundFraction > (shells.Zone.x + shells.Zone.y) / 2);
             shells.Press(ref ammo, 6);
             Assert.AreEqual(1, ammo, "a tap in the zone loads a shell");
@@ -706,8 +706,8 @@ namespace TideWall.Tests
             Assert.IsTrue(pressure.Perfect, "released in the green");
             var vent = ReloadGame.Begin(db.Reload(ReloadStyle.Pressure), 2f, 40);
             vent.Press(ref ammo, 40);
-            Step(vent, ref ammo, 40, () => vent.Jammed);
-            Assert.IsTrue(vent.Jammed, "held too long: it vents");
+            Step(vent, ref ammo, 40, () => vent.Missed);
+            Assert.IsTrue(vent.Missed && Mathf.Approximately(vent.Need, 2f), "held too long: it vents, at no cost in time");
 
             // Mash: fast enough is Perfect, and quicker than waiting
             var mash = ReloadGame.Begin(db.Reload(ReloadStyle.Mash), 2f, 10);

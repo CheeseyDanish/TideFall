@@ -249,7 +249,12 @@ Each of the 20 sections has its own HP, and a creature hits the one in front of 
 Every menu works three ways at once: **hover** chooses, **click** picks and **right-click** goes back (including shop tabs, tidal cards and casino tables); arrows or the d-pad and Interact do the same. While a menu is open the mouse points rather than turns your view, and WASD and the left stick still walk (R6a). The click that closes a menu doesn't fire your gun.
 
 ### Fishing
-Patches of bubbles appear on Part I's shore while the shop's open, and at the waterline in The Last Light. **Interact** casts; wait for the bite and strike with **Interact** (too soon or too late and it's gone). Then **hold Fire to raise the green zone, let go to sink**, and keep it on the fish until the meter fills. Back or walking off gives up. Nine catches, in `GameDatabase.fish`: money, lamp oil, healing, a pearl, a boot, a soda can, and one that isn't a fish.
+Patches of bubbles appear on Part I's shore while the shop's open, and at the waterline in The Last Light. **Interact** casts. The bobber nibbles a few times (striking on a nibble loses it); when it really bites, strike with **Interact**. Strike fast and the meter starts well ahead. Then **hold Fire to rise, let go to sink**, keeping the green zone on the fish until the meter fills. **Back** or walking off gives up.
+
+- **Fish fight differently.** Drifters wander; darters sit still, then snap away; divers hug the bottom, then surge up; leapers rest, then jump the whole bar. Before a big move the fish marker flares red.
+- **Sizes.** Every real fish has a weight, and pay and lamp oil scale with it. About one in twelve is a **trophy**: twice the worth, and a harder fight.
+- **Perfect catch.** Barely leave the fish all fight and it's worth half as much again.
+- **Treasure** drifts onto the bar in about a third of fights, well away from the fish, for 5 s. Hold the zone on it for about a second to grab it: sand dollars and lamp oil, or sometimes a golden pearl. It's only yours if you land the fish too.
 
 ### Inventory (Inventory button: I / d-pad up; also in the pause menu)
 You own any number of guns but **carry three** (`gunSlots`). Buying or taking a fourth swaps it with the gun in your hands; that one goes to your **stash**, and you can bring it back free from the Inventory. **Swap** cycles the three, and each slot has its own button (1, 2, 3 / d-pad left, d-pad right, left stick press). Swapping takes a moment (`swapSeconds`): the new gun comes up from below the view. The HUD lists the three, with the one in your hands picked out. The Inventory shows what you carry, your stash, each gun's five slots and its skin, and your melee weapons' skins. Saved with the run.
@@ -324,18 +329,18 @@ Every creature speeds up and turns at a rate that suits its size, leans into its
 | Eel Caster | 850 | 18 shock, small splash, 10 rounds | Capacitor (mash) |
 
 ### Reloading (the 2D game's minigames)
-Every gun has its own reload minigame, drawn **just under your reticle** (with what to press). Every one is **optional**: do nothing and the reload finishes in the gun's normal time. Skill makes it faster, and a **Perfect** reload adds **+25% damage** (Heavy: +40%) until that magazine is empty ("PERFECT +25%" by the reticle and the gun line). A miss **jams** (adds time).
+Every gun has its own reload minigame, drawn **just under your reticle** (with what to press). Every one is **optional**: do nothing and the reload finishes in the gun's normal time. Skill makes it faster, and a **Perfect** reload adds **+25% damage** (Heavy: +40%) until that magazine is empty ("PERFECT +25%" by the reticle and the gun line). A miss costs no time: the game tells you ("MISSED"), the reload carries on, and you just don't get the Perfect.
 
-| Style | How | Miss |
-|---|---|---|
-| Active (zone) | Tap Reload while the marker is in the green | Jam +0.6 s |
-| Rhythm | Rounds load one at a time; tap Reload on each beat (a ring closes on the light) to snap one in. All six on the beat = Perfect | Fumble: a short stall |
-| Shell by shell | Tap Reload as each shell's marker crosses the green. Fire to stop early with what's loaded | Slip: that shell takes longer |
-| Bolt | Tap in the first zone (bolt open, skips ahead), then the second (bolt closed) | Jam +0.5 s |
-| Heavy | One narrow gold zone on an accelerating marker. One chance | Jam +1.4 s |
-| Drop | Like Active, but the zone is somewhere new every reload | Jam +0.6 s |
-| Capacitor | Mash Reload to charge faster. Fast enough = Perfect | — |
-| Pressure | Hold Reload: the needle rises; release in the green. Hold to the top and it vents | Vented +0.8 s |
+| Style | How |
+|---|---|
+| Active (zone) | Tap Reload while the marker is in the green |
+| Rhythm | Rounds load one at a time; tap Reload on each beat (a ring closes on the light) to snap one in. All six on the beat = Perfect |
+| Shell by shell | Tap Reload as each shell's marker crosses the green. Fire to stop early with what's loaded |
+| Bolt | Tap in the first zone (bolt open, skips ahead), then the second (bolt closed) |
+| Heavy | One narrow gold zone on an accelerating marker. One chance |
+| Drop | Like Active, but the zone is somewhere new every reload |
+| Capacitor | Mash Reload to charge faster. Fast enough = Perfect |
+| Pressure | Hold Reload: the needle rises; release in the green. Hold to the top and it vents |
 
 When you're low on ammo the reticle shows what's left; when you're empty it says **RELOAD** with your button.
 

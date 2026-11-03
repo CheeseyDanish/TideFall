@@ -1,6 +1,6 @@
 // TideWall 3D — a gun's reload minigame, ported from the 2D game's reload.js (CLAUDE.md R13 there, R6b here).
 // Every style is optional: doing nothing finishes a normal reload in the gun's reload time. Skill makes it faster and
-// can earn a Perfect (bonus damage until the magazine is empty); a miss jams (adds time).
+// earns a Perfect (bonus damage until the magazine is empty). A miss costs no time: the game says so, and there's no Perfect.
 //
 //   Zone      tap in the green zone                     Heavy     one narrow chance on an accelerating marker
 //   Rhythm    tap on each beat to snap in a round        Drop      the zone moves every reload
@@ -18,20 +18,20 @@ namespace TideWall
     {
         public ReloadStyle Style { get; private set; }
         public ReloadDef R { get; private set; }
-        /// <summary>Time spent, and the time it takes (grows with jams).</summary>
+        /// <summary>Time spent, and the time it takes.</summary>
         public float T, Need;
         public float Real;
-        public bool Tried, Jammed, Done, Perfect;
+        public bool Tried, Missed, Done, Perfect;
         public Vector2 Zone, Zone2;
         public int Step;
         // One round at a time (Rhythm, Shells)
-        public float Per, RoundT, Fumble, BeatT;
+        public float Per, RoundT, BeatT;
         int lastBeat = -1, usedBeat = -1, passive;
         bool clean = true;
         // Pressure
         public bool Hold;
         public float Needle;
-        /// <summary>Feedback flashed at the reticle ("PERFECT!", "JAMMED", "FUMBLE").</summary>
+        /// <summary>Feedback flashed at the reticle ("PERFECT!", "MISSED").</summary>
         public string Word = "";
         public float WordT;
         public bool WordGood;
@@ -93,8 +93,7 @@ namespace TideWall
             Real += dt;
             if (PerRound)
             {
-                if (Fumble > 0) Fumble -= dt;
-                else RoundT += dt;
+                RoundT += dt;
                 if (RoundT >= Per) LoadRound(ref ammo, mag, false);
                 if (Style == ReloadStyle.Rhythm)
                 {
@@ -116,7 +115,7 @@ namespace TideWall
                 if (Hold)
                 {
                     Needle += dt / Mathf.Max(.1f, R.fill);
-                    if (Needle >= 1) { Hold = false; Needle = 0; Jam(R.jam, "VENTED!"); }
+                    if (Needle >= 1) { Hold = false; Needle = 0; Miss(); }
                 }
                 else Needle = Mathf.Max(0, Needle - dt * 2.5f);
             }
@@ -140,13 +139,13 @@ namespace TideWall
                 case ReloadStyle.Heavy:
                     if (Tried) return;
                     Tried = true;
-                    if (In(Marker, Zone)) Finish(); else Jam(R.jam);
+                    if (In(Marker, Zone)) Finish(); else Miss();
                     return;
                 case ReloadStyle.Bolt:
                 {
                     if (Tried) return;
                     var z = Step == 0 ? Zone : Zone2;
-                    if (!In(Marker, z)) { Jam(R.jam); return; }
+                    if (!In(Marker, z)) { Miss(); return; }
                     Sfx.Play("load");
                     if (Step == 0) { Step = 1; T = Mathf.Max(T, .5f * Need); Say("OPEN", true); }   // bolt back: skip ahead
                     else Finish();
@@ -170,12 +169,12 @@ namespace TideWall
                         usedBeat = nearest;
                         LoadRound(ref ammo, mag, true);
                     }
-                    else { Fumble = R.fumble; clean = false; Say("FUMBLE", false); Sfx.Play("jam", .6f); }
+                    else { clean = false; Miss(false); }
                     return;
                 }
                 case ReloadStyle.Shells:
                     if (In(RoundFraction, Zone)) LoadRound(ref ammo, mag, true);
-                    else { RoundT -= R.slip; clean = false; Say("SLIP", false); Sfx.Play("jam", .6f); }
+                    else { clean = false; Miss(false); }
                     return;
             }
         }
@@ -207,11 +206,13 @@ namespace TideWall
             Sfx.Play("perfect");
         }
 
-        void Jam(float secs, string word = "JAMMED")
+        /// <summary>Not this time. The reload carries on as if nothing happened; you've just lost the Perfect.</summary>
+        void Miss(bool lastChance = true)
         {
-            Need += secs; Jammed = true; Tried = true;
-            Say(word, false);
-            Sfx.Play("jam");
+            Missed = true;
+            if (lastChance) Tried = true;
+            Say("MISSED", false);
+            Sfx.Play("deny", .4f);
         }
 
         void Say(string word, bool good) { Word = word; WordGood = good; WordT = .9f; }
@@ -223,9 +224,9 @@ namespace TideWall
         public void Write(BinaryWriter w)
         {
             w.Write((byte)Style);
-            w.Write((byte)((Tried ? 1 : 0) | (Jammed ? 2 : 0) | (Done ? 4 : 0) | (Perfect ? 8 : 0) | (Hold ? 16 : 0) | (WordGood ? 32 : 0)));
+            w.Write((byte)((Tried ? 1 : 0) | (Missed ? 2 : 0) | (Done ? 4 : 0) | (Perfect ? 8 : 0) | (Hold ? 16 : 0) | (WordGood ? 32 : 0)));
             w.Write(T); w.Write(Need); w.Write(Zone.x); w.Write(Zone.y); w.Write((byte)Step);
-            w.Write(RoundT); w.Write(Per); w.Write(BeatT); w.Write(Fumble); w.Write(Needle);
+            w.Write(RoundT); w.Write(Per); w.Write(BeatT); w.Write(Needle);
             w.Write(Word ?? ""); w.Write(WordT);
         }
 
@@ -235,9 +236,9 @@ namespace TideWall
             var def = GameManager.I != null ? GameManager.I.DB.Reload(style) : new ReloadDef { style = style };
             var g = new ReloadGame { Style = style, R = def, Zone2 = def.zone2 };
             int f = r.ReadByte();
-            g.Tried = (f & 1) != 0; g.Jammed = (f & 2) != 0; g.Done = (f & 4) != 0; g.Perfect = (f & 8) != 0; g.Hold = (f & 16) != 0; g.WordGood = (f & 32) != 0;
+            g.Tried = (f & 1) != 0; g.Missed = (f & 2) != 0; g.Done = (f & 4) != 0; g.Perfect = (f & 8) != 0; g.Hold = (f & 16) != 0; g.WordGood = (f & 32) != 0;
             g.T = r.ReadSingle(); g.Need = r.ReadSingle(); g.Zone = new Vector2(r.ReadSingle(), r.ReadSingle()); g.Step = r.ReadByte();
-            g.RoundT = r.ReadSingle(); g.Per = r.ReadSingle(); g.BeatT = r.ReadSingle(); g.Fumble = r.ReadSingle(); g.Needle = r.ReadSingle();
+            g.RoundT = r.ReadSingle(); g.Per = r.ReadSingle(); g.BeatT = r.ReadSingle(); g.Needle = r.ReadSingle();
             g.Word = r.ReadString(); g.WordT = r.ReadSingle();
             return g;
         }

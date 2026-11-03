@@ -38,11 +38,9 @@ namespace TideWall
         public string displayName, how;
         [Tooltip("The green zone (Zone, Heavy, Shells, Pressure)")] public Vector2 zone = new(.42f, .6f);
         [Tooltip("Bolt: the second zone")] public Vector2 zone2;
-        [Tooltip("Seconds added by a miss")] public float jam = .6f;
         [Tooltip("Perfect damage bonus (0 = the database default)")] public float bonus;
         [Tooltip("Rounds load one at a time; firing with rounds in cancels the reload")] public bool perRound;
-        [Tooltip("Rhythm: seconds per beat, the hit window either side, and the stall after a fumble")] public float beat = .2f, window = .07f, fumble = .35f;
-        [Tooltip("Shells: seconds lost when you tap outside the zone")] public float slip = .25f;
+        [Tooltip("Rhythm: seconds per beat, and the hit window either side")] public float beat = .2f, window = .07f;
         [Tooltip("Drop: width of the zone that moves every reload")] public float width = .16f;
         [Tooltip("Mash: share of the reload each tap skips; Perfect if done within this share of the normal time")] public float perTap = .09f, perfectUnder = .55f;
         [Tooltip("Pressure: seconds for the needle to fill (it vents at the top)")] public float fill = .9f;
@@ -256,6 +254,8 @@ namespace TideWall
         public float heal;
         [Tooltip("A creature comes up with it (id)")] public string creature;
         [Tooltip("Doesn't bite before this wave of the run")] public int minWave;
+        [Tooltip("How it fights")] public FishStyle style;
+        [Tooltip("It's a boot: no sizes, no trophies")] public bool noSize;
     }
 
     public enum KeeperUpgradeKind { TowerHp, OilTank, LampPower, Purse, SlowTide }
@@ -389,6 +389,10 @@ namespace TideWall
         public List<SkinDef> skins = new();
         public List<FishDef> fish = new();
         [Tooltip("Seconds to strike once a fish bites")] public float fishBiteWindow = .9f;
+        [Tooltip("A catch you barely left is worth this much more")] public float fishPerfectBonus = 1.5f;
+        [Tooltip("Treasure on the line: its sand dollars, its lamp oil, and the chance it's a golden pearl instead")] public Vector2 fishTreasure = new(30, 70);
+        public float fishTreasureOil = 10;
+        [Range(0, 1)] public float fishTreasurePearlChance = .2f;
         [Tooltip("Patches of bubbles on Part I's shore while the shop's open")] public int shoreFishingSpots = 3;
         public LastLightDef lastLight = new();
         public List<TidalCardDef> cards = new();
@@ -609,7 +613,7 @@ namespace TideWall
                         reloadStyle = ReloadStyle.Rhythm, description = "Six shots, good on weak points. Reload: tap on the beat." },
                 new() { id = "smg", displayName = "Rivet SMG", model = "RivetSMG", price = 400, damage = 9, fireRate = 10, magazine = 24, reload = 1.6f, spreadDegrees = 5, recoil = 1.6f,
                         range = 24, reloadStyle = ReloadStyle.Zone, description = "Sprays rivets. Reload: tap in the green." },
-                new() { id = "scattergun", displayName = "Scattergun", model = "Scattergun", price = 300, damage = 9, pellets = 7, fireRate = 1.2f, magazine = 6, reload = 2f, recoil = 8,
+                new() { id = "scattergun", displayName = "Scattergun", model = "Scattergun", price = 300, damage = 9, pellets = 7, fireRate = 1.2f, magazine = 6, reload = 3.6f, recoil = 8,
                         spreadDegrees = 14, range = 14, reloadStyle = ReloadStyle.Shells, description = "Seven pellets. Clears crabs and claws, weak at range. Reload: shell by shell." },
                 new() { id = "harpoon", displayName = "Harpoon Gun", model = "HarpoonGun", price = 600, damage = 60, fireRate = .9f, magazine = 3, reload = 1.6f, spreadDegrees = 0, recoil = 6,
                         pierce = 99, knockback = 6, reloadStyle = ReloadStyle.Heavy, description = "Skewers a whole line and shoves it back into the surf. Reload: one narrow chance." },
@@ -784,14 +788,14 @@ namespace TideWall
             fish = new List<FishDef>
             {
                 new() { id = "sardine", displayName = "Sardine", description = "Small, silver, everywhere.", model = "FishSardine", weight = 5, difficulty = .1f, sandDollars = 6, oil = 3 },
-                new() { id = "mackerel", displayName = "Mackerel", description = "A decent fight, and a good price.", model = "FishMackerel", weight = 4, difficulty = .3f, sandDollars = 14, oil = 6 },
-                new() { id = "oilfish", displayName = "Oilfish", description = "So greasy it nearly lights itself. Lots of lamp oil.", model = "FishOil", weight = 2.4f, difficulty = .45f, sandDollars = 10, oil = 30 },
+                new() { id = "mackerel", style = FishStyle.Darter, displayName = "Mackerel", description = "A decent fight, and a good price.", model = "FishMackerel", weight = 4, difficulty = .3f, sandDollars = 14, oil = 6 },
+                new() { id = "oilfish", style = FishStyle.Diver, displayName = "Oilfish", description = "So greasy it nearly lights itself. Lots of lamp oil.", model = "FishOil", weight = 2.4f, difficulty = .45f, sandDollars = 10, oil = 30 },
                 new() { id = "sunfish", displayName = "Sunfish", description = "Warm to hold. It heals you just to look at.", model = "FishSun", weight = 2, difficulty = .4f, sandDollars = 12, oil = 5, heal = 35 },
-                new() { id = "boot", displayName = "An Old Boot", description = "Still has a foot in it. You don't look.", model = "FishBoot", weight = 2, difficulty = .05f, sandDollars = 1 },
-                new() { id = "sodacan", displayName = "A Soda Can", description = "Unopened. You drink it. It's fine.", model = "FishCan", weight = 1.2f, difficulty = .05f, sandDollars = 2, heal = 10 },
-                new() { id = "swordfish", displayName = "Swordfish", description = "Fights like it means it. Worth a fortune.", model = "FishSword", weight = 1, difficulty = .75f, sandDollars = 60, oil = 12 },
-                new() { id = "mimic", displayName = "That's Not a Fish", description = "It's got claws, and it's cross.", model = "FishMimic", weight = 1, difficulty = .5f, sandDollars = 8, creature = "crab" },
-                new() { id = "goldangler", displayName = "Golden Anglerfish", description = "There's a pearl where its lure should be.", model = "FishGold", weight = .4f, difficulty = 1, sandDollars = 40, oil = 15, pearls = 1 },
+                new() { id = "boot", noSize = true, displayName = "An Old Boot", description = "Still has a foot in it. You don't look.", model = "FishBoot", weight = 2, difficulty = .05f, sandDollars = 1 },
+                new() { id = "sodacan", noSize = true, displayName = "A Soda Can", description = "Unopened. You drink it. It's fine.", model = "FishCan", weight = 1.2f, difficulty = .05f, sandDollars = 2, heal = 10 },
+                new() { id = "swordfish", style = FishStyle.Leaper, displayName = "Swordfish", description = "Fights like it means it. Worth a fortune.", model = "FishSword", weight = 1, difficulty = .75f, sandDollars = 60, oil = 12 },
+                new() { id = "mimic", style = FishStyle.Darter, noSize = true, displayName = "That's Not a Fish", description = "It's got claws, and it's cross.", model = "FishMimic", weight = 1, difficulty = .5f, sandDollars = 8, creature = "crab" },
+                new() { id = "goldangler", style = FishStyle.Diver, displayName = "Golden Anglerfish", description = "There's a pearl where its lure should be.", model = "FishGold", weight = .4f, difficulty = 1, sandDollars = 40, oil = 15, pearls = 1 },
             };
 
             lastLight = new LastLightDef
@@ -827,14 +831,14 @@ namespace TideWall
             // The 2D game's reload minigames (its RELOADS table). {r} is the player's reload button.
             reloads = new List<ReloadDef>
             {
-                new() { style = ReloadStyle.Zone, displayName = "Active", how = "Tap {r} in the green", zone = new(.42f, .6f), jam = .6f },
-                new() { style = ReloadStyle.Rhythm, displayName = "Rhythm", how = "Tap {r} on the beat", perRound = true, beat = .2f, window = .07f, fumble = .35f },
-                new() { style = ReloadStyle.Shells, displayName = "Shell by shell", how = "Tap {r} in the green · fire to stop", perRound = true, zone = new(.55f, .85f), slip = .25f },
-                new() { style = ReloadStyle.Bolt, displayName = "Bolt", how = "Tap {r} in each zone", zone = new(.22f, .36f), zone2 = new(.62f, .76f), jam = .5f },
-                new() { style = ReloadStyle.Heavy, displayName = "Heavy", how = "One chance · {r} in the gold", zone = new(.3f, .4f), jam = 1.4f, bonus = .4f },
-                new() { style = ReloadStyle.Drop, displayName = "Drop", how = "Tap {r} in the green", width = .16f, jam = .6f },
+                new() { style = ReloadStyle.Zone, displayName = "Active", how = "Tap {r} in the green", zone = new(.42f, .6f) },
+                new() { style = ReloadStyle.Rhythm, displayName = "Rhythm", how = "Tap {r} on the beat", perRound = true, beat = .2f, window = .07f },
+                new() { style = ReloadStyle.Shells, displayName = "Shell by shell", how = "Tap {r} in the green · fire to stop", perRound = true, zone = new(.55f, .85f) },
+                new() { style = ReloadStyle.Bolt, displayName = "Bolt", how = "Tap {r} in each zone", zone = new(.22f, .36f), zone2 = new(.62f, .76f) },
+                new() { style = ReloadStyle.Heavy, displayName = "Heavy", how = "One chance · {r} in the gold", zone = new(.3f, .4f), bonus = .4f },
+                new() { style = ReloadStyle.Drop, displayName = "Drop", how = "Tap {r} in the green", width = .16f },
                 new() { style = ReloadStyle.Mash, displayName = "Capacitor", how = "Mash {r}", perTap = .09f, perfectUnder = .55f },
-                new() { style = ReloadStyle.Pressure, displayName = "Pressure", how = "Hold {r} · release in the green", zone = new(.62f, .82f), fill = .9f, jam = .8f },
+                new() { style = ReloadStyle.Pressure, displayName = "Pressure", how = "Hold {r} · release in the green", zone = new(.62f, .82f), fill = .9f },
             };
 
             structures = new List<StructureDef>
