@@ -78,7 +78,7 @@ namespace TideWall
                 else if (menu.OnSide != null) { menu.OnSide(side); Sfx.Play("ui", .5f); menuRepeat = freshH ? .35f : .12f; Refresh(menu); return; }
             }
             lastNav = nav;
-            if (menu.OnTab != null && (Pressed(Btn.Swap) || Pressed(Btn.Reload)))
+            if (menu.OnTab != null && (Pressed(Btn.Swap) || Pressed(Btn.SwapBack)))
             {
                 var next = menu.OnTab(Pressed(Btn.Swap) ? 1 : -1);
                 if (next != null) { ReplaceMenu(next); Sfx.Play("ui"); }

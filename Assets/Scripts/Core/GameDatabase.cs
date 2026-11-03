@@ -407,7 +407,7 @@ namespace TideWall
         public float bleedOutSeconds = 30, reviveSeconds = 2f, reviveHpFraction = .4f;
         public string startGun = "revolver", startMelee = "spade";
         [Header("Inventory and aiming")]
-        [Tooltip("How many guns a sailor carries; the rest wait in the stash")] public int gunSlots = 3;
+        [Tooltip("How many guns a sailor carries; the rest wait in the stash")] public int gunSlots = 5;
         [Tooltip("Seconds before you can fire after swapping guns")] public float swapSeconds = .3f;
         [Tooltip("Spread multiplier while aiming down the sights")] public float aimSpread = .5f;
         [Tooltip("The view's FOV multiplier when aiming with no scope fitted")] public float aimZoom = .85f;
@@ -798,6 +798,7 @@ namespace TideWall
                 new() { id = "goldangler", style = FishStyle.Diver, displayName = "Golden Anglerfish", description = "There's a pearl where its lure should be.", model = "FishGold", weight = .4f, difficulty = 1, sandDollars = 40, oil = 15, pearls = 1 },
             };
 
+            gunSlots = 5;
             lastLight = new LastLightDef
             {
                 upgrades = new List<KeeperUpgradeDef>

@@ -599,8 +599,8 @@ namespace TideWall.Tests
             Assert.Greater(Vector3.Distance(p.transform.position, start), .5f, "the left stick still walks with the shop open");
             yield return Tap(pad, GamepadButton.DpadRight);
             Assert.AreEqual(1, p.OpenedMenu?.Selected ?? -1, "the d-pad moves through the item cards");
-            yield return Tap(pad, GamepadButton.Y);
-            Assert.AreEqual(1, p.OpenedMenu?.Tab ?? -1, "Swap switches the shop tab");
+            yield return Tap(pad, GamepadButton.RightShoulder);
+            Assert.AreEqual(1, p.OpenedMenu?.Tab ?? -1, "RB switches the shop tab");
             p.Place(start + new Vector3(0, 0, 12));
             yield return Frames(3);
             Assert.IsNull(p.OpenedMenu, "walking away from the stall closes it");

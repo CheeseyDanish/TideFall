@@ -499,6 +499,8 @@ namespace TideWall
                   pick: () => p.Respec(), blocked: () => p.SpentPoints == 0 ? "No points to take back" : gm.SandDollars < p.RespecPrice ? "Not enough sand dollars" : null);
             m.Add("Close", null, null, pick: p.CloseMenu);
             m.FirstSelectable();
+            m.Add("Inventory", null, "Your guns, their attachments and skins.", open: () => InventoryMenus.Main(p));
+            m.Add("Build", null, "Place a defence.", open: () => Build(p));
             return m;
         }
 

@@ -259,7 +259,7 @@ Patches of bubbles appear on Part I's shore while the shop's open, and at the wa
 - **Treasure** shows off to the far side from the fish in about a third of fights, for 5 s. Lean over and hold there for about a second to grab it: sand dollars and lamp oil, or sometimes a golden pearl. It's only yours if you land the fish too.
 
 ### Inventory (Inventory button: I / d-pad up; also in the pause menu)
-You own any number of guns but **carry three** (`gunSlots`). Buying or taking a fourth swaps it with the gun in your hands; that one goes to your **stash**, and you can bring it back free from the Inventory. **Swap** cycles the three, and each slot has its own button (1, 2, 3 / d-pad left, d-pad right, left stick press). Swapping takes a moment (`swapSeconds`): the new gun comes up from below the view. The HUD lists the three, with the one in your hands picked out. The Inventory shows what you carry, your stash, each gun's five slots and its skin, and your melee weapons' skins. Saved with the run.
+You own any number of guns but **carry five** (`gunSlots`). Buying or taking a sixth swaps it with the gun in your hands; that one goes to your **stash**, and you can bring it back free from the Inventory. **Swap** cycles the three, and each slot has its own button (1, 2, 3 / d-pad left, d-pad right, left stick press). Swapping takes a moment (`swapSeconds`): the new gun comes up from below the view. The HUD lists the three, with the one in your hands picked out. The Inventory shows what you carry, your stash, each gun's five slots and its skin, and your melee weapons' skins. Saved with the run.
 
 ### Gun attachments (shop → Attachments, for the gun in your hands; or the Inventory, for any gun)
 Every gun has **five slots: scope, barrel, laser sight, stock and ammo**, one part in each, each with its own model on the gun. A part is **bought once, per sailor, for the run**: after that it fits any of your guns free, and comes off free, from the Inventory. A new part replaces what's in that slot.
@@ -411,18 +411,18 @@ Defaults (every one except the sticks and mouse look can be rebound in **Setting
 | Move | left stick / d-pad | WASD / arrows |
 | Look | right stick | mouse |
 | Shoot / throw | RT | left click |
-| Melee | RB | F |
+| Melee | Y / Triangle | F |
 | Interact (shop, sell, eat, revive, pick up) | A / Cross | E / Enter |
 | Back (close menu) | B / Circle | Backspace |
 | Reload | X / Square | R |
-| Swap gun (shop: next tab) | Y / Triangle | Q / middle click |
-| Dash | LB | Space / Shift |
+| Next / previous slot (shop: tab) | RB / LB | Q / Z (middle click: next) |
+| Dash | L3 | Space / Shift |
 | Switch view | R3 | V |
 | **Stats & mods / tidal card vote** | Select / Back | Tab / C |
-| **Inventory** | D-pad up | I |
+| **Inventory**, **Build** | In the Select menu | I, B |
 | **Fishing** | Interact casts and strikes, trigger reels | E casts and strikes, left mouse reels |
 | **Aim down sights** (hold) | Left trigger | Right mouse |
-| **Gun slots 1, 2, 3** | D-pad left, d-pad right, left stick press | 1, 2, 3 |
+| **Slots 1, 2, 3, 4, 5** | D-pad up, right, down, left (slot 5: RB / LB) | 1, 2, 3, 4, 5 |
 | **Build defences** | D-pad down | B |
 | **Menus: choose** | D-pad | Arrow keys / mouse wheel |
 | Pause menu | Start | Esc / P |

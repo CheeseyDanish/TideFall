@@ -66,50 +66,53 @@ namespace TideWall.Tests
         }
 
         [UnityTest]
-        public IEnumerator YouCarryThreeGunsAndTheRestWaitInTheStash()
+        public IEnumerator YouCarryFiveGunsAndTheRestWaitInTheStash()
         {
             var p = JoinPad(out var pad);
             gm.Waves.RunWave = gm.DB.gunsUnlockWave;
             yield return Frames(2);
-            Assert.AreEqual(3, gm.DB.gunSlots);
+            Assert.AreEqual(5, gm.DB.gunSlots);
             Assert.AreEqual(new[] { "revolver" }, p.Loadout.ToArray());
-            p.GiveGun("smg"); p.GiveGun("scattergun");
-            Assert.AreEqual(new[] { "revolver", "smg", "scattergun" }, p.Loadout.ToArray());
-            p.GiveGun("harpoon");
-            Assert.AreEqual(new[] { "revolver", "smg", "harpoon" }, p.Loadout.ToArray(), "a fourth takes the place of the gun in your hands");
-            Assert.IsTrue(p.OwnsGun("scattergun") && !p.Carries("scattergun"), "and that one's in the stash");
+            p.GiveGun("smg"); p.GiveGun("scattergun"); p.GiveGun("harpoon"); p.GiveGun("longrifle");
+            Assert.AreEqual(new[] { "revolver", "smg", "scattergun", "harpoon", "longrifle" }, p.Loadout.ToArray());
+            p.GiveGun("flare");
+            Assert.AreEqual(new[] { "revolver", "smg", "scattergun", "harpoon", "flare" }, p.Loadout.ToArray(), "a sixth takes the place of the gun in your hands");
+            Assert.IsTrue(p.OwnsGun("longrifle") && !p.Carries("longrifle"), "and that one's in the stash");
             yield return null;
 
-            // Swap cycles only what you carry
-            yield return Tap(pad, GamepadButton.North);
+            // RB and LB cycle only what you carry, and the d-pad goes straight to a slot
+            yield return Tap(pad, GamepadButton.RightShoulder);
             Assert.AreEqual("revolver", p.Gun.id);
-            yield return Tap(pad, GamepadButton.North);
+            yield return Tap(pad, GamepadButton.RightShoulder);
             Assert.AreEqual("smg", p.Gun.id);
-            yield return Tap(pad, GamepadButton.North);
+            yield return Tap(pad, GamepadButton.LeftShoulder);
+            Assert.AreEqual("revolver", p.Gun.id);
+            yield return Tap(pad, GamepadButton.DpadDown);
+            Assert.AreEqual("scattergun", p.Gun.id);
+            yield return Tap(pad, GamepadButton.DpadLeft);
             Assert.AreEqual("harpoon", p.Gun.id);
-            p.SelectSlot(0);
+            yield return Tap(pad, GamepadButton.DpadRight);
+            Assert.AreEqual("smg", p.Gun.id);
+            yield return Tap(pad, GamepadButton.DpadUp);
             Assert.AreEqual("revolver", p.Gun.id);
 
             // The inventory's pages all build, and the stash can be brought back
             var main = InventoryMenus.Main(p);
             Assert.AreEqual(InventoryMenus.Title, main.Title);
-            Assert.IsNotNull(main.Items.Find(i => i.Label == "Scattergun"), "the stash is listed");
-            main.Items.Find(i => i.Label == "Scattergun").Open();
-            var page = InventoryMenus.GunPage(p, gm.DB.Gun("scattergun"));
+            Assert.IsNotNull(main.Items.Find(i => i.Label == "Longrifle"), "the stash is listed");
+            main.Items.Find(i => i.Label == "Longrifle").Open();
+            var page = InventoryMenus.GunPage(p, gm.DB.Gun("longrifle"));
             page.Items.Find(i => i.Label == "Carry this").OnPick();
-            Assert.AreEqual(new[] { "scattergun", "smg", "harpoon" }, p.Loadout.ToArray());
+            Assert.AreEqual(new[] { "longrifle", "smg", "scattergun", "harpoon", "flare" }, p.Loadout.ToArray());
             p.Stash("harpoon");
-            Assert.AreEqual(2, p.Loadout.Count);
-            p.Stash("smg"); p.Stash("scattergun");
+            Assert.AreEqual(4, p.Loadout.Count);
+            p.Stash("smg"); p.Stash("scattergun"); p.Stash("flare");
             Assert.AreEqual(1, p.Loadout.Count, "you always keep one");
 
-            // The Inventory button opens it (and closes it)
-            yield return null;
-            InputSystem.QueueStateEvent(pad, new GamepadState { buttons = 1u << (int)GamepadButton.DpadUp });
-            yield return null;
-            InputSystem.QueueStateEvent(pad, new GamepadState());
-            yield return null;
-            Assert.AreEqual(InventoryMenus.Title, p.OpenedMenu?.Title);
+            // A gamepad reaches the inventory and building from the Select menu
+            var stats = Menus.Stats(p);
+            Assert.AreEqual(InventoryMenus.Title, stats.Items.Find(i => i.Label == "Inventory").Open().Title);
+            Assert.AreEqual("BUILD", stats.Items.Find(i => i.Label == "Build").Open().Title);
         }
 
         [UnityTest]

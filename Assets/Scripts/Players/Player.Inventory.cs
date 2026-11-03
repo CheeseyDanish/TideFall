@@ -50,10 +50,10 @@ namespace TideWall
             Sfx.Play("swap");
         }
 
-        void CycleGun()
+        void CycleGun(int step)
         {
             if (Loadout.Count < 2) return;
-            SelectSlot((Loadout.IndexOf(Gun.id) + 1) % Loadout.Count);
+            SelectSlot((Loadout.IndexOf(Gun.id) + step + Loadout.Count) % Loadout.Count);
         }
 
         public SkinDef SkinOn(string weaponId) => WeaponSkins.TryGetValue(weaponId, out var id) ? db.Skin(id) : null;

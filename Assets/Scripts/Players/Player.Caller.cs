@@ -93,6 +93,7 @@ namespace TideWall
             if (navNow && !navHeld) l.CyclePick(nav.x < -.5f || nav.y > .5f ? -1 : 1);
             navHeld = navNow;
             if (Pressed(Btn.Swap)) l.CyclePick(1);
+            if (Pressed(Btn.SwapBack)) l.CyclePick(-1);
             if (Pressed(Btn.Fire) || (Held(Btn.Fire) && callCd <= 0))
             {
                 l.TryCall(transform.position, Pressed(Btn.Fire));

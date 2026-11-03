@@ -81,10 +81,13 @@ namespace TideWall
             }
             if (UpdateFishing(dt)) return;
             UpdatePerch();
-            if (!GunsLocked && Pressed(Btn.Swap)) CycleGun();
+            if (!GunsLocked && Pressed(Btn.Swap)) CycleGun(1);
+            if (!GunsLocked && Pressed(Btn.SwapBack)) CycleGun(-1);
             if (!GunsLocked && Pressed(Btn.Slot1)) SelectSlot(0);
             if (!GunsLocked && Pressed(Btn.Slot2)) SelectSlot(1);
             if (!GunsLocked && Pressed(Btn.Slot3)) SelectSlot(2);
+            if (!GunsLocked && Pressed(Btn.Slot4)) SelectSlot(3);
+            if (!GunsLocked && Pressed(Btn.Slot5)) SelectSlot(4);
             if (!GunsLocked && Pressed(Btn.Reload))
             {
                 if (reload != null) { int a = Ammo; reload.Press(ref a, MagSize); ammo[Gun.id] = a; if (reload.Done) FinishReload(); }

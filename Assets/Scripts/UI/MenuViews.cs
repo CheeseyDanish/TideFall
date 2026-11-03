@@ -95,10 +95,10 @@ namespace TideWall
             title.text = $"<b>{m.Title}</b>";
             if (m.Tabs != null)
             {
-                var sb = new System.Text.StringBuilder($"<color=#64748b>{p.Glyph(Btn.Swap)}</color>   ");
+                var sb = new System.Text.StringBuilder($"<color=#64748b>{p.Glyph(Btn.SwapBack)}</color>   ");
                 for (int i = 0; i < m.Tabs.Length; i++)
                     sb.Append(i == m.Tab ? $"<link=\"{i}\"><color=#fde68a><b><u>{m.Tabs[i]}</u></b></color></link>   " : $"<link=\"{i}\"><color=#94a3b8>{m.Tabs[i]}</color></link>   ");
-                tabs.text = sb.Append($"<color=#64748b>{p.Glyph(Btn.Reload)}</color>").ToString();
+                tabs.text = sb.Append($"<color=#64748b>{p.Glyph(Btn.Swap)}</color>").ToString();
             }
             else tabs.text = "";
             purse.text = $"<color=#fde68a>{gm.SandDollars} SD</color>" + (gm.Pearls > 0 ? $"  <color=#fcd34d>{gm.Pearls} pearls</color>" : "");

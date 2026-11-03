@@ -32,7 +32,7 @@ namespace TideWall
         const int MaxQueued = 64;
         readonly Queue<NetCommand> queue = new();
         float budget;
-        ushort held, pending, now;
+        uint held, pending, now;
         int pendingHover = -1;
         /// <summary>What their mouse is on in a host-run menu this frame (-1: nothing to report).</summary>
         public int Hover { get; private set; } = -1;

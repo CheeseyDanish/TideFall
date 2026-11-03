@@ -80,7 +80,7 @@ namespace TideWall
         void PredictMove(float dt, bool canMove)
         {
             var c = new NetCommand { seq = ++commandSeq, dt = dt, yaw = Yaw, pitch = Pitch, firstPerson = PrefersFirstPerson };
-            if (statsWanted) { c.pressed |= 1 << (int)Btn.Stats; statsWanted = false; }
+            if (statsWanted) { c.pressed |= 1u << (int)Btn.Stats; statsWanted = false; }
             if (Controls != null && LocalMenu == null && !Rebinder.Busy)
             {
                 c.nav = Controls.Nav();
@@ -88,14 +88,14 @@ namespace TideWall
                 {
                     // The host runs this menu: tell it what the mouse is on. A right-click is its Back
                     c.hoverPlus1 = (short)(PointerHit() + 1);
-                    if (Controls.Pressed(Btn.Sight)) c.pressed |= 1 << (int)Btn.Back;
+                    if (Controls.Pressed(Btn.Sight)) c.pressed |= 1u << (int)Btn.Back;
                 }
                 if (canMove) c.move = Controls.Move.ReadValue<Vector2>();
                 foreach (Btn b in System.Enum.GetValues(typeof(Btn)))
                 {
                     if (b is Btn.Pause or Btn.View) continue;  // handled here (Stats goes to the host, which owns that menu)
-                    if (Controls.Held(b)) c.held |= (ushort)(1 << (int)b);
-                    if (Controls.Pressed(b)) c.pressed |= (ushort)(1 << (int)b);
+                    if (Controls.Held(b)) c.held |= (uint)(1 << (int)b);
+                    if (Controls.Pressed(b)) c.pressed |= (uint)(1 << (int)b);
                 }
             }
             c = c.Quantized();

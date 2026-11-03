@@ -41,7 +41,7 @@ namespace TideWall
 
     public static class NetProtocol
     {
-        public const int Version = 15;
+        public const int Version = 16;
         public const int DefaultPort = 7777;
         public const int DiscoveryPort = 47777;
         public const string DiscoveryTag = "TIDEWALL2";
@@ -60,7 +60,7 @@ namespace TideWall
         public uint seq;
         public float dt;
         public Vector2 move, nav;
-        public ushort held, pressed;
+        public uint held, pressed;
         /// <summary>The mouse over a host-run menu: its hit plus one (0 = nothing to report).</summary>
         public short hoverPlus1;
         public float yaw, pitch;
@@ -92,7 +92,7 @@ namespace TideWall
         {
             seq = r.ReadUInt32(), dt = r.ReadUInt16() / 10000f,
             move = new Vector2(r.ReadSByte() / 127f, r.ReadSByte() / 127f), nav = new Vector2(r.ReadSByte() / 127f, r.ReadSByte() / 127f),
-            held = r.ReadUInt16(), pressed = r.ReadUInt16(), hoverPlus1 = r.ReadInt16(), yaw = r.ReadSingle(), pitch = r.ReadSingle(), firstPerson = r.ReadBoolean(),
+            held = r.ReadUInt32(), pressed = r.ReadUInt32(), hoverPlus1 = r.ReadInt16(), yaw = r.ReadSingle(), pitch = r.ReadSingle(), firstPerson = r.ReadBoolean(),
         };
     }
 

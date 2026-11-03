@@ -3108,7 +3108,7 @@ MonoBehaviour:
   reviveHpFraction: 0.4
   startGun: revolver
   startMelee: spade
-  gunSlots: 3
+  gunSlots: 5
   swapSeconds: 0.3
   aimSpread: 0.5
   aimZoom: 0.85

@@ -297,8 +297,9 @@ namespace TideWall
             return ring.gameObject;
         }
 
-        const int HotbarSlots = 6;
+        const int HotbarSlots = 7;
         const float HotbarSize = 52, HotbarGap = 6;
+        static readonly string[] PadSlots = { "▲", "►", "▼", "◄", "" };
         static readonly Color HotbarIdle = new(.03f, .05f, .1f, .55f), HotbarPicked = new(.98f, .8f, .3f, .85f);
         readonly List<(Image bg, Image icon, TMP_Text key)> hotbar = new();
         Image endShade;
@@ -317,8 +318,12 @@ namespace TideWall
                 icon.color = icon.sprite == null ? Color.clear : dim ? new Color(1, 1, 1, .35f) : Color.white;
                 Ui.Set(label, key);
             }
-            for (int i = 0; i < p.Loadout.Count; i++)
-                if (gm.DB.Gun(p.Loadout[i]) is { } g) Slot(g.model, (i + 1).ToString(), g == p.Gun && !p.GunsLocked, p.GunsLocked);
+            for (int i = 0; i < gm.DB.gunSlots; i++)
+            {
+                var g = i < p.Loadout.Count ? gm.DB.Gun(p.Loadout[i]) : null;
+                string key = p.UsesMouse ? (i + 1).ToString() : i < PadSlots.Length ? PadSlots[i] : "";
+                Slot(g?.model, key, g != null && g == p.Gun && !p.GunsLocked, p.GunsLocked);
+            }
             Slot(p.Melee.model, p.Glyph(Btn.Melee).Trim('[', ']'), false, false);
             if (p.CarryCount > 0 && p.Carrying.Count > 0 && p.Carrying[^1] is Corpse corpse) Slot(corpse.Def.model, $"x{p.CarryCount}", false, false);
             int shown = n;
