@@ -1,6 +1,6 @@
 // TideWall 3D — the two big menu layouts, drawn inside a player's viewport:
-//   GridView  — the shop (like the 2D game's): a header with tabs and the purse, a grid of item cards (picture,
-//               name, stat line, price, owned/equipped), and the selected item's description.
+//   GridView  — the shop: tabs and the purse on top, four rows of four compact tiles (picture, name, numbers, price)
+//               that scroll down from the top, and the selected item's description below.
 //   CardsView — the tidal card vote: a row of big cards (colour, name, waves, description, votes), a face-down
 //               random card, and sometimes a re-roll.
 //   TableView — the casino: a felt table in a brass rail (the menu's Board, redrawn every frame so cards can turn
@@ -16,40 +16,55 @@ namespace TideWall
 {
     public class GridView
     {
-        const int Cols = 3, Rows = 2;
+        const int Cols = Menu.GridColumns, Rows = 4;
+        const float TileW = 196, TileH = 86, StepX = 202, StepY = 92, Left = -310, Top = 160, BarX = 405, BarH = 362;
+        static readonly Color Idle = new(.11f, .15f, .25f, .96f), Picked = new(.2f, .26f, .43f, .98f), Worn = new(.11f, .26f, .19f, .96f), Gold = new(1, .82f, .3f);
         readonly RectTransform root;
         readonly TMP_Text title, tabs, purse, detail, help;
-        readonly List<(Image bg, Image icon, TMP_Text name, TMP_Text info, TMP_Text price, Image border)> tiles = new();
+        readonly Image bar, thumb;
+        readonly List<(Image bg, Image icon, TMP_Text name, TMP_Text info, TMP_Text price, Image frame)> tiles = new();
         int scroll;
 
         public GridView(Transform canvas)
         {
-            var panel = Ui.Image(canvas, "Shop", new Vector2(.5f, .5f), new Vector2(0, -10), new Vector2(780, 470), new Color(.06f, .09f, .17f, .9f));
+            var panel = Ui.Image(canvas, "Shop", new Vector2(.5f, .5f), new Vector2(0, -10), new Vector2(836, 498), new Color(.05f, .07f, .13f, 1));
             root = panel.rectTransform;
-            var header = Ui.Image(root, "Header", new Vector2(.5f, 1), new Vector2(0, -26), new Vector2(780, 52), new Color(.08f, .12f, .24f, .95f));
-            title = Ui.Text(header.transform, "Title", new Vector2(0, .5f), new Vector2(18, 0), new Vector2(220, 40), 22, TextAnchor.MiddleLeft, new Color(1, .85f, .4f));
+            var header = Ui.Image(root, "Header", new Vector2(.5f, 1), Vector2.zero, new Vector2(836, 40), new Color(.08f, .11f, .21f, 1));
+            title = Ui.Text(header.transform, "Title", new Vector2(0, .5f), new Vector2(14, 0), new Vector2(170, 34), 16, TextAnchor.MiddleLeft, Gold);
             title.rectTransform.pivot = new Vector2(0, .5f);
-            tabs = Ui.Text(header.transform, "Tabs", new Vector2(.5f, .5f), new Vector2(10, 0), new Vector2(380, 40), 16, TextAnchor.MiddleCenter, Color.white);
-            purse = Ui.Text(header.transform, "Purse", new Vector2(1, .5f), new Vector2(-14, 0), new Vector2(200, 40), 16, TextAnchor.MiddleRight, new Color(1f, .93f, .75f));
+            tabs = Ui.Text(header.transform, "Tabs", new Vector2(.5f, .5f), new Vector2(-10, 0), new Vector2(470, 34), 14, TextAnchor.MiddleCenter, Color.white);
+            purse = Ui.Text(header.transform, "Purse", new Vector2(1, .5f), new Vector2(-12, 0), new Vector2(150, 34), 14, TextAnchor.MiddleRight, new Color(1f, .93f, .75f));
             purse.rectTransform.pivot = new Vector2(1, .5f);
             for (int r = 0; r < Rows; r++)
                 for (int c = 0; c < Cols; c++)
                 {
-                    var pos = new Vector2(-252 + c * 252, 96 - r * 162);
-                    var bg = Ui.Image(root, "Tile", new Vector2(.5f, .5f), pos, new Vector2(240, 150), new Color(.12f, .16f, .28f, .95f));
-                    // Selection: a gold bar along the bottom of the card
-                    var border = Ui.Image(bg.transform, "Border", new Vector2(.5f, 0), new Vector2(0, 2), new Vector2(240, 4), new Color(1, .85f, .3f, 0));
-                    // Picture on the left (Ui.Image pivots at its anchor: x is the left edge), words on the right
-                    var icon = Ui.Image(bg.transform, "Icon", new Vector2(0, .5f), new Vector2(6, 6), new Vector2(100, 100), Color.white);
+                    var pos = new Vector2(Left + c * StepX, Top - r * StepY);
+                    var frame = Ui.Image(root, "Frame", new Vector2(.5f, .5f), pos, new Vector2(TileW + 4, TileH + 4), Gold);
+                    var bg = Ui.Image(root, "Tile", new Vector2(.5f, .5f), pos, new Vector2(TileW, TileH), Idle);
+                    var icon = Ui.Image(bg.transform, "Icon", new Vector2(0, .5f), new Vector2(4, 0), new Vector2(60, 60), Color.white);
                     icon.preserveAspect = true;
-                    var name = Ui.Text(bg.transform, "Name", new Vector2(0, 1), new Vector2(112, -10), new Vector2(122, 42), 15, TextAnchor.UpperLeft, Color.white);
-                    var info = Ui.Text(bg.transform, "Info", new Vector2(0, 1), new Vector2(112, -54), new Vector2(122, 56), 11, TextAnchor.UpperLeft, new Color(.75f, .82f, .95f));
-                    var price = Ui.Text(bg.transform, "Price", new Vector2(1, 0), new Vector2(-10, 10), new Vector2(150, 22), 14, TextAnchor.LowerRight, new Color(1, .85f, .4f));
-                    tiles.Add((bg, icon, name, info, price, border));
+                    var name = Words(bg.transform, "Name", new Vector2(68, -5), new Vector2(124, 18), 13, Color.white, true);
+                    var info = Words(bg.transform, "Info", new Vector2(68, -24), new Vector2(124, 40), 11, new Color(.72f, .8f, .93f), false);
+                    var price = Ui.Text(bg.transform, "Price", new Vector2(1, 0), new Vector2(-6, 4), new Vector2(130, 18), 13, TextAnchor.LowerRight, Gold);
+                    price.rectTransform.pivot = new Vector2(1, 0);
+                    tiles.Add((bg, icon, name, info, price, frame));
                 }
-            detail = Ui.Text(root, "Detail", new Vector2(.5f, 0), new Vector2(0, 40), new Vector2(740, 44), 14, TextAnchor.MiddleCenter, new Color(.85f, .9f, 1));
-            help = Ui.Text(root, "Help", new Vector2(.5f, 0), new Vector2(0, 12), new Vector2(740, 20), 12, TextAnchor.MiddleCenter, new Color(.6f, .65f, .8f));
+            bar = Ui.Image(root, "Scroll", new Vector2(.5f, .5f), new Vector2(BarX, Top - 1.5f * StepY), new Vector2(5, BarH), new Color(1, 1, 1, .08f));
+            thumb = Ui.Image(root, "Thumb", new Vector2(.5f, .5f), new Vector2(BarX, 0), new Vector2(5, 40), Gold);
+            detail = Ui.Text(root, "Detail", new Vector2(.5f, 0), new Vector2(-70, 34), new Vector2(660, 56), 14, TextAnchor.MiddleLeft, new Color(.88f, .92f, 1));
+            help = Ui.Text(root, "Help", new Vector2(1, 0), new Vector2(-12, 34), new Vector2(150, 44), 13, TextAnchor.MiddleRight, new Color(.65f, .7f, .85f));
+            help.rectTransform.pivot = new Vector2(1, .5f);
             root.gameObject.SetActive(false);
+        }
+
+        /// <summary>A line of a tile, cut off rather than spilling out of it (the whole thing is in the line below the grid).</summary>
+        static TMP_Text Words(Transform parent, string name, Vector2 pos, Vector2 size, int fontSize, Color c, bool oneLine)
+        {
+            var t = Ui.Text(parent, name, new Vector2(0, 1), pos, size, fontSize, TextAnchor.UpperLeft, c);
+            t.rectTransform.pivot = new Vector2(0, 1);
+            t.textWrappingMode = oneLine ? TextWrappingModes.NoWrap : TextWrappingModes.Normal;
+            t.overflowMode = TextOverflowModes.Ellipsis;
+            return t;
         }
 
         public void Hide() => root.gameObject.SetActive(false);
@@ -75,49 +90,58 @@ namespace TideWall
 
         public void Show(Menu m, Player p, GameManager gm)
         {
+            if (!root.gameObject.activeSelf) root.SetAsLastSibling();   // over the rest of the HUD
             root.gameObject.SetActive(true);
-            title.text = m.Title;
+            title.text = $"<b>{m.Title}</b>";
             if (m.Tabs != null)
             {
-                var sb = new System.Text.StringBuilder();
+                var sb = new System.Text.StringBuilder($"<color=#64748b>{p.Glyph(Btn.Swap)}</color>   ");
                 for (int i = 0; i < m.Tabs.Length; i++)
-                    sb.Append(i == m.Tab ? $"<link=\"{i}\"><color=#fde68a><b>[ {m.Tabs[i]} ]</b></color></link>  " : $"<link=\"{i}\"><color=#94a3b8>{m.Tabs[i]}</color></link>  ");
-                tabs.text = sb.ToString();
+                    sb.Append(i == m.Tab ? $"<link=\"{i}\"><color=#fde68a><b><u>{m.Tabs[i]}</u></b></color></link>   " : $"<link=\"{i}\"><color=#94a3b8>{m.Tabs[i]}</color></link>   ");
+                tabs.text = sb.Append($"<color=#64748b>{p.Glyph(Btn.Reload)}</color>").ToString();
             }
             else tabs.text = "";
-            purse.text = $"<color=#fde68a>{gm.SandDollars} SD</color>   <color=#fcd34d>{gm.Pearls} pearls</color>";
+            purse.text = $"<color=#fde68a>{gm.SandDollars} SD</color>" + (gm.Pearls > 0 ? $"  <color=#fcd34d>{gm.Pearls} pearls</color>" : "");
+
+            int rows = (m.Items.Count + Cols - 1) / Cols;
             int row = Mathf.Max(0, m.Selected) / Cols;
             if (row < scroll) scroll = row;
             if (row >= scroll + Rows) scroll = row - Rows + 1;
+            scroll = Mathf.Clamp(scroll, 0, Mathf.Max(0, rows - Rows));
             for (int i = 0; i < tiles.Count; i++)
             {
                 int index = scroll * Cols + i;
                 var t = tiles[i];
                 bool on = index < m.Items.Count;
                 t.bg.gameObject.SetActive(on);
+                t.frame.gameObject.SetActive(on && index == m.Selected);
                 if (!on) continue;
                 var it = m.Items[index];
-                bool sel = index == m.Selected;
                 bool blocked = it.Blocked?.Invoke() != null;
-                t.border.color = sel ? new Color(1, .85f, .3f, 1) : new Color(1, .85f, .3f, 0);
-                // The chosen card leans toward you
-                t.bg.rectTransform.localScale = Vector3.Lerp(t.bg.rectTransform.localScale, Vector3.one * (sel ? 1.035f : 1), 1 - Mathf.Exp(-Time.unscaledDeltaTime * 22));
-                if (sel) t.bg.transform.SetAsLastSibling();
-                t.bg.color = it.Equipped ? new Color(.12f, .28f, .2f, .95f) : sel ? new Color(.18f, .23f, .4f, .97f) : new Color(.12f, .16f, .28f, .95f);
+                t.bg.color = index == m.Selected ? Picked : it.Equipped ? Worn : Idle;
                 var sprite = Icons.For(it.Icon);
                 t.icon.sprite = sprite;
                 t.icon.enabled = sprite != null;
-                t.icon.color = it.Tint.a > 0 ? Color.Lerp(Color.white, it.Tint, .35f) : Color.white;
+                bool cant = blocked && !it.Owned && !it.Equipped;
+                var tint = it.Tint.a > 0 ? Color.Lerp(Color.white, it.Tint, .35f) : Color.white;
+                t.icon.color = cant ? new Color(tint.r, tint.g, tint.b, .45f) : tint;
                 t.name.text = $"<b>{it.Label}</b>";
                 t.info.text = it.Info ?? "";
-                t.price.text = it.Equipped ? "<color=#86efac>Equipped</color>" : blocked && !it.Owned ? $"<color=#94a3b8>{it.Right}</color>" : it.Right;
+                t.price.text = it.Equipped || it.Owned ? $"<color=#86efac>{it.Right}</color>" : cant ? $"<color=#f87171>{it.Right}</color>" : it.Right;
+            }
+            bool more = rows > Rows;
+            bar.enabled = thumb.enabled = more;
+            if (more)
+            {
+                float h = BarH * Rows / rows, travel = BarH - h;
+                thumb.rectTransform.sizeDelta = new Vector2(5, h);
+                thumb.rectTransform.anchoredPosition = new Vector2(BarX, bar.rectTransform.anchoredPosition.y + travel / 2 - travel * scroll / Mathf.Max(1, rows - Rows));
             }
             var cur = m.Current;
             string why = cur?.Blocked?.Invoke();
             detail.text = cur == null ? "" : cur.Detail + (why != null && !cur.Equipped ? $"\n<color=#fca5a5>{why}</color>" : "");
-            string pickWord = m.Tabs == null ? "pick" : cur?.Open != null && cur.OnPick == null ? "open" : "buy";
-            help.text = $"{(p.UsesMouse ? "Hover / arrows" : "D-pad")} choose · {(p.UsesMouse ? "click or " : "")}{p.Glyph(Btn.Interact)} {pickWord} · " +
-                        (m.Tabs != null ? $"{p.Glyph(Btn.Swap)} / {p.Glyph(Btn.Reload)} tabs · " : "") + $"{p.Glyph(Btn.Back)} close · you can keep walking";
+            string word = m.Tabs == null ? "Pick" : cur?.Open != null && cur.OnPick == null ? "Open" : cur != null && cur.Owned ? "Use" : "Buy";
+            help.text = $"{p.Glyph(Btn.Interact)} {word}\n{p.Glyph(Btn.Back)} Close";
         }
     }
 

@@ -249,12 +249,14 @@ Each of the 20 sections has its own HP, and a creature hits the one in front of 
 Every menu works three ways at once: **hover** chooses, **click** picks and **right-click** goes back (including shop tabs, tidal cards and casino tables); arrows or the d-pad and Interact do the same. While a menu is open the mouse points rather than turns your view, and WASD and the left stick still walk (R6a). The click that closes a menu doesn't fire your gun.
 
 ### Fishing
-Patches of bubbles appear on Part I's shore while the shop's open, and at the waterline in The Last Light. **Interact** casts. The bobber nibbles a few times (striking on a nibble loses it); when it really bites, strike with **Interact**. Strike fast and the meter starts well ahead. Then **hold Fire to rise, let go to sink**, keeping the green zone on the fish until the meter fills. **Back** or walking off gives up.
+Patches of bubbles appear on Part I's shore while the shop's open, and at the waterline in The Last Light. **Interact** casts. The bobber nibbles a few times (striking on a nibble loses it); when it really bites, strike with **Interact**. Strike fast and it starts well on its way in. **Back** or walking off before the bite gives up.
 
-- **Fish fight differently.** Drifters wander; darters sit still, then snap away; divers hug the bottom, then surge up; leapers rest, then jump the whole bar. Before a big move the fish marker flares red.
+**The fight is rod and line.** The fish runs left and right, and the line follows it across the water. **Lean the rod against it** with the move stick (you stand still while you do). **Hold Fire to reel:** that brings it in but tightens the line. Too much strain and it **snaps**; too little for too long and it **throws the hook**. So you pump: reel, ease off, reel. It only comes in on the reel, faster when you're working against it, and takes line back if you leave it running.
+
+- **Fish fight differently.** Drifters wander; darters make short, quick runs; divers make long, heavy ones; leapers jump clear of the water from side to side. **Reeling while one's in the air nearly always breaks the line.** Before a big move the fish marker flares red.
 - **Sizes.** Every real fish has a weight, and pay and lamp oil scale with it. About one in twelve is a **trophy**: twice the worth, and a harder fight.
-- **Perfect catch.** Barely leave the fish all fight and it's worth half as much again.
-- **Treasure** drifts onto the bar in about a third of fights, well away from the fish, for 5 s. Hold the zone on it for about a second to grab it: sand dollars and lamp oil, or sometimes a golden pearl. It's only yours if you land the fish too.
+- **Perfect catch.** Keep the line out of the red all fight and it's worth half as much again.
+- **Treasure** shows off to the far side from the fish in about a third of fights, for 5 s. Lean over and hold there for about a second to grab it: sand dollars and lamp oil, or sometimes a golden pearl. It's only yours if you land the fish too.
 
 ### Inventory (Inventory button: I / d-pad up; also in the pause menu)
 You own any number of guns but **carry three** (`gunSlots`). Buying or taking a fourth swaps it with the gun in your hands; that one goes to your **stash**, and you can bring it back free from the Inventory. **Swap** cycles the three, and each slot has its own button (1, 2, 3 / d-pad left, d-pad right, left stick press). Swapping takes a moment (`swapSeconds`): the new gun comes up from below the view. The HUD lists the three, with the one in your hands picked out. The Inventory shows what you carry, your stash, each gun's five slots and its skin, and your melee weapons' skins. Saved with the run.
@@ -362,7 +364,7 @@ Each weapon swings in its own style, with a wind-up, the strike (when the hit la
 Repair Wall (every section +40%, breaches rebuilt) · Reinforce Wall (+20% section HP) · **Cool the Core** (+25% powerplant HP) · **Lead Lining** (+20% powerplant max HP) · Sea Legs (+25 HP each) · Heavier Rounds (+15% gun damage) · Whetstone (+15% melee) · Deep Pockets (+30% magazine) · Gas Delivery (+2 gas cans each morning).
 
 ## The shop and the vendors
-- **The shop** works like the 2D game's: tabs (**Guns**, **Attachments**, **Melee**, **Upgrades**, **Defences**; Swap/Reload to switch) of **item cards** with a **picture of the item**, its stats, its price, and whether you own or have it equipped.
+- **The shop:** tabs (**Guns**, **Attachments**, **Melee**, **Upgrades**, **Defences**; Swap/Reload to switch) of compact tiles, four across and four down, scrolling vertically from the top. Each tile has a picture, the name, its numbers and the price (red if you can't afford it, green if you own it). The selected item's description is the only other text. You can keep walking while it's open; it closes when you walk away.
 - **Vendors** stand behind the stalls: the **hotdog chef** (white coat, tall hat, moustache) and the **fishmonger** (yellow oilskins, sou'wester). They turn to whoever comes near, wave, and shout lines ("Ketchup for rage, mustard for speed!").
 - **Menus never stop you walking**: the d-pad / arrow keys (and mouse wheel) drive menus while the left stick / WASD still walks and you can still look around. A stall's menu closes if you walk away from it.
 

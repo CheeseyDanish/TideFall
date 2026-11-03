@@ -195,21 +195,27 @@ namespace TideWall.Tests
             Assert.AreEqual(FishStage.None, p.Fish.stage, "too soon, and it's gone");
 
             // Rules alone: staying on the fish fills the meter; losing it empties
-            var easy = new FishDef { id = "t", difficulty = 0, displayName = "t" };
+            Random.InitState(4242);   // (the fish wanders: the same wander each run)
+            var easy = new FishDef { id = "t", difficulty = 0, displayName = "t", noSize = true };
             var g = new FishingGame(easy, 1);
             g.SkipToReel();
             FishResult r = FishResult.None;
             for (int i = 0; i < 4000 && r == FishResult.None; i++)
             {
-                bool reel = g.Zone < g.FishPos;   // a perfect player
-                r = g.Update(.02f, false, reel);
+                r = g.Update(.02f, false, g.Tension < .7f, -Mathf.Sign(g.FishPos));   // pumping the rod, leaning against the fish
             }
             Assert.AreEqual(FishResult.Caught, r, "a good player lands it");
             var g2 = new FishingGame(easy, 1);
             g2.SkipToReel();
             r = FishResult.None;
             for (int i = 0; i < 4000 && r == FishResult.None; i++) r = g2.Update(.02f, false, true);
-            Assert.AreEqual(FishResult.Lost, r, "holding the button at the top loses it");
+            Assert.AreEqual(FishResult.Lost, r, "just holding the reel snaps the line");
+            Assert.GreaterOrEqual(g2.Tension, 1);
+            var g3 = new FishingGame(easy, 1);
+            g3.SkipToReel();
+            r = FishResult.None;
+            for (int i = 0; i < 4000 && r == FishResult.None; i++) r = g3.Update(.02f, false, false);
+            Assert.AreEqual(FishResult.Lost, r, "doing nothing, it throws the hook");
 
             // A landed fish pays, and goes in the log. Holding Fire reels; the gun doesn't fire
             int purse = gm.SandDollars;

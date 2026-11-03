@@ -1,56 +1,64 @@
-// TideWall 3D — the fishing minigame's rules: cast, sit through the nibbles, strike when it really bites (fast is better),
-// then keep the catch zone on the fish with the Fire button (hold to rise, let go to sink) until the meter fills. Each kind
-// of fish fights its own way, and its big moves are signalled first. Sometimes treasure drifts past: go and get it, if you
-// dare leave the fish. Catches come in sizes, the odd one a trophy. Pure numbers, run where the game is simulated.
+// TideWall 3D — fishing: cast, sit through the nibbles, strike when it really bites (fast is better), then fight it on the
+// line. The fish runs left and right; lean the rod the other way (the move stick) to take the strain off. Hold Fire to reel:
+// that brings it in but tightens the line, and too much snaps it, so you pump: reel, ease off, reel. Let the line go slack
+// for long and it shakes the hook. Leapers jump clear of the water, and reeling while one's in the air is how lines break.
+// Each kind of fish fights its own way and signals its big moves. Sometimes treasure shows off to one side: lean over and
+// hold there, if you dare leave the fish. Catches come in sizes, the odd one a trophy. Pure numbers, run where the game is simulated.
 using UnityEngine;
 
 namespace TideWall
 {
     public enum FishStage : byte { None, Cast, Waiting, Bite, Reeling }
     public enum FishResult { None, Caught, Lost }
-    /// <summary>How it fights. Drifter: wanders. Darter: sits still, then snaps away. Diver: hugs the bottom, then surges up. Leaper: rests, then jumps the whole bar.</summary>
+    /// <summary>How it fights. Drifter: wanders about. Darter: short, quick runs. Diver: long, heavy runs. Leaper: jumps from side to side.</summary>
     public enum FishStyle : byte { Drifter, Darter, Diver, Leaper }
 
-    /// <summary>What the HUD draws (sent to online clients): the bar runs 0 (bottom) to 1 (top).</summary>
+    /// <summary>What the HUD draws (sent to online clients). Fish, rod and treasure run from -1 (left) to 1 (right).</summary>
     public struct FishView
     {
         public FishStage stage;
-        public float fish, zone, zoneSize, progress;
+        public float fish, rod, progress, tension;
         public Vector3 at;
-        /// <summary>The bobber's dipping; the fish is about to move; where the treasure is (below 0: none), and how much of it you've got.</summary>
-        public bool nibble, warning;
+        /// <summary>The bobber's dipping; the fish is about to go; it's in the air. The treasure's place (out of range: none), and how much of it you've got.</summary>
+        public bool nibble, warning, leaping;
         public float treasure, treasureFill;
+        public const float NoTreasure = -9;
     }
 
     public class FishingGame
     {
-        const float TreasureChance = .35f, TreasureSeconds = 5, TreasureGrab = 1.1f, PerfectOffSeconds = .5f;
+        const float TreasureChance = .35f, TreasureSeconds = 5, TreasureGrab = 1.1f, TreasureReach = .25f, PerfectHotSeconds = .4f;
+        public const float DangerTension = .85f;
 
         public readonly FishDef Fish;
         public FishStage Stage { get; private set; } = FishStage.Cast;
-        public float FishPos { get; private set; } = .5f;
-        public float Zone { get; private set; } = .3f;
-        public float Progress { get; private set; } = .3f;
-        public float ZoneSize => Mathf.Lerp(.36f, .17f, Difficulty);
+        public float FishPos { get; private set; }
+        public float Rod { get; private set; }
+        /// <summary>How far it's been brought in: 1 and it's landed.</summary>
+        public float Progress { get; private set; }
+        /// <summary>The strain on the line: 1 and it snaps.</summary>
+        public float Tension { get; private set; } = .4f;
 
         /// <summary>How big this one is: pay and lamp oil scale with it. Bigger fish also fight harder.</summary>
         public readonly float SizeMul = 1;
         public readonly bool Trophy;
         public float Kg => SizeMul * Mathf.Lerp(.8f, 9, Fish.difficulty);
-        /// <summary>Struck the moment it bit: the meter starts well ahead.</summary>
+        /// <summary>Struck the moment it bit: it starts well on its way in.</summary>
         public bool CleanStrike { get; private set; }
         public bool Nibbling => nibble > 0;
         public bool Warning => warn > 0;
-        public float TreasurePos { get; private set; } = -1;
+        public bool Leaping => surging && leap;
+        public float TreasurePos { get; private set; } = FishView.NoTreasure;
         public float TreasureFill { get; private set; }
         public bool GotTreasure { get; private set; }
-        /// <summary>Barely left the fish all fight.</summary>
-        public bool PerfectCatch => offFish < PerfectOffSeconds;
+        /// <summary>The line was never in the red for long.</summary>
+        public bool PerfectCatch => hot < PerfectHotSeconds;
 
         float Difficulty => Mathf.Clamp01(Fish.difficulty + (Trophy ? .15f : 0));
+        bool HasTreasure => TreasurePos > FishView.NoTreasure;
 
-        float t = .55f, zoneVel, target = .5f, targetT, nibble, nibbleIn, warn, surgeTo, offFish, treasureIn, treasureLeft;
-        bool surging, wasOn;
+        float t = .55f, target, targetT, nibble, nibbleIn, warn, surgeTo, hot, slack, treasureIn, treasureLeft;
+        bool surging, leap, nextLeap;
         readonly float biteWindow;
 
         public FishingGame(FishDef fish, float biteWindow)
@@ -63,7 +71,10 @@ namespace TideWall
             SizeMul = Trophy ? 2 : Mathf.Lerp(.75f, 1.4f, roll / .92f);
         }
 
-        public FishResult Update(float dt, bool strike, bool reel)
+        /// <param name="strike">The strike button went down.</param>
+        /// <param name="reel">The reel button is held.</param>
+        /// <param name="lean">Which way the rod's being leaned, -1 to 1.</param>
+        public FishResult Update(float dt, bool strike, bool reel, float lean = 0)
         {
             t -= dt;
             switch (Stage)
@@ -81,52 +92,66 @@ namespace TideWall
                     if (strike)
                     {
                         CleanStrike = t > biteWindow * .55f;
-                        if (CleanStrike) Progress = .5f;
+                        if (CleanStrike) Progress = .2f;
                         Stage = FishStage.Reeling;
                         Sfx.Play("reload", .7f);
                     }
                     else if (t <= 0) return FishResult.Lost;
                     break;
                 case FishStage.Reeling:
-                    return Reel(dt, reel);
+                    return Fight(dt, reel, lean);
             }
             return FishResult.None;
         }
 
-        /// <summary>Tests: straight to the reel.</summary>
+        /// <summary>Tests: straight to the fight.</summary>
         public void SkipToReel() => Stage = FishStage.Reeling;
         /// <summary>Tests and the capture: treasure here, now.</summary>
         public void ForceTreasure(float at) { TreasurePos = at; treasureLeft = TreasureSeconds; treasureIn = float.MaxValue; }
 
-        FishResult Reel(float dt, bool reel)
+        FishResult Fight(float dt, bool reel, float lean)
         {
-            MoveFish(dt);
-            zoneVel += (reel ? 2.6f : -2.1f) * dt;
-            zoneVel *= Mathf.Exp(-dt * .9f);
-            Zone += zoneVel * dt;
-            if (Zone <= 0 || Zone >= 1) { Zone = Mathf.Clamp01(Zone); zoneVel *= -.25f; }
-            bool on = Mathf.Abs(FishPos - Zone) <= ZoneSize / 2;
-            if (on) wasOn = true;
-            else if (wasOn) offFish += dt;   // (getting onto it to begin with doesn't count)
-            Progress += (on ? .32f : -.2f) * dt;
+            float d = Difficulty;
+            Rod = Mathf.MoveTowards(Rod, Mathf.Clamp(lean, -1, 1), dt * 3.5f);
+            MoveFish(dt, d);
+
+            // Leaning against the run takes the strain; leaning with it, or not at all, the line takes it
+            float pull = Mathf.Abs(FishPos);
+            float against = pull < .1f ? 1 : Mathf.Clamp01(-Rod * Mathf.Sign(FishPos));
+            float strain = pull * (1 - against) * Mathf.Lerp(.35f, 1, d) * (Fish.style == FishStyle.Diver ? 1.3f : 1);
+            float rate = (reel ? Mathf.Lerp(.28f, .4f, d) : -.45f) + strain;
+            if (Leaping && reel) rate += 2.2f;
+            Tension = Mathf.Max(0, Tension + rate * dt);
+            if (Tension > DangerTension) hot += dt;
+            if (Tension >= 1) { Sfx.Play("jam", .8f, .1f); return FishResult.Lost; }   // snap
+
+            // It only comes in on the reel, and easier when you're working against it. Left alone on a run, it takes line
+            if (reel) Progress += dt * Mathf.Lerp(.14f, .085f, d) * (.4f + .6f * against);
+            else Progress = Mathf.Max(0, Progress - dt * .05f * pull * (1 - against));
+
+            slack = !reel && Tension < .03f ? slack + dt : 0;
+            if (slack > Mathf.Lerp(3, 2, d)) return FishResult.Lost;   // it's shaken the hook
             UpdateTreasure(dt);
-            if (Progress >= 1) return FishResult.Caught;
-            return Progress <= 0 ? FishResult.Lost : FishResult.None;
+            return Progress >= 1 ? FishResult.Caught : FishResult.None;
         }
 
-        void MoveFish(float dt)
+        void MoveFish(float dt, float d)
         {
-            float d = Difficulty, speed = Mathf.Lerp(.3f, 1.05f, d);
+            float speed = Mathf.Lerp(.5f, 1.3f, d);
             if (warn > 0)
             {
                 // About to go: it holds still for a moment, and the HUD shows it
-                if ((warn -= dt) <= 0) { target = surgeTo; surging = true; }
+                if ((warn -= dt) <= 0)
+                {
+                    target = surgeTo; surging = true; leap = nextLeap;
+                    if (leap) Sfx.Play("splash", .8f, .15f);
+                }
                 return;
             }
             if (surging)
             {
-                FishPos = Mathf.MoveTowards(FishPos, target, dt * (speed * 2.2f + .5f));
-                if (Mathf.Approximately(FishPos, target)) surging = false;
+                FishPos = Mathf.MoveTowards(FishPos, target, dt * (speed * 2.4f + .5f));
+                if (Mathf.Approximately(FishPos, target)) surging = leap = false;
                 return;
             }
             if ((targetT -= dt) <= 0) Decide(d);
@@ -135,49 +160,50 @@ namespace TideWall
 
         void Decide(float d)
         {
-            float pace = Mathf.Lerp(1.3f, .55f, d);
+            float pace = Mathf.Lerp(1.3f, .6f, d);
+            float side = Random.value < .5f ? -1 : 1;
+            bool settled = Mathf.Abs(FishPos) < .3f;
             switch (Fish.style)
             {
                 case FishStyle.Darter:
-                    target = FishPos;   // sits still...
-                    targetT = Random.Range(.7f, 1.5f) * pace;
-                    Surge(Mathf.Clamp01(FishPos + (Random.value < .5f ? -1 : 1) * Random.Range(.25f, .5f)), .3f);
+                    if (settled) { Surge(side * Random.Range(.5f, .9f), .3f, false); targetT = Random.Range(.5f, .9f) * pace; }
+                    else { target = 0; targetT = Random.Range(.5f, 1.1f) * pace; }
                     break;
                 case FishStyle.Diver:
-                    if (FishPos > .35f) { target = Random.Range(0f, .25f); targetT = Random.Range(1f, 1.8f) * pace; }
-                    else { targetT = Random.Range(1f, 1.8f) * pace; Surge(Random.Range(.7f, 1f), .45f); }
+                    if (settled) { Surge(side, .45f, false); targetT = Random.Range(1.8f, 3f) * pace; }
+                    else { target = 0; targetT = Random.Range(1f, 1.6f) * pace; }
                     break;
                 case FishStyle.Leaper:
-                    targetT = Random.Range(1.1f, 2f) * pace;
-                    Surge(FishPos > .5f ? Random.Range(0f, .25f) : Random.Range(.75f, 1f), .45f);
+                    Surge(FishPos > 0 ? -.9f : .9f, .45f, true);
+                    targetT = Random.Range(1.2f, 2.1f) * pace;
                     break;
                 default:
-                    targetT = Random.Range(.35f, 1.3f) * pace;
-                    target = Mathf.Clamp01(FishPos + Random.Range(-1f, 1f) * Mathf.Lerp(.25f, .8f, d));
+                    target = Random.Range(-.55f, .55f);
+                    targetT = Random.Range(.6f, 1.6f) * pace;
                     break;
             }
         }
 
-        void Surge(float to, float warning) { surgeTo = to; warn = warning; }
+        void Surge(float to, float warning, bool leaps) { surgeTo = to; warn = warning; nextLeap = leaps; }
 
         void UpdateTreasure(float dt)
         {
             if (GotTreasure) return;
-            if (TreasurePos < 0)
+            if (!HasTreasure)
             {
                 if ((treasureIn -= dt) > 0) return;
                 treasureIn = float.MaxValue;
-                // Well away from the fish: that's the point
-                TreasurePos = FishPos > .5f ? Random.Range(.05f, Mathf.Max(.06f, FishPos - .35f)) : Random.Range(Mathf.Min(.94f, FishPos + .35f), .95f);
+                // On the far side from the fish: that's the point
+                TreasurePos = (FishPos > 0 ? -1 : 1) * Random.Range(.4f, .9f);
                 treasureLeft = TreasureSeconds;
                 Sfx.Play("coin", .5f, .1f);
                 return;
             }
-            if ((treasureLeft -= dt) <= 0) { TreasurePos = -1; TreasureFill = 0; return; }
-            if (Mathf.Abs(TreasurePos - Zone) > ZoneSize / 2) return;
+            if ((treasureLeft -= dt) <= 0) { TreasurePos = FishView.NoTreasure; TreasureFill = 0; return; }
+            if (Mathf.Abs(TreasurePos - Rod) > TreasureReach) return;
             TreasureFill += dt / TreasureGrab;
             if (TreasureFill < 1) return;
-            GotTreasure = true; TreasurePos = -1;
+            GotTreasure = true; TreasurePos = FishView.NoTreasure;
             Sfx.Play("perfect", .5f, .1f);
         }
     }

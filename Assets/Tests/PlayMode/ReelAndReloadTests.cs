@@ -1,4 +1,4 @@
-// TideWall 3D — a reload miss costs only the bonus, the scattergun rewards good timing, and fish fight in their own ways.
+// TideWall 3D — a reload miss costs only the bonus, the scattergun rewards good timing, and fish fight on the line.
 using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
@@ -58,25 +58,47 @@ namespace TideWall.Tests
         {
             var g = new FishingGame(Fish(FishStyle.Leaper), 1);
             g.SkipToReel();
-            bool warned = false; float low = 1, high = 0;
+            bool warned = false, leapt = false; float low = 1, high = -1;
             for (int i = 0; i < 500; i++)
             {
-                g.Update(.02f, false, i % 2 == 0);
-                warned |= g.Warning;
+                g.Update(.02f, false, false);
+                warned |= g.Warning; leapt |= g.Leaping;
                 low = Mathf.Min(low, g.FishPos); high = Mathf.Max(high, g.FishPos);
             }
             Assert.IsTrue(warned, "you get a warning");
-            Assert.Greater(high - low, .4f, "and it goes a long way");
+            Assert.IsTrue(leapt);
+            Assert.Greater(high - low, 1, "and it goes from side to side");
         }
 
         [Test]
-        public void ADiverHugsTheBottom()
+        public void LeaningAgainstARunEasesTheLine()
         {
-            var g = new FishingGame(Fish(FishStyle.Diver, .2f), 1);
+            float Strain(float lean)
+            {
+                Random.InitState(7);
+                var g = new FishingGame(Fish(FishStyle.Diver, .6f), 1);
+                g.SkipToReel();
+                float worst = 0;
+                for (int i = 0; i < 200; i++)
+                {
+                    if (g.Update(.02f, false, true, lean * Mathf.Sign(g.FishPos)) != FishResult.None) return 1;
+                    worst = Mathf.Max(worst, g.Tension);
+                    if (i == 70) return g.Tension;   // (well into its first run)
+                }
+                return worst;
+            }
+            Assert.Less(Strain(-1), Strain(1), "against the fish beats going with it");
+        }
+
+        [Test]
+        public void ReelingWhileItLeapsIsHowLinesBreak()
+        {
+            var g = new FishingGame(Fish(FishStyle.Leaper, .2f), 1);
             g.SkipToReel();
-            float low = 1;
-            for (int i = 0; i < 300; i++) { g.Update(.02f, false, g.Zone < g.FishPos); low = Mathf.Min(low, g.FishPos); }
-            Assert.Less(low, .3f);
+            var r = FishResult.None;
+            for (int i = 0; i < 2000 && r == FishResult.None; i++) r = g.Update(.02f, false, g.Leaping || g.Tension < .1f);
+            Assert.AreEqual(FishResult.Lost, r);
+            Assert.GreaterOrEqual(g.Tension, 1, "snapped");
         }
 
         [Test]
@@ -84,10 +106,10 @@ namespace TideWall.Tests
         {
             var g = new FishingGame(Fish(FishStyle.Drifter), 1);
             g.SkipToReel();
-            g.ForceTreasure(.3f);
-            for (int i = 0; i < 200 && !g.GotTreasure; i++) g.Update(.02f, false, g.Zone < .3f);
-            Assert.IsTrue(g.GotTreasure);
-            Assert.AreEqual(-1, g.TreasurePos);
+            g.ForceTreasure(.6f);
+            for (int i = 0; i < 200 && !g.GotTreasure; i++) g.Update(.02f, false, false, .6f);
+            Assert.IsTrue(g.GotTreasure, "lean over to it and hold there");
+            Assert.AreEqual(FishView.NoTreasure, g.TreasurePos);
 
             Assert.AreEqual(1, g.SizeMul, "a boot's a boot");
             bool trophy = false;
@@ -111,7 +133,7 @@ namespace TideWall.Tests
             Assert.IsTrue(nibbled);
             g.Update(.02f, true, false);
             Assert.IsTrue(g.CleanStrike);
-            Assert.Greater(g.Progress, .45f);
+            Assert.Greater(g.Progress, .15f);
         }
     }
 }

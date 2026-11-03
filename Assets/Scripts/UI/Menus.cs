@@ -40,7 +40,8 @@ namespace TideWall
         public bool System;
         /// <summary>How it's drawn: a list, a grid of item cards (shop), or a row of big cards (tidal cards).</summary>
         public MenuLayout Layout;
-        public int Columns => Layout == MenuLayout.Grid ? 3 : 0;
+        public const int GridColumns = 4;
+        public int Columns => Layout == MenuLayout.Grid ? GridColumns : 0;
         public bool Horizontal => Layout == MenuLayout.Cards;
         /// <summary>Tabs across the top (Swap / Reload switch them); OnTab builds the menu for tab Tab ± 1.</summary>
         public string[] Tabs;
@@ -95,7 +96,8 @@ namespace TideWall
             int c = Mathf.Max(1, Columns);
             int next = Selected + dx + dy * c;
             if (dx != 0) next = (next % Items.Count + Items.Count) % Items.Count;
-            else if (next < 0 || next >= Items.Count) next = dy > 0 ? Mathf.Min(Items.Count - 1, (Selected % c)) : Items.Count - 1;
+            else if (next >= Items.Count) next = Selected / c < (Items.Count - 1) / c ? Items.Count - 1 : Selected % c;   // the short last row, then back to the top
+            else if (next < 0) next = Selected;   // already at the top: it stays
             Selected = next;
         }
 
@@ -136,9 +138,9 @@ namespace TideWall
                         m.Items.Add(new MenuItem
                         {
                             Label = gun.displayName, Icon = gun.model, Detail = gun.description, Owned = owned, Equipped = equipped,
-                            Info = $"{gun.damage:0}{(gun.pellets > 1 ? "×" + gun.pellets : "")} dmg · {gun.fireRate:0.#}/s · {gun.magazine} rounds",
-                            Right = equipped ? "Equipped" : p.Carries(gun.id) ? "Carried" : owned ? "Stash: carry" : $"{gun.price} SD",
-                            Blocked = () => equipped ? "Already equipped" : null,
+                            Info = $"{gun.damage:0}{(gun.pellets > 1 ? "×" + gun.pellets : "")} dmg · {gun.fireRate:0.#}/s\n{gun.magazine} rounds · {gun.reload:0.#} s reload",
+                            Right = equipped ? "Equipped" : p.Carries(gun.id) ? "Carried" : owned ? "In stash" : $"{gun.price} SD",
+                            Blocked = () => equipped ? "Already equipped" : !owned && gm.SandDollars < gun.price ? "Not enough sand dollars" : null,
                             OnPick = () => { if (owned || gm.TrySpend(gun.price)) { p.GiveGun(gun.id); Sfx.Play("reload"); } },
                         });
                     }
@@ -154,10 +156,10 @@ namespace TideWall
                         m.Items.Add(new MenuItem
                         {
                             Label = a.displayName, Icon = a.model,
-                            Detail = $"For your {p.Gun.displayName}: {a.description}" + (current != null && !fitted ? $" Replaces your {current.displayName}." : ""),
+                            Detail = a.description + (current != null && !fitted ? $" Replaces {current.displayName}." : ""),
                             Owned = fitted || bought,
                             Info = $"{(a.slot == AttachmentSlot.Laser ? "Laser sight" : a.slot.ToString())}\n{AttachmentEffects(a)}",
-                            Right = fitted ? "Fitted" : bought ? "Fit (owned)" : $"{a.price} SD",
+                            Right = fitted ? "Fitted" : bought ? "Owned" : $"{a.price} SD",
                             Blocked = () => fitted ? "Already fitted to this gun" : !bought && gm.SandDollars < a.price ? "Not enough sand dollars" : null,
                             OnPick = () => { if (bought || gm.TrySpend(a.price)) p.FitAttachment(a); },
                         });
@@ -171,9 +173,9 @@ namespace TideWall
                         m.Items.Add(new MenuItem
                         {
                             Label = mel.displayName, Icon = mel.model, Detail = mel.description, Owned = owned, Equipped = equipped,
-                            Info = $"{mel.damage:0} dmg · {mel.arcDegrees:0}° · {mel.range:0.#} m · {mel.style}",
-                            Right = equipped ? "Equipped" : owned ? "Equip" : $"{mel.price} SD",
-                            Blocked = () => equipped ? "Already equipped" : null,
+                            Info = $"{mel.damage:0} dmg · {mel.range:0.#} m\n{mel.arcDegrees:0}° {mel.style}",
+                            Right = equipped ? "Equipped" : owned ? "Owned" : $"{mel.price} SD",
+                            Blocked = () => equipped ? "Already equipped" : !owned && gm.SandDollars < mel.price ? "Not enough sand dollars" : null,
                             OnPick = () => { if (owned || gm.TrySpend(mel.price)) { p.GiveMelee(mel.id); Sfx.Play("swing"); } },
                         });
                     }
@@ -186,9 +188,9 @@ namespace TideWall
                         m.Items.Add(new MenuItem
                         {
                             Label = up.displayName, Icon = UpgradeIcon(up.kind), Detail = up.description,
-                            Info = up.maxLevel > 0 ? $"Level {lvl}/{up.maxLevel}" : lvl > 0 ? $"Bought {lvl}×" : "Whole team",
+                            Info = up.maxLevel > 0 ? $"Level {lvl}/{up.maxLevel}" : lvl > 0 ? $"Bought {lvl}×" : "",
                             Right = gm.Team.Maxed(up) ? "Max" : $"{price} SD", Owned = gm.Team.Maxed(up),
-                            Blocked = () => gm.Team.Blocked(up),
+                            Blocked = () => gm.Team.Blocked(up) ?? (gm.SandDollars < price ? "Not enough sand dollars" : null),
                             OnPick = () => { if (gm.TrySpend(price)) { gm.Team.Apply(up); Sfx.Play("bell", .5f, .2f); } },
                         });
                     }
@@ -286,7 +288,7 @@ namespace TideWall
                 Detail = sauce == null ? food.description : sauce.description,
                 Info = $"+{food.heal:0} HP",
                 Right = $"{price} SD",
-                Blocked = () => p.IsDowned ? "You're down" : null,
+                Blocked = () => p.IsDowned ? "You're down" : gm.SandDollars < price ? "Not enough sand dollars" : null,
                 OnPick = () => { if (gm.TrySpend(price)) p.Eat(food, sauce); },
             };
         }

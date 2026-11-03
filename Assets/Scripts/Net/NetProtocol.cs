@@ -41,7 +41,7 @@ namespace TideWall
 
     public static class NetProtocol
     {
-        public const int Version = 14;
+        public const int Version = 15;
         public const int DefaultPort = 7777;
         public const int DiscoveryPort = 47777;
         public const string DiscoveryTag = "TIDEWALL2";
@@ -195,7 +195,7 @@ namespace TideWall
             reloadGame?.Write(w);
             w.Write(perfect); w.Write((short)combo); w.Write(comboLeft);
             w.Write(perch); w.Write((byte)fish.stage);
-            if (fish.stage != FishStage.None) { w.Write(fish.fish); w.Write(fish.zone); w.Write(fish.zoneSize); w.Write(fish.progress); w.Write(fish.at); w.Write((byte)((fish.nibble ? 1 : 0) | (fish.warning ? 2 : 0))); w.Write(fish.treasure); w.Write(fish.treasureFill); }
+            if (fish.stage != FishStage.None) { w.Write(fish.fish); w.Write(fish.rod); w.Write(fish.tension); w.Write(fish.progress); w.Write(fish.at); w.Write((byte)((fish.nibble ? 1 : 0) | (fish.warning ? 2 : 0) | (fish.leaping ? 4 : 0))); w.Write(fish.treasure); w.Write(fish.treasureFill); }
         }
 
         public static NetPlayerState Read(BinaryReader r)
@@ -217,7 +217,7 @@ namespace TideWall
             if (r.ReadBoolean()) s.reloadGame = ReloadGame.Read(r);
             s.perfect = r.ReadSingle(); s.combo = r.ReadInt16(); s.comboLeft = r.ReadSingle();
             s.perch = r.ReadSingle(); s.fish.stage = (FishStage)r.ReadByte();
-            if (s.fish.stage != FishStage.None) { s.fish.fish = r.ReadSingle(); s.fish.zone = r.ReadSingle(); s.fish.zoneSize = r.ReadSingle(); s.fish.progress = r.ReadSingle(); s.fish.at = r.ReadVector3(); int fishFlags = r.ReadByte(); s.fish.nibble = (fishFlags & 1) != 0; s.fish.warning = (fishFlags & 2) != 0; s.fish.treasure = r.ReadSingle(); s.fish.treasureFill = r.ReadSingle(); }
+            if (s.fish.stage != FishStage.None) { s.fish.fish = r.ReadSingle(); s.fish.rod = r.ReadSingle(); s.fish.tension = r.ReadSingle(); s.fish.progress = r.ReadSingle(); s.fish.at = r.ReadVector3(); int fishFlags = r.ReadByte(); s.fish.nibble = (fishFlags & 1) != 0; s.fish.warning = (fishFlags & 2) != 0; s.fish.leaping = (fishFlags & 4) != 0; s.fish.treasure = r.ReadSingle(); s.fish.treasureFill = r.ReadSingle(); }
             return s;
         }
     }

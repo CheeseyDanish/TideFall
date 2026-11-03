@@ -291,8 +291,9 @@ namespace TideWall.Tests
             // Everyone picks a different game from the lobby's cards, all at the same time, with their own controller:
             // Red slots, Blue blackjack, Green roulette, Gold video poker
             var R = GamepadButton.DpadRight; var D = GamepadButton.DpadDown; var A = GamepadButton.South; var X = GamepadButton.West;
-            yield return Press(pads, null, R, R, D);
-            yield return Press(pads, null, null, R, null);
+            yield return Press(pads, null, R, R, R);
+            yield return Press(pads, null, null, R, R);
+            yield return Press(pads, null, null, null, R);
             yield return Press(pads, A, A, A, A);
             string[] titles = { "SLOTS", "BLACKJACK", "ROULETTE", "VIDEO POKER" };
             for (int i = 0; i < 4; i++)

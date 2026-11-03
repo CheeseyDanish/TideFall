@@ -16,8 +16,8 @@ namespace TideWall
         /// <summary>The fishing minigame as the HUD draws it (mirrored from the host online).</summary>
         public FishView Fish => !Simulated ? netFish
             : fishing == null ? default
-            : new FishView { stage = fishing.Stage, fish = fishing.FishPos, zone = fishing.Zone, zoneSize = fishing.ZoneSize, progress = fishing.Progress, at = fishingAt != null ? fishingAt.transform.position : transform.position,
-                nibble = fishing.Nibbling, warning = fishing.Warning, treasure = fishing.TreasurePos, treasureFill = fishing.TreasureFill };
+            : new FishView { stage = fishing.Stage, fish = fishing.FishPos, rod = fishing.Rod, tension = fishing.Tension, progress = fishing.Progress, at = fishingAt != null ? fishingAt.transform.position : transform.position,
+                nibble = fishing.Nibbling, warning = fishing.Warning, leaping = fishing.Leaping, treasure = fishing.TreasurePos, treasureFill = fishing.TreasureFill };
 
         /// <summary>Metres the view is lifted (0 = on the ground).</summary>
         public float Perch { get; private set; }
@@ -76,12 +76,12 @@ namespace TideWall
             if (fishing == null) return false;
             if (grabbedBy != null || fishingAt == null || FlatDistance(fishingAt.transform.position) > fishingAt.radius + 2 || Pressed(Btn.Back)) { fishing = null; return false; }
             var was = fishing.Stage;
-            var r = fishing.Update(dt, Pressed(Btn.Interact), Held(Btn.Fire));
+            var r = fishing.Update(dt, Pressed(Btn.Interact), Held(Btn.Fire), MoveInput().x);
             if (was == FishStage.Bite && fishing.Stage == FishStage.Reeling && fishing.CleanStrike) Toast("Clean strike! A head start", new Color(.6f, .95f, 1));
             if (r == FishResult.None) return true;
             fishPause = .3f;   // the press that ended it mustn't cast again
             if (r == FishResult.Caught) Land(fishing);
-            else { Toast("It got away!", new Color(.8f, .9f, 1)); Sfx.Play("splash", .5f, .1f); }
+            else { Toast(fishing.Tension >= 1 ? "The line snapped!" : "It got away!", new Color(.8f, .9f, 1)); Sfx.Play("splash", .5f, .1f); }
             fishing = null;
             return true;
         }
@@ -156,7 +156,17 @@ namespace TideWall
             fishLine.enabled = true;
             bool own = FirstPerson && Cam != null;
             fishLine.SetPosition(0, own ? Cam.View.RodTip : transform.position + Vector3.up * 1.3f + AimDir * .6f);
-            fishLine.SetPosition(1, f.at);
+            // Out on the water, the line goes where the fish does, and comes in as you reel
+            var end = f.at;
+            if (f.stage == FishStage.Reeling)
+            {
+                var me = transform.position; me.y = end.y;
+                var side = Vector3.Cross(Vector3.up, (end - me).normalized);
+                end = Vector3.Lerp(end, me, Mathf.Clamp01(f.progress) * .75f) + side * f.fish * 3.5f;
+                if (f.leaping) end.y += 1.2f;
+                if (Random.value < Time.deltaTime * (f.leaping ? 30 : 6 * Mathf.Abs(f.fish))) Fx.Splash(end, 2);
+            }
+            fishLine.SetPosition(1, end);
         }
     }
 }

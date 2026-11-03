@@ -169,58 +169,74 @@ namespace TideWall
         float hitBig = 1;
 
         // ------------------------------------------------------------------ the fishing minigame, right of the crosshair
-        Image fishTrack, fishZone, fishMark, fishMeter;
-        Image fishChest, fishHintBack;
+        Image fishTrack, fishMark, fishMeter;
+        Image fishChest, fishHintBack, fishRod, fishStrain;
         TMP_Text fishHint;
 
         void UpdateFishing()
         {
+            const float W = 360;
             var f = p.Fish;
             bool on = f.stage != FishStage.None;
             if (fishTrack == null)
             {
                 if (!on) return;
                 var c = transform.GetComponentInChildren<Canvas>().transform;
-                const float H = 220;
-                fishTrack = Ui.Image(c, "FishTrack", new Vector2(.5f, .5f), new Vector2(150, 0), new Vector2(30, H), new Color(.03f, .1f, .2f, .75f));
-                fishZone = Ui.Image(fishTrack.transform, "Zone", new Vector2(.5f, 0), Vector2.zero, new Vector2(30, 40), new Color(.4f, 1f, .55f, .75f));
-                fishChest = Ui.Image(fishTrack.transform, "Treasure", new Vector2(.5f, 0), Vector2.zero, new Vector2(16, 16), new Color(1f, .75f, .15f));
-                fishMark = Ui.Image(fishTrack.transform, "Fish", new Vector2(.5f, 0), Vector2.zero, new Vector2(22, 10), new Color(1f, .85f, .3f));
-                var m = Ui.Image(c, "FishMeterBack", new Vector2(.5f, .5f), new Vector2(175, 0), new Vector2(10, H), new Color(0, 0, 0, .6f));
-                fishMeter = Ui.Image(m.transform, "Meter", new Vector2(.5f, 0), Vector2.zero, new Vector2(10, H), new Color(.5f, .9f, 1f));
-                fishMeter.rectTransform.pivot = new Vector2(.5f, 0);
-                fishHintBack = Ui.Image(c, "FishHintBack", new Vector2(.5f, .5f), new Vector2(0, -150), new Vector2(660, 34), new Color(.03f, .05f, .1f, .6f));
-                fishHint = Ui.Text(c, "FishHint", new Vector2(.5f, .5f), new Vector2(0, -150), new Vector2(620, 30), 18, TextAnchor.MiddleCenter, Color.white);
+                var mid = new Vector2(.5f, .5f);
+                // The water out in front of you, left to right: where the fish is, where your rod's leaning, and any treasure
+                fishTrack = Ui.Image(c, "FishTrack", mid, new Vector2(0, -74), new Vector2(W, 26), new Color(.03f, .1f, .2f, .8f));
+                Ui.Image(fishTrack.transform, "Middle", mid, Vector2.zero, new Vector2(2, 26), new Color(1, 1, 1, .15f));
+                fishChest = Ui.Image(fishTrack.transform, "Treasure", mid, Vector2.zero, new Vector2(16, 16), new Color(1f, .75f, .15f));
+                fishRod = Ui.Image(fishTrack.transform, "Rod", mid, Vector2.zero, new Vector2(10, 32), new Color(.4f, 1f, .55f));
+                fishMark = Ui.Image(fishTrack.transform, "Fish", mid, Vector2.zero, new Vector2(24, 12), new Color(1f, .85f, .3f));
+                // Brought in, then the strain on the line (its last stretch is the red)
+                var left = new Vector2(0, .5f);
+                var inBack = Ui.Image(c, "FishInBack", mid, new Vector2(0, -96), new Vector2(W, 7), new Color(0, 0, 0, .6f));
+                fishMeter = Ui.Image(inBack.transform, "In", left, Vector2.zero, new Vector2(W, 7), new Color(.5f, .9f, 1f));
+                fishMeter.rectTransform.pivot = left;
+                var strainBack = Ui.Image(c, "FishStrainBack", mid, new Vector2(0, -110), new Vector2(W, 13), new Color(0, 0, 0, .6f));
+                fishStrain = Ui.Image(strainBack.transform, "Strain", left, Vector2.zero, new Vector2(W, 13), Color.green);
+                fishStrain.rectTransform.pivot = left;
+                var danger = Ui.Image(strainBack.transform, "Danger", new Vector2(1, .5f), Vector2.zero, new Vector2(W * (1 - FishingGame.DangerTension), 13), new Color(1, .2f, .15f, .35f));
+                danger.rectTransform.pivot = new Vector2(1, .5f);
+                fishHintBack = Ui.Image(c, "FishHintBack", mid, new Vector2(0, -150), new Vector2(660, 34), new Color(.03f, .05f, .1f, .6f));
+                fishHint = Ui.Text(c, "FishHint", mid, new Vector2(0, -150), new Vector2(620, 30), 18, TextAnchor.MiddleCenter, Color.white);
             }
-            bool reeling = f.stage == FishStage.Reeling;
-            fishTrack.gameObject.SetActive(on && reeling);
-            fishMeter.transform.parent.gameObject.SetActive(on && reeling);
+            bool fight = f.stage == FishStage.Reeling;
+            fishTrack.gameObject.SetActive(on && fight);
+            fishMeter.transform.parent.gameObject.SetActive(on && fight);
+            fishStrain.transform.parent.gameObject.SetActive(on && fight);
             fishHint.gameObject.SetActive(on);
             fishHintBack.gameObject.SetActive(on);
             if (!on) return;
-            const float Track = 220;
+            bool hasTreasure = f.treasure > FishView.NoTreasure;
             string want = f.stage switch
             {
                 FishStage.Bite => $"<color=#fde68a><b>BITE!</b> {p.Glyph(Btn.Interact)}</color>",
-                FishStage.Reeling => f.treasure >= 0 ? "<color=#fde68a>Treasure! Put the green on it, if you dare leave the fish</color>"
-                                     : $"Hold {p.Glyph(Btn.Fire)} to rise, let go to sink. Keep the green on the fish",
+                FishStage.Reeling => f.leaping ? "<color=#fca5a5><b>IT'S JUMPING: LET GO!</b></color>"
+                                   : f.tension > FishingGame.DangerTension ? "<color=#fca5a5><b>THE LINE'S GOING!</b></color>"
+                                   : hasTreasure ? "<color=#fde68a>Treasure! Lean over to it</color>"
+                                   : f.tension < .1f ? "Slack: reel in or it'll throw the hook"
+                                   : $"Lean against the fish · hold {p.Glyph(Btn.Fire)} to reel",
                 _ => f.nibble ? "<color=#bfdbfe>A nibble… not yet</color>" : $"Wait for it…  {p.Glyph(Btn.Back)} gives up",
             };
             Ui.Set(fishHint, want);
-            if (!reeling) return;
-            fishZone.rectTransform.sizeDelta = new Vector2(30, f.zoneSize * Track);
-            fishZone.rectTransform.anchoredPosition = new Vector2(0, Mathf.Clamp(f.zone - f.zoneSize / 2, 0, 1 - f.zoneSize) * Track);
-            fishMark.rectTransform.anchoredPosition = new Vector2(0, f.fish * Track - 5);
+            if (!fight) return;
+            float half = W / 2;
+            fishRod.rectTransform.anchoredPosition = new Vector2(f.rod * half, 0);
+            fishMark.rectTransform.anchoredPosition = new Vector2(f.fish * half, f.leaping ? 16 : 0);
             // About to bolt: it flares red and swells, so you can get ready
-            fishMark.color = f.warning ? new Color(1, .25f, .2f) : new Color(1f, .85f, .3f);
-            fishMark.rectTransform.sizeDelta = f.warning ? new Vector2(30, 14) : new Vector2(22, 10);
-            fishChest.enabled = f.treasure >= 0;
-            if (f.treasure >= 0)
+            fishMark.color = f.warning || f.leaping ? new Color(1, .25f, .2f) : new Color(1f, .85f, .3f);
+            fishMark.rectTransform.sizeDelta = f.warning ? new Vector2(32, 16) : new Vector2(24, 12);
+            fishChest.enabled = hasTreasure;
+            if (hasTreasure)
             {
-                fishChest.rectTransform.anchoredPosition = new Vector2(0, f.treasure * Track - 8);
+                fishChest.rectTransform.anchoredPosition = new Vector2(f.treasure * half, 0);
                 fishChest.color = Color.Lerp(new Color(.8f, .55f, .1f), new Color(1, 1, .6f), f.treasureFill);
             }
-            fishMeter.rectTransform.sizeDelta = new Vector2(10, Mathf.Clamp01(f.progress) * Track);
+            fishMeter.rectTransform.sizeDelta = new Vector2(Mathf.Clamp01(f.progress) * W, 7);
+            fishStrain.rectTransform.sizeDelta = new Vector2(Mathf.Clamp01(f.tension) * W, 13);
+            fishStrain.color = f.tension > FishingGame.DangerTension ? new Color(1, .25f, .2f) : Color.Lerp(new Color(.4f, .9f, .5f), new Color(1, .8f, .25f), f.tension / FishingGame.DangerTension);
         }
 
         Image[] wallCells;

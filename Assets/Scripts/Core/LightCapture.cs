@@ -123,7 +123,7 @@ namespace TideWall
             var fishAt = new Vector3(0, 0, -Arena.ShoreRadius() - 2); fishAt.y = Arena.GroundAt(fishAt);
             Pose(p, fishAt + new Vector3(0, 0, 5), fishAt);
             var reel = p.StartReeling(gm.DB.fish.Find(f => f.id == "swordfish"), FishingSpot.Spawn(fishAt.normalized));
-            reel.ForceTreasure(.85f);
+            reel.ForceTreasure(.7f);
             yield return new WaitForSecondsRealtime(.5f);
             yield return Shot("N6b-fishing");
             p.DebugLandFish();

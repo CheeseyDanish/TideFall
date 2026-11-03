@@ -39,6 +39,7 @@ namespace TideWall
         Vector3 StepMove(Vector2 move, bool dash, float yaw, float dt)
         {
             if (IsCaller) { CallerMove(move, yaw, dt); return Vector3.zero; }
+            if (Fish.stage == FishStage.Reeling) move = Vector2.zero;   // the stick's working the rod
             if (Perch > 0) return Vector3.zero;   // up at the lamp
             if (IsOut || dt <= 0) return Vector3.zero;
             if (Noclip(move, dash, yaw, dt)) return Vector3.zero;
