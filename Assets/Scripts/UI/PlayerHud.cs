@@ -22,7 +22,7 @@ namespace TideWall
         Image killMarker;
         ReticleHud reticle;
         float statusT;
-        HudLine nameLine, hpLine, statusLine, coinLine, levelLine, cardsLine, voteLine, phaseLine, gunLine;
+        HudLine nameLine, hpLine, statusLine, coinLine, levelLine, cardsLine, voteLine, phaseLine, gunLine, gunLineText;
 
         /// <summary>Remembers what a line of text last showed (as a hash of its inputs), so it's rebuilt only on change.</summary>
         struct HudLine
@@ -110,7 +110,16 @@ namespace TideWall
             gunText = Ui.Text(c, "Gun", bl, new Vector2(18, 16), new Vector2(520, 92), 16, TextAnchor.LowerLeft, Color.white);
             gunText.rectTransform.pivot = bl;
 
-            // Bottom-centre: what Interact does here
+            // Bottom-centre: the hotbar, and what Interact does here
+            for (int i = 0; i < HotbarSlots; i++)
+            {
+                var bg = Ui.Image(c, "HotbarSlot", new Vector2(.5f, 0), new Vector2(0, 62), new Vector2(HotbarSize, HotbarSize), HotbarIdle);
+                bg.rectTransform.pivot = new Vector2(.5f, 0);
+                var icon = Ui.Image(bg.transform, "Icon", new Vector2(.5f, .5f), Vector2.zero, new Vector2(HotbarSize - 8, HotbarSize - 8), Color.white);
+                var key = Ui.Text(bg.transform, "Key", new Vector2(0, 1), new Vector2(4, -2), new Vector2(26, 16), 12, TextAnchor.UpperLeft, new Color(1, 1, 1, .85f));
+                key.rectTransform.pivot = new Vector2(0, 1);
+                hotbar.Add((bg, icon, key));
+            }
             promptText = Ui.Text(c, "Prompt", new Vector2(.5f, 0), new Vector2(0, 24), new Vector2(700, 30), 18, TextAnchor.LowerCenter, new Color(1, .95f, .75f));
             promptText.rectTransform.pivot = new Vector2(.5f, 0);
 
@@ -118,7 +127,8 @@ namespace TideWall
             bannerTitle = Ui.Text(c, "BannerTitle", new Vector2(.5f, .72f), Vector2.zero, new Vector2(1000, 60), 40, TextAnchor.MiddleCenter, Color.white);
             bannerSub = Ui.Text(c, "BannerSub", new Vector2(.5f, .64f), Vector2.zero, new Vector2(900, 40), 18, TextAnchor.MiddleCenter, new Color(.9f, .92f, 1));
             toastText = Ui.Text(c, "Toast", new Vector2(.5f, .33f), Vector2.zero, new Vector2(800, 30), 17, TextAnchor.MiddleCenter, Color.white);
-            centerText = Ui.Text(c, "Center", new Vector2(.5f, .5f), Vector2.zero, new Vector2(900, 200), 26, TextAnchor.MiddleCenter, Color.white);
+            endShade = Ui.Image(c, "End Shade", new Vector2(.5f, .5f), Vector2.zero, new Vector2(6000, 6000), Color.clear);
+            centerText = Ui.Text(c, "Center", new Vector2(.5f, .5f), Vector2.zero, new Vector2(1000, 460), 26, TextAnchor.MiddleCenter, Color.white);
             hitMarker = Ui.Image(c, "Hit", new Vector2(.5f, .5f), Vector2.zero, new Vector2(18, 18), new Color(1, 1, 1, 0));
             hitMarker.rectTransform.localRotation = Quaternion.Euler(0, 0, 45);
             // First-person crosshair: a small plus in the player's colour
@@ -257,19 +267,34 @@ namespace TideWall
             return ring.gameObject;
         }
 
-        /// <summary>The guns you carry, the one in your hands picked out, above the ammo line.</summary>
-        string LoadoutLine()
+        const int HotbarSlots = 6;
+        const float HotbarSize = 52, HotbarGap = 6;
+        static readonly Color HotbarIdle = new(.03f, .05f, .1f, .55f), HotbarPicked = new(.98f, .8f, .3f, .85f);
+        readonly List<(Image bg, Image icon, TMP_Text key)> hotbar = new();
+        Image endShade;
+
+        /// <summary>A picture of everything you can hold: your guns by their number, the melee weapon, and what you're carrying.</summary>
+        void UpdateHotbar()
         {
-            if (p.Loadout.Count < 2) return "";
-            var sb = new StringBuilder("<size=13>");
-            for (int i = 0; i < p.Loadout.Count; i++)
+            int n = 0;
+            void Slot(string model, string key, bool picked, bool dim)
             {
-                var g = gm.DB.Gun(p.Loadout[i]);
-                if (g == null) continue;
-                if (i > 0) sb.Append("  ");
-                sb.Append(g == p.Gun ? $"<color=#fde68a><b>{i + 1} {g.displayName}</b></color>" : $"<color=#94a3b8>{i + 1} {g.displayName}</color>");
+                if (n >= hotbar.Count) return;
+                var (bg, icon, label) = hotbar[n++];
+                bg.gameObject.SetActive(true);
+                bg.color = picked ? HotbarPicked : HotbarIdle;
+                icon.sprite = Icons.For(model);
+                icon.color = icon.sprite == null ? Color.clear : dim ? new Color(1, 1, 1, .35f) : Color.white;
+                Ui.Set(label, key);
             }
-            return sb.Append("</size>\n").ToString();
+            for (int i = 0; i < p.Loadout.Count; i++)
+                if (gm.DB.Gun(p.Loadout[i]) is { } g) Slot(g.model, (i + 1).ToString(), g == p.Gun && !p.GunsLocked, p.GunsLocked);
+            Slot(p.Melee.model, p.Glyph(Btn.Melee).Trim('[', ']'), false, false);
+            if (p.CarryCount > 0 && p.Carrying.Count > 0 && p.Carrying[^1] is Corpse corpse) Slot(corpse.Def.model, $"x{p.CarryCount}", false, false);
+            int shown = n;
+            for (; n < hotbar.Count; n++) hotbar[n].bg.gameObject.SetActive(false);
+            float width = shown * HotbarSize + (shown - 1) * HotbarGap;
+            for (int i = 0; i < shown; i++) hotbar[i].bg.rectTransform.anchoredPosition = new Vector2(-width / 2 + HotbarSize / 2 + i * (HotbarSize + HotbarGap), 62);
         }
 
         void Update()
@@ -362,8 +387,9 @@ namespace TideWall
             bool reloading = p.ReloadProgress >= 0;
             int perfect = Mathf.RoundToInt(p.PerfectBonus * 100), weight = Mathf.RoundToInt(p.CarryWeight);
             int gunKey = System.HashCode.Combine(p.GunsLocked, p.Gun.id, reloading, p.Ammo, p.MagSize, perfect, p.Melee.id, System.HashCode.Combine(p.CarryCount, weight, p.Glyph(Btn.Fire), p.LoadoutVersion));
-            if (gunLine.Changed(gunKey))
-                gunText.text = LoadoutLine() + (p.GunsLocked ? $"<color=#94a3b8><b>{p.Gun.displayName}</b>  holstered until wave {gm.DB.gunsUnlockWave}</color>\n"
+            if (gunLine.Changed(gunKey)) UpdateHotbar();
+            if (gunLineText.Changed(gunKey))
+                gunText.text = (p.GunsLocked ? $"<color=#94a3b8><b>{p.Gun.displayName}</b>  holstered until wave {gm.DB.gunsUnlockWave}</color>\n"
                                              : $"<b>{p.Gun.displayName}</b>  {(reloading ? "reloading…" : $"{p.Ammo}/{p.MagSize}")}" +
                                                (perfect > 0 ? $"  <color=#fcd34d>PERFECT +{perfect}%</color>" : "") + "\n") +
                                $"<color=#cbd5e1>{p.Melee.displayName}</color>" +
@@ -409,6 +435,7 @@ namespace TideWall
             UpdateInk();
             UpdateMenu();
             Ui.Set(centerText, CenterMessage());
+            endShade.color = gm.State == GameState.GameOver ? gm.Level.GameOverTint(p) : Color.clear;
         }
 
         TMP_Text callerText;
@@ -432,7 +459,8 @@ namespace TideWall
             Ui.Set(nameText, "<b>TIDE CALLER</b>");
             Ui.Set(hpText, $"Brine {Mathf.FloorToInt(l.Brine)}/{Mathf.RoundToInt(l.MaxBrine)}");
             Ui.Set(levelText, ""); Ui.Set(gunText, ""); Ui.Set(statusText, "");
-            nameLine = hpLine = levelLine = gunLine = statusLine = default;   // (they rebuild if the conch is put down)
+            foreach (var slot in hotbar) slot.bg.gameObject.SetActive(false);
+            nameLine = hpLine = levelLine = gunLine = gunLineText = statusLine = default;   // (they rebuild if the conch is put down)
             var sb = new StringBuilder();
             if (l.Ridden == null)
                 foreach (var e in l.Roster())
@@ -458,9 +486,10 @@ namespace TideWall
             {
                 string retry = Net.IsClient ? "Waiting for the host to start a new run" : $"{p.Glyph(Btn.Interact)} New run";
                 var rec = gm.RunRecord;
-                string best = rec != null ? $"\n<size=16>Runs: {rec.runs} · best day {rec.bestDay} · best level {rec.bestLevel}</size>" : "";
+                string best = rec != null && gm.Level.GameOverStats(p) == null ? $"\n<size=16>Runs: {rec.runs} · best day {rec.bestDay} · best level {rec.bestLevel}</size>" : "";
                 string reached = gm.Level.ReachedLine(p) ?? (gm.Assault ? $"The expedition reached {gm.Expedition.Stage.title}" : $"You held out until day {gm.Phases.Day}");
-                return $"<size=44><b>{gm.Level.GameOverTitle(p) ?? "RUN OVER"}</b></size>\n{gm.GameOverReason}\n{reached} (level {p.Level}).{best}\n\n" +
+                string stats = gm.Level.GameOverStats(p) is { } line ? $"\n<size=20>{line}</size>" : "";
+                return $"<size=72><b>{gm.Level.GameOverTitle(p) ?? "RUN OVER"}</b></size>\n{gm.GameOverReason}\n{reached} (level {p.Level}).{stats}{best}\n\n" +
                        $"<size=20>{retry} · {p.Glyph(Btn.Back)} {(Net.IsClient ? "Leave" : "Main menu")}</size>";
             }
             if (Net.IsClient && !Net.Client.Connected) return "<b>Connection lost</b>\nReturning to the main menu…";

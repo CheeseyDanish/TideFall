@@ -102,6 +102,7 @@ namespace TideWall.Tests
             yield return Frames(3);
             var door = Object.FindAnyObjectByType<LampDoor>();
             Assert.IsNotNull(door);
+            p.Place(door.transform.position + Vector3.up * .1f);   // (you walk up there now)
             door.Interact(p);
             Assert.AreEqual(p, level.Keeper);
             Assert.Greater(p.EyePos.y, 8, "the view goes up the tower");
@@ -126,6 +127,7 @@ namespace TideWall.Tests
             // Climb back down
             level.SetKeeper(null);
             Assert.AreEqual(0, p.Perch);
+            p.Place(level.SpawnPoint(0));
             Assert.IsTrue(p.IsTargetable);
 
             // No oil in a fight: a countdown, then it's over; oil saves it

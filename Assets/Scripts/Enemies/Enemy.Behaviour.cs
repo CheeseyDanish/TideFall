@@ -19,7 +19,7 @@ namespace TideWall
             Player best = null; float bd = range;
             foreach (var p in gm.Players.All)
             {
-                if (!p.IsTargetable) continue;
+                if (!p.IsTargetable && !(Def.behaviour == EnemyBehaviour.Flyer && p.IsAloft && p.CanBeHunted)) continue;
                 if (beachOnly && gm.World != null && !Arena.Inside(transform.position) && p.transform.position.z < Arena.WallFront - .2f) continue;   // behind the wall: out of reach (unless we're through a breach too)
                 float d = FlatDist(p.transform.position);
                 if (d < bd) { bd = d; best = p; }
@@ -254,7 +254,17 @@ namespace TideWall
         {
             bool inWater = Arena.InWater(transform.position);
             var p = NearestPlayer(Def.aggroRange, true);
-            if (p != null && !Arena.InWater(p.transform.position) && !beached) p = null;   // sharks hunt swimmers
+            if (leapT > 0) { SharkLeap(dt); return; }
+            leapCd -= dt;
+            // Anyone near the waterline is in reach: it throws itself up the sand at them
+            if (p != null && inWater && !beached && Arena.Island && !Arena.InWater(p.transform.position) && leapCd <= 0 && FlatDist(p.transform.position) < LeapRange)
+            {
+                leapT = LeapSeconds; leapCd = 6; leapFrom = transform.position; leapTo = p.transform.position; leapAt = p;
+                transform.rotation = Quaternion.LookRotation(Vector3.ProjectOnPlane(leapTo - leapFrom, Vector3.up).normalized);
+                Fx.Splash(leapFrom, 10); Sfx.Play("splash", 1, .2f);
+                return;
+            }
+            if (p != null && !Arena.InWater(p.transform.position) && !beached) p = null;   // otherwise, sharks hunt swimmers
             if (inWater && !beached)
             {
                 // Swim with the dorsal fin above the surface.
@@ -262,7 +272,7 @@ namespace TideWall
                 transform.position = new Vector3(transform.position.x, Mathf.Lerp(transform.position.y, y, dt * 3), transform.position.z);
                 if (p != null)
                 {
-                    if (MoveToward(p.transform.position, Speed * 1.1f, dt, Def.attackRange)) TryAttackPlayer(p, dt);
+                    if (MoveToward(p.transform.position, Speed * 1.5f, dt, Def.attackRange)) TryAttackPlayer(p, dt);   // blood in the water
                 }
                 else
                 {
@@ -277,8 +287,33 @@ namespace TideWall
                 beached = true;
                 flop = true;
                 transform.position = new Vector3(transform.position.x, Arena.GroundAt(transform.position), transform.position.z);
-                Walker(dt, .25f);
+                Walker(dt, .45f);
             }
+        }
+
+        const float LeapRange = 9, LeapSeconds = .6f;
+        float leapT, leapCd;
+        Vector3 leapFrom, leapTo;
+        Player leapAt;
+
+        void SharkLeap(float dt)
+        {
+            leapT -= dt;
+            float k = 1 - Mathf.Clamp01(leapT / LeapSeconds);
+            var at = Vector3.Lerp(leapFrom, leapTo, k);
+            at.y = Mathf.Lerp(leapFrom.y, leapTo.y, k) + Mathf.Sin(k * Mathf.PI) * 2.6f;
+            transform.position = at;
+            if (leapT > 0) return;
+            transform.position = new Vector3(at.x, Arena.GroundAt(at), at.z);
+            beached = !Arena.InWater(transform.position);
+            Fx.Debris(transform.position, new Color(.9f, .82f, .6f), 8);
+            Sfx.Play("thud", .8f, .1f);
+            if (leapAt != null && leapAt.IsTargetable && FlatDist(leapAt.transform.position) < 3)
+            {
+                var push = leapAt.transform.position - transform.position; push.y = 0;
+                leapAt.TakeDamage(Damage, this, "a shark", push.normalized * 11);
+            }
+            leapAt = null;
         }
 
         void Croc(float dt)

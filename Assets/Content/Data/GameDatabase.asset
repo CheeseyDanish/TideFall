@@ -357,14 +357,14 @@ MonoBehaviour:
     model: Shark
     behaviour: 4
     scale: 1
-    hp: 120
-    speed: 6
-    damage: 25
+    hp: 160
+    speed: 7.5
+    damage: 32
     attackRate: 1
-    attackRange: 1.8
+    attackRange: 2.2
     armor: 0
     waterSpeedMult: 1
-    aggroRange: 12
+    aggroRange: 20
     thorns: 0
     bounty: 8
     corpseValue: 45
@@ -376,8 +376,9 @@ MonoBehaviour:
     pearls: 0
     windup: 0.28
     poise: 0.3
-    role: The sea's guard. Hunts swimmers; slams the wall if it beaches.
-    counter: Stay out of the water. Its tail stops it.
+    role: The sea's guard. Runs down swimmers and throws itself up the sand at anyone
+      near the waterline.
+    counter: Stay well back from the water. Its tail stops it.
     wallDamage: 2
     climbChance: 0
     guardRadius: 0
@@ -2345,14 +2346,16 @@ MonoBehaviour:
   shoreFishingSpots: 3
   lastLight:
     towerHp: 900
-    towerRadius: 3.4
+    towerRadius: 6.2
+    rescueDays: 10
+    oilForRescue: 60
     startSandDollars: 150
     startWater: 0.25
     maxWater: 2.7
     risePerTide: 0.16
     riseRate: 0.1
-    firstSlackSeconds: 25
-    slackSeconds: 22
+    firstSlackSeconds: 60
+    slackSeconds: 45
     floodSeconds: 85
     tidesPerDay: 3
     spawnRadius: 60
@@ -2368,7 +2371,7 @@ MonoBehaviour:
     oilBurnManned: 2.4
     darkSeconds: 25
     sweepSpeed: 22
-    sweepPitch: 16
+    sweepPitch: 20
     coneSweep: 7
     coneManned: 11
     beamRange: 58
@@ -2377,6 +2380,11 @@ MonoBehaviour:
     mannedPower: 2.5
     beamSlow: 0.35
     oilPerCorpseValue: 0.6
+    flareCost: 20
+    flareSeconds: 3
+    flareStun: 4
+    flareRadius: 50
+    flareCooldown: 10
     fishingSpots: 4
     lowTideWater: -2.6
     lowTideRate: 0.8
@@ -2459,7 +2467,7 @@ MonoBehaviour:
       amount: 0.12
     look:
       id: lastlight
-      displayName: Dusk
+      displayName: Day
       subtitle: 
       durationSeconds: 0
       endWhenAllReady: 0
@@ -2476,14 +2484,72 @@ MonoBehaviour:
       spawnGasCans: 0
       tidalDraft: 0
       corpseThieves: 0
-      skyColor: {r: 0.5, g: 0.42, b: 0.62, a: 1}
-      sunColor: {r: 1, g: 0.84, b: 0.68, a: 1}
-      sunIntensity: 1.05
-      sunPitch: 22
+      skyColor: {r: 0.55, g: 0.72, b: 0.9, a: 1}
+      sunColor: {r: 1, g: 0.95, b: 0.84, a: 1}
+      sunIntensity: 1.2
+      sunPitch: 42
       sunYaw: 60
-      ambientColor: {r: 0.48, g: 0.46, b: 0.54, a: 1}
-      fogColor: {r: 0.58, g: 0.5, b: 0.62, a: 1}
-      fogDensity: 0.004
+      ambientColor: {r: 0.55, g: 0.57, b: 0.6, a: 1}
+      fogColor: {r: 0.72, g: 0.8, b: 0.88, a: 1}
+      fogDensity: 0.003
+      torchesLit: 0
+      lanterns: 0
+    nightLook:
+      id: lastlight-night
+      displayName: Night
+      subtitle: 
+      durationSeconds: 0
+      endWhenAllReady: 0
+      endWhenWavesCleared: 0
+      advancesDay: 0
+      saveOnStart: 0
+      shopOpen: 0
+      waves: 0
+      budgetMultiplier: 1
+      enemyPool: []
+      bossEveryDays: 0
+      bossId: glizzy
+      spawnFood: 0
+      spawnGasCans: 0
+      tidalDraft: 0
+      corpseThieves: 0
+      skyColor: {r: 0.05, g: 0.07, b: 0.16, a: 1}
+      sunColor: {r: 0.5, g: 0.6, b: 0.85, a: 1}
+      sunIntensity: 0.16
+      sunPitch: 35
+      sunYaw: -40
+      ambientColor: {r: 0.11, g: 0.13, b: 0.2, a: 1}
+      fogColor: {r: 0.04, g: 0.06, b: 0.12, a: 1}
+      fogDensity: 0.009
+      torchesLit: 1
+      lanterns: 1
+    blackoutLook:
+      id: lastlight-dark
+      displayName: Dark
+      subtitle: 
+      durationSeconds: 0
+      endWhenAllReady: 0
+      endWhenWavesCleared: 0
+      advancesDay: 0
+      saveOnStart: 0
+      shopOpen: 0
+      waves: 0
+      budgetMultiplier: 1
+      enemyPool: []
+      bossEveryDays: 0
+      bossId: glizzy
+      spawnFood: 0
+      spawnGasCans: 0
+      tidalDraft: 0
+      corpseThieves: 0
+      skyColor: {r: 0.01, g: 0.01, b: 0.03, a: 1}
+      sunColor: {r: 0.3, g: 0.3, b: 0.5, a: 1}
+      sunIntensity: 0.03
+      sunPitch: 35
+      sunYaw: -40
+      ambientColor: {r: 0.035, g: 0.035, b: 0.06, a: 1}
+      fogColor: {r: 0.01, g: 0.01, b: 0.025, a: 1}
+      fogDensity: 0.022
       torchesLit: 1
       lanterns: 1
   cards:

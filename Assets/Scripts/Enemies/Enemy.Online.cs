@@ -95,6 +95,7 @@ namespace TideWall
             f.Set(transform.position, transform.rotation);
             f.pos = netPos; f.rot = netRot;
             Model.root.transform.localPosition = netRootPos; Model.root.transform.localRotation = netRootRot;
+            LimbRag.Begin(this, Vector3.zero);   // (its limbs are this machine's own: only the body follows the host)
             enabled = false;
         }
 

@@ -277,11 +277,13 @@ namespace TideWall
     public class LastLightDef
     {
         [Header("The lighthouse")]
-        public float towerHp = 900, towerRadius = 3.4f;
+        public float towerHp = 900, towerRadius = 6.2f;
+        [Tooltip("Help arrives after this many nights")] public int rescueDays = 10;
+        [Tooltip("Lamp oil for the log if you're rescued")] public int oilForRescue = 60;
         public int startSandDollars = 150;
         [Header("The tide (metres of water; the hill's top is at 3)")]
         public float startWater = .25f, maxWater = 2.7f, risePerTide = .16f, riseRate = .1f;
-        public float firstSlackSeconds = 25, slackSeconds = 22, floodSeconds = 85;
+        public float firstSlackSeconds = 60, slackSeconds = 45, floodSeconds = 85;
         [Tooltip("Tougher by one day every this many tides")] public int tidesPerDay = 3;
         [Header("Creatures")]
         public float spawnRadius = 60, spawnGap = 2.4f, budgetBase = 8, budgetPerTide = 4;
@@ -289,12 +291,14 @@ namespace TideWall
         public List<string> bosses = new() { "glizzy", "tidemother" };
         [Header("The lamp")]
         public float oilTank = 100, oilBurnSweep = .55f, oilBurnManned = 2.4f, darkSeconds = 25;
-        public float sweepSpeed = 22, sweepPitch = 16, coneSweep = 7, coneManned = 11, beamRange = 58;
+        public float sweepSpeed = 22, sweepPitch = 20, coneSweep = 7, coneManned = 11, beamRange = 58;
         [Tooltip("Wetness dried per second in the beam")] public float beamDry = .8f;
         [Tooltip("Damage per second")] public float beamBurn = 7;
         [Tooltip("A sailor at the lamp makes it this much stronger")] public float mannedPower = 2.5f;
         [Range(0, 1)] public float beamSlow = .35f;
         public float oilPerCorpseValue = .6f;
+        [Header("The flare: the whole lamp at once")]
+        public float flareCost = 20, flareSeconds = 3, flareStun = 4, flareRadius = 50, flareCooldown = 10;
         [Header("Fishing")]
         public int fishingSpots = 4;
         [Header("Salvage (after each boss)")]
@@ -315,7 +319,9 @@ namespace TideWall
         public float rallyCost = 2, rallyRadius = 18, rallySeconds = 7, rallyCooldown = 8;
         public float rideRange = 9, rideCooldown = 3, rideSpeed = 1.3f, rideDamage = 1.5f, rideDashCooldown = 3, rideDashSpeed = 14;
         public List<KeeperUpgradeDef> upgrades = new();
-        [Tooltip("The sky and light")] public PhaseDefinition look = new();
+        [Tooltip("The sky and light by day")] public PhaseDefinition look = new();
+        [Tooltip("By night, with the lamp lit")] public PhaseDefinition nightLook = new();
+        [Tooltip("By night, with the lamp out")] public PhaseDefinition blackoutLook = new();
     }
 
     /// <summary>A weapon mod, offered every few levels. Applies to the gun or melee weapon it was taken on.</summary>
@@ -512,8 +518,8 @@ namespace TideWall
                 new() { id = "jelly", displayName = "Jellyfish", model = "Jellyfish", behaviour = EnemyBehaviour.Jelly, hp = 35, speed = 1.2f, damage = 6, attackRange = 1.8f,
                         bounty = 3, corpseValue = 10, cost = 2, minDay = 2, limbs = { L("Tent1", LimbEffect.WeakenSting, .2f), L("Tent2", LimbEffect.WeakenSting, .2f),
                         L("Tent3", LimbEffect.WeakenSting, .2f), L("Tent4", LimbEffect.WeakenSting, .2f) } },
-                new() { id = "shark", displayName = "Shark", model = "Shark", behaviour = EnemyBehaviour.Shark, hp = 120, speed = 6, waterSpeedMult = 1, damage = 25,
-                        attackRange = 1.8f, aggroRange = 12, bounty = 8, corpseValue = 45, cost = 6, minDay = 2,
+                new() { id = "shark", displayName = "Shark", model = "Shark", behaviour = EnemyBehaviour.Shark, hp = 160, speed = 7.5f, waterSpeedMult = 1, damage = 32,
+                        attackRange = 2.2f, aggroRange = 20, bounty = 8, corpseValue = 45, cost = 6, minDay = 2,
                         limbs = { L("Fin", LimbEffect.Slow, .3f), L("Tail", LimbEffect.Slow, .35f) } },
                 new() { id = "eel", displayName = "Eel", model = "Eel", behaviour = EnemyBehaviour.Leaper, hp = 35, speed = 3.2f, damage = 6, aggroRange = 8,
                         bounty = 3, corpseValue = 12, cost = 2, minDay = 3, limbs = { L("Head", LimbEffect.Kill, .35f, 2f), L("Tail", LimbEffect.Slow, .35f) } },
@@ -567,7 +573,7 @@ namespace TideWall
                         e.role = "The snare. Its sting leaves you slow, and worse in the water."; e.counter = "Stay on dry sand. Cut the tentacles to weaken the sting.";
                         e.slowSeconds = 2; break;
                     case "shark":
-                        e.role = "The sea's guard. Hunts swimmers; slams the wall if it beaches."; e.counter = "Stay out of the water. Its tail stops it.";
+                        e.role = "The sea's guard. Runs down swimmers and throws itself up the sand at anyone near the waterline."; e.counter = "Stay well back from the water. Its tail stops it.";
                         e.wallDamage = 2; e.hitPush = 4; break;
                     case "eel":
                         e.role = "The hunter. Ignores the wall and lunges at sailors from afar."; e.counter = "Spread out and sidestep the lunge. Cut the tail and it can't leap.";
@@ -800,9 +806,21 @@ namespace TideWall
                 },
                 look = new PhaseDefinition
                 {
-                    id = "lastlight", displayName = "Dusk", shopOpen = true, torchesLit = true, lanterns = true,
-                    skyColor = new Color(.5f, .42f, .62f), sunColor = new Color(1f, .84f, .68f), sunIntensity = 1.05f, sunPitch = 22, sunYaw = 60,
-                    ambientColor = new Color(.48f, .46f, .54f), fogColor = new Color(.58f, .5f, .62f), fogDensity = .004f,
+                    id = "lastlight", displayName = "Day", shopOpen = true,
+                    skyColor = new Color(.55f, .72f, .9f), sunColor = new Color(1f, .95f, .84f), sunIntensity = 1.2f, sunPitch = 42, sunYaw = 60,
+                    ambientColor = new Color(.55f, .57f, .6f), fogColor = new Color(.72f, .8f, .88f), fogDensity = .003f,
+                },
+                nightLook = new PhaseDefinition
+                {
+                    id = "lastlight-night", displayName = "Night", torchesLit = true, lanterns = true,
+                    skyColor = new Color(.05f, .07f, .16f), sunColor = new Color(.5f, .6f, .85f), sunIntensity = .16f, sunPitch = 35, sunYaw = -40,
+                    ambientColor = new Color(.11f, .13f, .2f), fogColor = new Color(.04f, .06f, .12f), fogDensity = .009f,
+                },
+                blackoutLook = new PhaseDefinition
+                {
+                    id = "lastlight-dark", displayName = "Dark", torchesLit = true, lanterns = true,
+                    skyColor = new Color(.01f, .01f, .03f), sunColor = new Color(.3f, .3f, .5f), sunIntensity = .03f, sunPitch = 35, sunYaw = -40,
+                    ambientColor = new Color(.035f, .035f, .06f), fogColor = new Color(.01f, .01f, .025f), fogDensity = .022f,
                 },
             };
 

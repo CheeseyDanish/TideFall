@@ -198,15 +198,23 @@ A limb coming off rarely ends it. Lost claws and arms halve its damage, legs slo
 
 Behind a breach, creatures go for the powerplant and anyone in town. Bosses arrive on nights where `day % bossEveryDays == 0`.
 
-## The Last Light (endless mode, main menu)
-A lighthouse on a hill of sand in the open sea, with creatures coming from every side. 1 to 4 players, offline or online; no saves.
+## The Last Light (main menu)
 
-- **The tide:** the sea really climbs the hill, tide by tide (`lastLight.risePerTide`). Below the waterline you wade slowly, creatures stay wet (shock is stronger, fire weaker), jellyfish sting harder and sharks can reach you.
-- **The rhythm:** slack water (shop, fishing, the try-pot), then a flood of creatures, then slack again. Every 5th tide is a **boss**.
-- **Salvage:** after each boss the sea pulls far back for 55 s, uncovering wrecks with sea chests (sand dollars, plus a pearl, a free attachment or oil), some guarded by crabs. A horn warns you, then the sea comes home and takes what's left.
-- **The lamp:** it sweeps the water, drying creatures, then burning and slowing them. **Interact at the lamp room door** to climb up: you aim the beam (much stronger), can shoot from up there, and can't be reached; but it burns oil over four times as fast and creatures attack the tower below.
-- **Oil:** fish, sea chests, and corpses thrown in the **try-pot**. With no oil in a fight you have 25 s to find some, or **the light goes out and the run ends**. It also ends if the lighthouse falls, or everyone's down.
-- **The Keeper's Log:** tides and bosses bring lamp oil home, which buys permanent upgrades for this mode only (stone, reservoir, lens, purse, tide tables). Part I's losses stay final.
+You're stranded on a sandbar. Help is **10 days** out, and the lighthouse is your only hope: keep it lit so they can find you. Last the tenth night and you're **rescued**; lose the tower, or let the lamp stay out for 25 s at night, and you're **lost at sea**. Either way a full-screen tally ends the run. Lamp oil you bring home buys the Keeper's Log's permanent upgrades.
+
+**Day and night.** Day (60 s the first time, then 45 s) is for getting ready: the shop's open, the lamp's off and burning nothing, and nothing attacks. Night brings the creatures and the rising sea, and every night the sea starts higher. The fifth and tenth nights have a boss. After the fifth the sea pulls back for a low tide, in daylight: run out and loot the wrecks. A **calendar** on the ground-floor wall crosses off the nights, and the top of the HUD counts the days until rescue.
+
+**The tower.** A door on the south side leads to the ground floor, with the **shop** (guns, attachments, melee, upgrades, defences) and the calendar. A ramp winds up inside the wall to the wider lamp room, and a gap in its sill opens onto a railed **catwalk**. Nothing can reach you indoors. On the catwalk and at the lamp only flyers can, but the creatures are still chewing on the tower while you're up there.
+
+**The lamp** sweeps the water at night, drying and burning what it touches, and burns oil. Take it (**Interact** in the lamp room) to aim it yourself: stronger, and thirstier. Oil comes from fishing, salvage and rendering corpses.
+
+**The flare.** Spend 20 oil (the lever in the lamp room, or **Dash** while you're at the lamp) and the whole lamp goes off at once for 3 s: blindingly bright, and everything within 50 m is stunned for 4 s (bosses shake it off in a quarter of that). It recharges in 10 s.
+
+**The dark.** Past where you can wade, the sea is full of rocks and the wrecks of ships that hit them. By night you see them only when the beam comes round. With the lamp out, the world nearly vanishes and red eyes look back from the water.
+
+**The try-pot.** Interact with it and every corpse on the island flies in, day or night, for sand dollars and oil. It does this by itself at the end of each night.
+
+**Sharks** are tougher, faster and notice you from further off. They run down swimmers, and they'll throw themselves up the sand at anyone within 9 m of the water.
 
 ## Tide Caller (The Last Light, 2 to 4 players)
 

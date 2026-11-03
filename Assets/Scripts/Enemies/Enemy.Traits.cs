@@ -76,6 +76,15 @@ namespace TideWall
         }
 
         /// <summary>The lamp's beam: dries it, then burns it, and slows it down (The Last Light).</summary>
+        public bool Stunned => stunT > 0;
+
+        /// <summary>The lighthouse's flare: it can't see. Bosses shake it off.</summary>
+        public void Dazzle(float seconds)
+        {
+            if (Dead) return;
+            stunT = Mathf.Max(stunT, Def.behaviour == EnemyBehaviour.Boss ? seconds * .25f : seconds);
+        }
+
         public void Scorch(float dry, float damage, float slow, Player source)
         {
             if (Dead) return;

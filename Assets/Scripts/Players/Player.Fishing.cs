@@ -24,14 +24,16 @@ namespace TideWall
         public void SetPerch(float height)
         {
             Perch = height;
-            if (height > 0) Toast($"{Glyph(Btn.Interact)} climbs back down", new Color(1, .9f, .6f));
+            if (height > 0) Toast($"{Glyph(Btn.Dash)} flare · {Glyph(Btn.Interact)} leave the lamp", new Color(1, .9f, .6f));
             if (Simulated && height > 0) fishing = null;
         }
 
         void UpdatePerch()
         {
             if (Perch <= 0 || Kind == PlayerKind.Proxy || Kind == PlayerKind.LocalProxy) return;
-            if ((Pressed(Btn.Interact) || Pressed(Btn.Back)) && gm.Level is Lighthouse l && l.Keeper == this && perchSettled > .2f) l.SetKeeper(null);
+            if (gm.Level is not Lighthouse l || l.Keeper != this) return;
+            if ((Pressed(Btn.Interact) || Pressed(Btn.Back)) && perchSettled > .2f) l.SetKeeper(null);
+            else if (Pressed(Btn.Dash)) l.TryFlare(this);
         }
         float perchSettled;
 

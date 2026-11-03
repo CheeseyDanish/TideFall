@@ -26,7 +26,9 @@ namespace TideWall
             foreach (var it in All)
             {
                 if (it == null || !it.isActiveAndEnabled) continue;
-                var d = it.Point - pos; d.y = 0;
+                var d = it.Point - pos;
+                if (Mathf.Abs(d.y) > 4.5f) continue;   // another floor
+                d.y = 0;
                 float dist = d.magnitude;
                 if (dist > it.radius || dist >= bd || it.Prompt(p) == null) continue;
                 best = it; bd = dist;

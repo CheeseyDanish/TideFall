@@ -47,7 +47,7 @@ namespace TideWall
             {
                 conch = new GameObject("Conch");
                 conch.transform.SetParent(transform, false);
-                conch.transform.position = new Vector3(5.5f, Arena.IslandTop, -2);
+                conch.transform.position = new Vector3(9.3f, Arena.IslandTop, -3);
                 ModelFactory.Spawn("Rock", conch.transform, Vector3.zero, .6f);
                 ModelFactory.Spawn("Conch", conch.transform, Vector3.up * .55f, 1.2f);
                 Interactable.Add<ConchShell>(conch, "THE CONCH", 2.8f);
@@ -259,14 +259,15 @@ namespace TideWall
         /// <summary>A tide's over. True if that was the last one, and the sailors have won.</summary>
         bool LightHeld()
         {
-            if (!Versus || Wave < def.callerTides) return false;
-            gm.GameOver(HeldReason);
+            if (Wave < RescueDays) return false;
+            if (!Versus) Banked += def.oilForRescue;
+            gm.GameOver(Versus ? HeldReason : RescueReason);
             return true;
         }
 
         public override string GameOverTitle(Player p)
         {
-            if (!Versus) return null;
+            if (!Versus) return gm.GameOverReason == RescueReason ? "RESCUED!" : "LOST AT SEA";
             bool held = gm.GameOverReason == HeldReason;
             if (p != null && p.IsCaller) return held ? "THE SAILORS HOLD" : "YOU DROWNED THE LIGHT";
             return held ? "THE LIGHT HOLDS" : "THE TIDE CALLER WINS";

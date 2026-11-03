@@ -57,6 +57,12 @@ namespace TideWall
         public virtual string ReachedLine(Player p) => null;
         /// <summary>The words over the game-over panel, for this player (null: everyone's, and "RUN OVER").</summary>
         public virtual string GameOverTitle(Player p) => null;
+        /// <summary>The colour over the screen when the run ends, and any lines to add to the tally.</summary>
+        public virtual Color GameOverTint(Player p) => new(0, 0, 0, .45f);
+        public virtual string GameOverStats(Player p) => null;
+        /// <summary>Indoors: nothing can reach you here. Up on the catwalk: only what flies can.</summary>
+        public virtual bool Sheltered(Vector3 pos) => false;
+        public virtual bool Aloft(Vector3 pos) => false;
         /// <summary>Fold a finished run into the record (null: the caller does it the usual way).</summary>
         public virtual Legacy RecordRun(int level, int kills) => null;
         /// <summary>What creatures attack when they aren't after a sailor (Part I: the powerplant; Part II: nothing).</summary>

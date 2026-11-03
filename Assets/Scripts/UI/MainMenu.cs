@@ -159,7 +159,7 @@ namespace TideWall
                   open: () => Slots("PART I · THE WALL", true, (save, slot) => StartOffline(null, slot)));
             m.Add("Part II · The Undertow", ">", "The sea steps back for one night. March out across the seabed, five stages deep, before the tide comes home. Saves between stages.",
                   open: () => Slots("PART II · THE UNDERTOW", true, (save, slot) => StartOffline(Expedition.NewSave(gm, slot, 0), slot)));
-            m.Add("The Last Light", ">", "Endless. Keep a lighthouse burning on a sandbar as the sea rises, fish for lamp oil, and loot the wrecks after each boss.", open: LastLightPage);
+            m.Add("The Last Light", ">", "Stranded on a sandbar, ten days from rescue, with one lighthouse to bring help. Build by day, keep the lamp lit through the night.", open: LastLightPage);
             if (latest != null)
                 m.Add("Other runs", ">", "Continue a run from another slot.", open: () => Slots("CONTINUE A RUN", false, (save, slot) => StartOffline(save, slot)));
             m.Add("Host online game", ">", "Play with friends on other computers. You host; they join with your address (or find you on the same network).", open: HostMenu);

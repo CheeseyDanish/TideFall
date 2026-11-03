@@ -80,6 +80,91 @@ namespace TideWall
             Application.Quit();
         }
 
+        /// <summary>Stand a player here, looking at that.</summary>
+        static void Pose(Player p, Vector3 at, Vector3 look)
+        {
+            p.Place(at);
+            var e = Quaternion.LookRotation(look - p.EyePos).eulerAngles;
+            p.SetLook(e.y, e.x > 180 ? e.x - 360 : e.x);
+        }
+
+        /// <summary>The night-and-day run: the tower inside and out, the reef, the flare, the dark, and both endings.</summary>
+        IEnumerator NightTour()
+        {
+            GameManager.Pending = new RunRequest { save = new SaveData { slot = 0, part = Lighthouse.PartId } };
+            SceneManager.LoadScene(Lighthouse.SceneName);
+            yield return null; yield return null;
+            var gm = GameManager.I;
+            var level = gm.Lighthouse;
+            var p = gm.Players.Join(new InputDevice[] { InputSystem.AddDevice<Gamepad>() });
+            float top = Arena.IslandTop, deck = top + LighthouseTower.DeckHeight;
+            yield return new WaitForSecondsRealtime(2);
+            p.SwitchView();
+            Pose(p, new Vector3(0, top, -24), new Vector3(0, top + 10, 0));
+            yield return new WaitForSecondsRealtime(.6f);
+            yield return Shot("N1-day-tower");
+            p.SwitchView();
+            Pose(p, new Vector3(0, top + .1f, -3.5f), new Vector3(0, top + 1.3f, 3));
+            yield return new WaitForSecondsRealtime(.6f);
+            yield return Shot("N2-shop-room");
+            Pose(p, new Vector3(1, top + .1f, 0), new Vector3(5.4f, top + 1.9f, 0));
+            yield return new WaitForSecondsRealtime(.6f);
+            yield return Shot("N3-calendar");
+            Pose(p, Quaternion.Euler(0, 330, 0) * Vector3.forward * 4.6f + Vector3.up * (top + 6.2f), new Vector3(0, top + 15, 3));
+            yield return new WaitForSecondsRealtime(.6f);
+            yield return Shot("N4-the-ramp");
+            Pose(p, new Vector3(0, deck + .1f, 5), new Vector3(0, deck + 1.4f, -4));
+            yield return new WaitForSecondsRealtime(.6f);
+            yield return Shot("N5-lamp-room");
+            Pose(p, new Vector3(-7, deck + .1f, -6.4f), new Vector3(30, top + 2, -60));
+            yield return new WaitForSecondsRealtime(.6f);
+            yield return Shot("N6-catwalk-reef");
+
+            level.StartFloodForTests();
+            Pose(p, new Vector3(-7, deck + .1f, -6.4f), new Vector3(20, top, -55));
+            yield return new WaitForSecondsRealtime(5);
+            yield return Shot("N7-night");
+            foreach (var id in new[] { "crab", "drowner", "crab", "drowner", "crab" })
+            {
+                var at = Quaternion.Euler(0, Random.Range(150, 215), 0) * Vector3.forward * Random.Range(16, 28);
+                at.y = Arena.GroundAt(at);
+                gm.Waves.SpawnExtra(gm.DB.Enemy(id), at);
+            }
+            level.AddOil(100);
+            level.TryFlare(p);
+            yield return new WaitForSecondsRealtime(.7f);
+            yield return Shot("N8-flare");
+            level.AddOil(-1000);
+            level.SetDarkForTests(9999);
+            yield return new WaitForSecondsRealtime(5);
+            yield return Shot("N9-lamp-out");
+
+            // A creature mid-air, for the ragdoll
+            level.AddOil(100);
+            p.Place(new Vector3(0, top + .1f, -14));
+            var crab = gm.Waves.SpawnExtra(gm.DB.Enemy("drowner"), new Vector3(0, top, -8));
+            Pose(p, new Vector3(0, top + .1f, -14), crab.transform.position + Vector3.up);
+            yield return new WaitForSecondsRealtime(.4f);
+            crab.Die(new DamageInfo { dir = Vector3.forward, explosion = true });
+            yield return new WaitForSecondsRealtime(.25f);
+            yield return Shot("N10-ragdoll");
+            yield return new WaitForSecondsRealtime(2);
+
+            level.EndForTests(false);
+            yield return new WaitForSecondsRealtime(1);
+            yield return Shot("N11-lost");
+            Debug.Log("TIDEWALL_NIGHT_TOUR_LOST");
+            gm.NewRun();
+            yield return null; yield return null; yield return new WaitForSecondsRealtime(1);
+            gm = GameManager.I;
+            gm.Lighthouse.EndForTests(true);
+            yield return new WaitForSecondsRealtime(1);
+            yield return Shot("N12-rescued");
+            Debug.Log("TIDEWALL_NIGHT_TOUR_DONE");
+            yield return new WaitForSecondsRealtime(.5f);
+            Application.Quit();
+        }
+
         IEnumerator Start()
         {
             Directory.CreateDirectory(folder);
@@ -90,6 +175,7 @@ namespace TideWall
             StoryCard.Disabled = true;
             yield return null;
             if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-tidewall-caller") >= 0) { yield return Caller(); yield break; }
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-tidewall-night") >= 0) { yield return NightTour(); yield break; }
             SceneManager.LoadScene(Lighthouse.SceneName);
             yield return null; yield return null;
             var gm = GameManager.I;

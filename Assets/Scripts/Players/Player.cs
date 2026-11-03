@@ -57,7 +57,10 @@ namespace TideWall
         public float MaxHp => Simulated ? (db.playerMaxHp + gm.Team.PlayerHpBonus + StatBonus(StatKind.MaxHp)) * gm.Cards.PlayerMaxHp : netMaxHp;
         public bool IsDowned { get; private set; }
         public bool IsOut { get; private set; }          // bled out: back at the next phase
-        public bool IsTargetable => Simulated && !IsDowned && !IsOut && !IsCaller && Perch <= 0 && gm.State == GameState.Playing;
+        public bool IsTargetable => CanBeHunted && Perch <= 0 && !gm.Level.Sheltered(transform.position) && !IsAloft;
+        /// <summary>Up on the catwalk or at the lamp: out of reach of everything but flyers.</summary>
+        public bool IsAloft => gm.Level.Aloft(transform.position);
+        public bool CanBeHunted => Simulated && !IsDowned && !IsOut && !IsCaller && gm.State == GameState.Playing;
         public float BleedLeft { get; private set; }
         public float ReviveProgress { get; private set; }
         public bool Ready { get; set; }

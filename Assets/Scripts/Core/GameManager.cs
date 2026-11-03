@@ -246,7 +246,7 @@ namespace TideWall
             GameOverReason = reason;
             Time.timeScale = .25f;   // slow-motion fall; HUDs show the game-over panel
             Sfx.Play("horn");
-            Banner(Level.GameOverTitle(null) ?? "RUN OVER", reason);
+            if (Level.GameOverStats(null) == null) Banner(Level.GameOverTitle(null) ?? "RUN OVER", reason);   // (else the end screen says it all)
             // Roguelike: the run's save goes with it; the legacy record keeps the best
             if (SaveSlot > 0) SaveSystem.Delete(SaveSlot);
             int level = 0, kills = 0;

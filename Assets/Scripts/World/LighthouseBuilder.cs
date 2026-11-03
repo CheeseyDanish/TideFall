@@ -32,16 +32,16 @@ namespace TideWall
             far.transform.localPosition = Vector3.down * .3f;
             far.transform.localRotation = Quaternion.Euler(90, 0, 0);
             far.transform.localScale = Vector3.one * 1800;
-            far.GetComponent<MeshRenderer>().sharedMaterial = Mats.Lit(new Color(.13f, .42f, .62f));
+            far.GetComponent<MeshRenderer>().sharedMaterial = Mats.Lit(new Color(.25f, .57f, .79f));
             far.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
             float top = Arena.IslandTop;
-            var tower = ModelFactory.Spawn("Lighthouse", t, new Vector3(0, top, 0), 1.25f);
-            var col = tower.root.AddComponent<CapsuleCollider>();
-            col.radius = 2.4f; col.height = 12; col.center = new Vector3(0, 6, 0);
-            var b = ModelFactory.Bounds(tower.root);
-            float roomY = b.max.y - 1.6f;
-            level.lampHeight = roomY - top - 1;
+            var towerAt = new GameObject("Lighthouse").transform;
+            towerAt.SetParent(t, false);
+            towerAt.position = new Vector3(0, top, 0);
+            LighthouseTower.Build(towerAt);
+            float roomY = top + LighthouseTower.LampHeight;
+            level.lampHeight = LighthouseTower.LampHeight;
 
             var lampGo = new GameObject("Lamp");
             lampGo.transform.SetParent(t, false);
@@ -57,18 +57,58 @@ namespace TideWall
             level.beamLight.range = 70; level.beamLight.intensity = 60; level.beamLight.color = new Color(1, .9f, .65f);
             level.beamLight.shadows = LightShadows.None;
 
-            // The way up: the door at the foot of the tower
-            var door = new GameObject("Lamp Room Door");
-            door.transform.SetParent(t, false);
-            door.transform.position = new Vector3(0, top, -3.1f);
-            Interactable.Add<LampDoor>(door, "LAMP ROOM", 3f);
+            // The lamp itself glows, and beside it you can take it over or set off the flare
+            var glow = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            Util.Destroy(glow.GetComponent<Collider>());
+            glow.name = "Lamp Glow";
+            glow.transform.SetParent(level.lamp, false);
+            glow.transform.localScale = Vector3.one * 2.6f;
+            glow.GetComponent<MeshRenderer>().sharedMaterial = Mats.ParticleAdditive;
+            glow.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            level.lampGlow = glow.transform;
+            var flareGlow = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            Util.Destroy(flareGlow.GetComponent<Collider>());
+            flareGlow.name = "Flare Glow";
+            flareGlow.transform.SetParent(level.lamp, false);
+            flareGlow.GetComponent<MeshRenderer>().sharedMaterial = Mats.ParticleAdditive;
+            flareGlow.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            flareGlow.SetActive(false);
+            level.flareGlow = flareGlow.transform;
+            var flareSun = new GameObject("Flare Light");
+            flareSun.transform.SetParent(t, false);
+            flareSun.transform.rotation = Quaternion.Euler(80, 0, 0);
+            level.flareLight = flareSun.AddComponent<Light>();
+            level.flareLight.type = LightType.Directional; level.flareLight.color = new Color(1, .96f, .86f); level.flareLight.shadows = LightShadows.None;
+            level.flareLight.enabled = false;
+            float deck = top + LighthouseTower.DeckHeight;
+            Interactable.Add<LampDoor>(Marker(t, "Lamp Handle", new Vector3(0, deck, -1.6f)), "LAMP", 2.2f);
+            var lever = Marker(t, "Flare Lever", new Vector3(2.4f, deck, 0));
+            ModelFactory.Spawn("Breaker", lever.transform, Vector3.zero, .3f);
+            Interactable.Add<LampFlare>(lever, "FLARE", 2.2f);
+
+            // The ground floor: the shop, and the calendar on the wall
+            Interactable.Add<ShopKiosk>(WorldBuilder.Prop(t, "ShopKiosk", new Vector3(0, top + .05f, 2.8f), 180, solid: new Vector3(2.4f, 2, 1)), "SHOP", 3.2f);
+            var board = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Util.Destroy(board.GetComponent<Collider>());
+            board.name = "Calendar";
+            board.transform.SetParent(t, false);
+            board.transform.position = new Vector3(5.45f, top + 1.9f, 0);
+            board.transform.rotation = Quaternion.LookRotation(Vector3.right);
+            board.transform.localScale = new Vector3(2.5f, 2.3f, .06f);
+            board.GetComponent<MeshRenderer>().sharedMaterial = Mats.Lit(new Color(.92f, .87f, .72f));
+            var page = new GameObject("Page").transform;
+            page.SetParent(t, false);
+            page.position = board.transform.position + Vector3.left * .05f;
+            page.rotation = board.transform.rotation;
+            level.calendar = page;
+            Reef(t, level, sea.transform);
 
             var camp = new GameObject("Camp").transform;
             camp.SetParent(t, false);
             camp.position = new Vector3(0, top, 0);
-            SupplyCache.Create(camp, new Vector3(6.5f, 0, 3), 250);
-            Interactable.Add<Fishmonger>(WorldBuilder.Prop(camp, "FishmongerCart", new Vector3(-6.5f, 0, 3), 110, solid: new Vector3(2.2f, 2, 1)), "TRY-POT", 2.8f);
-            Interactable.Add<HotdogStand>(WorldBuilder.Prop(camp, "HotdogStand", new Vector3(1, 0, 7.5f), 180, solid: new Vector3(2, 2, 1.2f)), "HOTDOGS", 3.6f);
+            SupplyCache.Create(camp, new Vector3(8.8f, 0, 3), 250);
+            Interactable.Add<Fishmonger>(WorldBuilder.Prop(camp, "FishmongerCart", new Vector3(-8.8f, 0, 3), 110, solid: new Vector3(2.2f, 2, 1)), "TRY-POT", 2.8f);
+            Interactable.Add<HotdogStand>(WorldBuilder.Prop(camp, "HotdogStand", new Vector3(1, 0, 9.6f), 180, solid: new Vector3(2, 2, 1.2f)), "HOTDOGS", 3.6f);
 
             // Palms, rocks and torches down the hill, so you can see how far the sea has come
             var rng = new System.Random(5150);
@@ -76,7 +116,7 @@ namespace TideWall
             dress.SetParent(t, false);
             for (int i = 0; i < 26; i++)
             {
-                float a = (float)rng.NextDouble() * Mathf.PI * 2, d = 11 + (float)rng.NextDouble() * 34;
+                float a = (float)rng.NextDouble() * Mathf.PI * 2, d = 12 + (float)rng.NextDouble() * 33;
                 var at = new Vector3(Mathf.Cos(a) * d, 0, Mathf.Sin(a) * d);
                 at.y = Arena.IslandY(at.x, at.z);
                 string model = i % 3 == 0 ? "PalmTree" : i % 3 == 1 ? "Rock" : "Torch";
@@ -91,6 +131,57 @@ namespace TideWall
                 }
             }
             return level;
+        }
+
+        static GameObject Marker(Transform t, string name, Vector3 at)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(t, false);
+            go.transform.position = at;
+            return go;
+        }
+
+        /// <summary>What the light is for: rocks and the ships they've already had, out past where you can wade. And, in the
+        /// dark, something looking back from the water.</summary>
+        static void Reef(Transform t, Lighthouse level, Transform sea)
+        {
+            var rng = new System.Random(8128);
+            float R(float a, float b) => a + (float)rng.NextDouble() * (b - a);
+            var reef = new GameObject("Reef").transform;
+            reef.SetParent(t, false);
+            void Place(string model, float rFrom, float rTo, float size, float sink, float tilt)
+            {
+                float a = R(0, Mathf.PI * 2), d = R(rFrom, rTo);
+                var at = new Vector3(Mathf.Cos(a) * d, 0, Mathf.Sin(a) * d);
+                at.y = Arena.IslandY(at.x, at.z) - sink;
+                var m = ModelFactory.Spawn(model, reef, at, size);
+                m.root.transform.rotation = Quaternion.Euler(R(-tilt, tilt), R(0, 360), R(-tilt, tilt));
+            }
+            for (int i = 0; i < 60; i++) Place("Rock", 68, 128, R(5, 16), R(0, 1), 18);
+            for (int i = 0; i < 12; i++) Place("WreckHull", 72, 125, R(4.5f, 8), 0, 28);
+            for (int i = 0; i < 5; i++) Place("Anchor", 70, 110, R(3, 5), 1, 35);
+
+            var eyes = new GameObject("Eyes");
+            eyes.transform.SetParent(sea, false);
+            for (int i = 0; i < 26; i++)
+            {
+                float a = R(0, 360), d = R(48, 64), gap = R(.5f, .9f);
+                var at = Quaternion.Euler(0, a, 0) * Vector3.forward * d + Vector3.up * R(.4f, .9f);
+                var side = Quaternion.Euler(0, a, 0) * Vector3.right * gap;
+                foreach (var o in new[] { at - side, at + side })
+                {
+                    var eye = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    Util.Destroy(eye.GetComponent<Collider>());
+                    eye.name = "Eye";
+                    eye.transform.SetParent(eyes.transform, false);
+                    eye.transform.localPosition = o;
+                    eye.transform.localScale = Vector3.one * .28f;
+                    eye.GetComponent<MeshRenderer>().sharedMaterial = Mats.ParticleAdditive;
+                    eye.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+            }
+            eyes.SetActive(false);
+            level.eyes = eyes;
         }
 
         /// <summary>The hill as a mesh of rings: pale dry sand on top, darkening toward the seabed.</summary>

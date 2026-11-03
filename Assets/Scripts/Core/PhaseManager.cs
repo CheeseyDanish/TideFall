@@ -45,6 +45,13 @@ namespace TideWall
             gm.Players.OnPhaseStart(Current);
         }
 
+        /// <summary>Change the held look, blending over a few seconds (The Last Light's day and night).</summary>
+        public void BlendTo(PhaseDefinition look)
+        {
+            if (!Holding || look == Current) return;
+            from = Current; Current = look; blend = 0;
+        }
+
         public void Begin() => Enter(0);
 
         /// <summary>Loading a save: the day it was saved on.</summary>

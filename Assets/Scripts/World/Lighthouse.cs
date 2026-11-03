@@ -1,7 +1,8 @@
-// TideWall 3D — The Last Light: an endless mode on a sandbar. One lighthouse on a hill of sand, creatures from every side,
-// and a sea that really rises up the slope each tide, so there's less beach to stand on and shrinking dry land between you
-// and the sharks. The lamp sweeps the water, drying and burning whatever it touches; a sailor who climbs up can aim it.
-// It burns oil: from fishing, the fishmonger's try-pot and salvage. Let it go dark too long and the run is over.
+// TideWall 3D — The Last Light: stranded on a sandbar with help ten days away, and the lighthouse is the only thing that will
+// bring it to you. By day you build and buy; by night creatures come from every side and a sea that really rises up the slope
+// each tide, so there's less beach to stand on and shrinking dry land between you and the sharks. The lamp sweeps the water,
+// drying and burning whatever it touches; a sailor who climbs up can aim it, or spend oil on a flare that stuns everything.
+// It burns oil: from fishing, the try-pot and salvage. Let it go dark too long, or lose the tower, and the run is over.
 // Every few tides a boss; after each boss the sea pulls right back, and for a minute you can run out to loot the wrecks.
 // What you bring home buys the Keeper's Log's permanent upgrades (only for this mode: Part I's losses stay final).
 //
@@ -20,6 +21,10 @@ namespace TideWall
         [Tooltip("The lamp room, and the beam that turns from it")] public Transform lamp, beam;
         public Light beamLight;
         public float lampHeight = 12;
+        [Tooltip("The flare: a light from straight above, and the glow going out from the lamp")] public Light flareLight;
+        public Transform flareGlow, lampGlow, calendar;
+        [Tooltip("What's watching from the water when the lamp's out")] public GameObject eyes;
+        public const string RescueReason = "A ship saw your light and came in through the rocks. You're going home.";
 
         public Tide State { get; private set; } = Tide.Slack;
         /// <summary>Tides survived so far (0 until the first flood).</summary>
@@ -34,6 +39,13 @@ namespace TideWall
         public Player Keeper { get; private set; }
         /// <summary>Lamp oil to bank in the Keeper's Log when the run ends.</summary>
         public int Banked { get; private set; }
+        /// <summary>Monsters come in the dark; daylight is for getting ready. (Low tide after a boss counts as day.)</summary>
+        public bool Night => State is Tide.Flood or Tide.Boss;
+        public int RescueDays => Versus ? def.callerTides : def.rescueDays;
+        public int DaysLeft => Mathf.Max(0, RescueDays - Wave);
+        public float FlareLeft { get; private set; }
+        public float FlareCooldown { get; private set; }
+        public string FlarePrompt => FlareLeft > 0 || FlareCooldown > 0 ? $"Flare recharging ({Mathf.CeilToInt(FlareCooldown)}s)" : Oil < def.flareCost ? $"Flare: needs {def.flareCost:0} oil" : $"Flare the lamp ({def.flareCost:0} oil): stuns everything nearby";
 
         LastLightDef def;
         GameManager gm;
@@ -43,22 +55,45 @@ namespace TideWall
         readonly List<GameObject> scattered = new();
         readonly List<FishingSpot> spots = new();
         bool warnedDark, warnedLow;
-        MaterialPropertyBlock beamBlock;
+        MaterialPropertyBlock beamBlock, glowBlock;
+        PhaseDefinition shownLook;
+        float flareTick;
+        TMPro.TextMeshPro calendarText;
+        int calendarShows = -1;
 
         public override PhaseDefinition HoldLook => GameManager.I.DB.lastLight.look;
         public override string Heading()
         {
             if (Mustering) return "<b>Tide Caller</b> · Someone take the conch by the tower";
-            string what = State switch { Tide.Slack => $"Slack water · {Mathf.CeilToInt(StateLeft)}s", Tide.Flood => $"{gm.EnemiesLeft} creatures", Tide.Boss => "BOSS", _ => $"Low tide · {Mathf.CeilToInt(StateLeft)}s to salvage" };
-            return Versus ? $"<b>Tide Caller · Tide {Mathf.Max(1, Wave)} of {def.callerTides}</b> · {what}" : $"<b>The Last Light · Tide {Mathf.Max(1, Wave)}</b> · {what}";
+            string what = State switch { Tide.Slack => $"Dark in {Mathf.CeilToInt(StateLeft)}s", Tide.Flood => $"Night {Wave} · {gm.EnemiesLeft} creatures", Tide.Boss => $"Night {Wave} · BOSS", _ => $"Low tide · {Mathf.CeilToInt(StateLeft)}s to salvage" };
+            int left = DaysLeft;
+            return Versus ? $"<b>Tide Caller · Tide {Mathf.Max(1, Wave)} of {def.callerTides}</b> · {what}" : $"<b>{left} {(left == 1 ? "day" : "days")} until rescue</b> · {what}";
         }
-        public override string ReachedLine(Player p) => Versus ? $"It ended on tide {Wave} of {def.callerTides}" : $"You kept the light through tide {Wave}, and bring home {Banked} lamp oil";
+        public override string ReachedLine(Player p) => Versus ? $"It ended on tide {Wave} of {def.callerTides}" : $"You kept the light {Wave} of {def.rescueDays} nights, and bring home {Banked} lamp oil";
+        public override Color GameOverTint(Player p)
+        {
+            bool won = Versus ? (gm.GameOverReason == HeldReason) != (p != null && p.IsCaller) : gm.GameOverReason == RescueReason;
+            return won ? new Color(.5f, .34f, .06f, .66f) : new Color(.25f, .02f, .05f, .68f);
+        }
+        public override string GameOverStats(Player p)
+        {
+            int kills = 0;
+            foreach (var x in gm.Players.All) kills += x.Kills;
+            return $"Creatures killed {kills}  ·  Lighthouse {Mathf.CeilToInt(Hp)}/{Mathf.RoundToInt(MaxHp)}  ·  Oil left {Mathf.CeilToInt(Oil)}";
+        }
+        public override bool Sheltered(Vector3 pos)
+        {
+            pos.y -= Arena.IslandTop;
+            return pos.y < LighthouseTower.DeckHeight - 1 && new Vector2(pos.x, pos.z).magnitude < LighthouseTower.WallInner + .2f;
+        }
+        public override bool Aloft(Vector3 pos) => pos.y - Arena.IslandTop > LighthouseTower.DeckHeight - 1;
         public override Legacy RecordRun(int level, int kills) => Versus ? Legacy.Load() : Legacy.RecordLight(Wave, level, kills, Banked);   // (a match isn't a run)
 
         public override void Init(GameDatabase db)
         {
             gm = GameManager.I;
             def = db.lastLight;
+            shownLook = def.look;
             Arena.WaterLevel = waterTarget = def.startWater;
             MaxHp = Hp = def.towerHp; MaxOil = Oil = def.oilTank;
         }
@@ -77,7 +112,7 @@ namespace TideWall
             gm.Waves.Day = 1;
             Enter(Tide.Slack, def.firstSlackSeconds);
             if (Versus) gm.Banner("TIDE CALLER", "One of you takes the conch. The rest keep the light.");
-            else gm.Banner("THE LAST LIGHT", "Keep the lamp burning. The sea is coming up.");
+            else gm.Banner("STRANDED", $"Help is {def.rescueDays} days out, and this lighthouse is your only hope. Keep it lit so they can find you.");
         }
 
         void Enter(Tide s, float seconds)
@@ -122,7 +157,7 @@ namespace TideWall
                     return;
                 }
             }
-            gm.Banner($"TIDE {Wave}", "The water's coming up.");
+            gm.Banner($"NIGHT {Wave}", "They come in the dark, and the water's coming up. Keep the lamp lit.");
             Sfx.Play("horn", .7f, .2f);
             Enter(Tide.Flood, def.floodSeconds);
         }
@@ -165,12 +200,15 @@ namespace TideWall
             float dt = Time.deltaTime;
             UpdateBeamLook(dt);
             UpdateRiderMark();
+            UpdateSky();
+            UpdateCalendar();
             if (Net.IsClient) { WaterVisualOnly(); return; }
             if (gm.State != GameState.Playing) return;
 
             Arena.WaterLevel = Mathf.MoveTowards(Arena.WaterLevel, waterTarget, dt * (State == Tide.LowTide ? def.lowTideRate : def.riseRate));
             if (Keeper != null && (Keeper.IsOut || Keeper.IsDowned)) SetKeeper(null);
             UpdateLamp(dt);
+            UpdateFlare(dt);
             if (gm.State != GameState.Playing) return;
             UpdateCaller(dt);
 
@@ -187,14 +225,17 @@ namespace TideWall
                     if ((!CallerActive && toSpawn <= 0 && GameManager.Enemies.Count == 0) || StateLeft <= 0)
                     {
                         if (LightHeld()) break;
-                        Banked += def.oilPerTide; Enter(Tide.Slack, def.slackSeconds);
+                        Banked += def.oilPerTide;
+                        Fishmonger.VacuumAll();
+                        Enter(Tide.Slack, def.slackSeconds);
+                        gm.Banner($"DAY {Wave + 1}", $"{DaysLeft} {(DaysLeft == 1 ? "day" : "days")} until rescue. Build while the sun's up.");
                     }
                     break;
                 case Tide.Boss:
                     if (!CallerActive) SpawnFromSea(dt);
                     if (CallerActive ? boss == null || boss.Dead : toSpawn <= 0 && GameManager.Enemies.Count == 0)
                     {
-                        if (!LightHeld()) StartLowTide();
+                        if (!LightHeld()) { Fishmonger.VacuumAll(); StartLowTide(); }
                     }
                     break;
                 case Tide.LowTide:
@@ -206,11 +247,49 @@ namespace TideWall
 
         void WaterVisualOnly() { }
 
+        /// <summary>Day, night, or night with the lamp out: the one to fear.</summary>
+        void UpdateSky()
+        {
+            if (gm.Phases == null || !gm.Phases.Holding) return;
+            bool dark = Night && Oil <= 0;
+            var want = dark ? def.blackoutLook : Night ? def.nightLook : def.look;
+            if (want != shownLook) { shownLook = want; gm.Phases.BlendTo(want); }
+            // (The sea's shine is the sky's reflection: at night there's none to speak of)
+            RenderSettings.reflectionIntensity = Mathf.MoveTowards(RenderSettings.reflectionIntensity, dark ? .03f : Night ? .22f : 1, Time.deltaTime * .3f);
+            if (eyes != null && eyes.activeSelf != dark)
+            {
+                eyes.SetActive(dark);
+                var block = new MaterialPropertyBlock();
+                block.SetColor("_BaseColor", new Color(1, .25f, .1f, 1));
+                foreach (var r in eyes.GetComponentsInChildren<Renderer>()) r.SetPropertyBlock(block);
+            }
+        }
+
+        /// <summary>The calendar on the wall of the ground floor: nights gone are crossed off.</summary>
+        void UpdateCalendar()
+        {
+            if (calendar == null || def == null || calendarShows == Wave) return;
+            calendarShows = Wave;
+            if (calendarText == null)
+            {
+                calendarText = Ui.Label(calendar, "Calendar Text", Vector3.zero, .26f, new Color(.13f, .1f, .08f));
+                calendarText.transform.localPosition = Vector3.zero;
+            }
+            var sb = new System.Text.StringBuilder($"<b>DAYS UNTIL RESCUE</b>\n<size=240%><b>{DaysLeft}</b></size>\n");
+            for (int d = 1; d <= RescueDays; d++)
+            {
+                sb.Append(d <= Wave ? $"<color=#b91c1c><s>{d}</s></color>" : d.ToString());
+                sb.Append(d % 5 == 0 ? "\n" : "  ");
+            }
+            calendarText.text = sb.ToString();
+        }
+
         /// <summary>Tests and the capture: jump the mode along.</summary>
         public void StartFloodForTests() { StartFlood(); }
         public void StartLowTideForTests() { StartLowTide(); }
         public void EndLowTideForTests() { EndLowTide(); }
         public void SetDarkForTests(float seconds) { warnedDark = true; DarkLeft = seconds; }
+        public void EndForTests(bool rescued) { Wave = rescued ? def.rescueDays : Wave; if (rescued) LightHeld(); else gm.GameOver("The light went out."); }
 
         // ------------------------------------------------------------------ salvage: after each boss, the sea pulls back
         void StartLowTide()
@@ -279,7 +358,7 @@ namespace TideWall
         {
             if (Keeper != null && Keeper != p) Keeper.SetPerch(0);
             Keeper = p;
-            if (p != null) p.SetPerch(lampHeight);
+            if (p != null) p.SetPerch(.01f);   // (you stand at the lamp itself now: this just holds you there)
         }
 
         void UpdateLamp(float dt)
@@ -299,7 +378,7 @@ namespace TideWall
                 if (d.sqrMagnitude > .01f) beamDir = Vector3.Slerp(beamDir, d.normalized, 1 - Mathf.Exp(-dt * 12));
             }
             else beamDir = Quaternion.Euler(def.sweepPitch, sweep, 0) * Vector3.forward;
-            if (Oil <= 0 || (scorchT -= dt) > 0) return;
+            if (Oil <= 0 || (!Night && Keeper == null) || (scorchT -= dt) > 0) return;
             scorchT = .2f;
             float cone = Keeper != null ? def.coneManned : def.coneSweep;
             float mult = (Keeper != null ? def.mannedPower : 1) * power;
@@ -318,7 +397,9 @@ namespace TideWall
         void UpdateBeamLook(float dt)
         {
             if (beam == null) return;
-            bool lit = Oil > 0;
+            UpdateFlareLook();
+            bool lit = Oil > 0 && (Night || Keeper != null || manned);
+            if (lampGlow != null && lampGlow.gameObject.activeSelf != lit) lampGlow.gameObject.SetActive(lit);
             if (beam.gameObject.activeSelf != lit) beam.gameObject.SetActive(lit);
             if (!lit) { if (beamLight) beamLight.enabled = false; return; }
             beam.rotation = Quaternion.LookRotation(beamDir);
@@ -336,6 +417,49 @@ namespace TideWall
                 beamLight.transform.rotation = Quaternion.LookRotation(beamDir);
                 beamLight.spotAngle = Mathf.Min(70, (Keeper != null ? def.coneManned : def.coneSweep) * 2.4f);
             }
+        }
+
+        // ------------------------------------------------------------------ the flare
+        /// <summary>The whole lamp at once, for a few seconds: everything nearby is stunned.</summary>
+        public void TryFlare(Player p)
+        {
+            if (Net.IsClient) return;
+            if (FlareLeft > 0 || FlareCooldown > 0 || Oil < def.flareCost) { Sfx.Play("deny"); return; }
+            Oil -= def.flareCost;
+            FlareLeft = def.flareSeconds; FlareCooldown = def.flareCooldown; flareTick = 0;
+            Sfx.Play("horn", .6f, .1f);
+            Sfx.Play("thud", 1, .1f);
+        }
+
+        void UpdateFlare(float dt)
+        {
+            FlareCooldown = Mathf.Max(0, FlareCooldown - dt);
+            if (FlareLeft <= 0) return;
+            FlareLeft = Mathf.Max(0, FlareLeft - dt);
+            if ((flareTick -= dt) > 0) return;
+            flareTick = .4f;
+            foreach (var e in GameManager.Enemies)
+            {
+                if (e == null || e.Dead) continue;
+                var to = e.transform.position; to.y = 0;
+                if (to.magnitude <= def.flareRadius) e.Dazzle(def.flareStun);
+            }
+        }
+
+        void UpdateFlareLook()
+        {
+            if (flareLight == null || flareGlow == null || def == null) return;
+            bool on = FlareLeft > 0;
+            flareLight.enabled = on;
+            if (flareGlow.gameObject.activeSelf != on) flareGlow.gameObject.SetActive(on);
+            if (!on) return;
+            float k = 1 - FlareLeft / def.flareSeconds;
+            float bright = Mathf.Clamp01(k * 12) * Mathf.Clamp01((1 - k) * 2.5f);
+            flareLight.intensity = 3.5f * bright;
+            flareGlow.localScale = Vector3.one * Mathf.Lerp(6, def.flareRadius * 2, Mathf.Sqrt(k));
+            glowBlock ??= new MaterialPropertyBlock();
+            glowBlock.SetColor("_BaseColor", new Color(1, .95f, .8f, .55f * bright));
+            foreach (var r in flareGlow.GetComponentsInChildren<Renderer>()) r.SetPropertyBlock(glowBlock);
         }
 
         // ------------------------------------------------------------------ what the sea attacks
@@ -387,7 +511,7 @@ namespace TideWall
         public override void WriteNet(BinaryWriter w)
         {
             w.Write((byte)State); w.Write((short)Wave); w.Write(Hp); w.Write(MaxHp); w.Write(Oil); w.Write(MaxOil); w.Write(StateLeft); w.Write(DarkLeft);
-            w.Write(Arena.WaterLevel); w.Write(beamDir); w.Write((short)Banked); w.Write(Keeper != null);
+            w.Write(Arena.WaterLevel); w.Write(beamDir); w.Write((short)Banked); w.Write(Keeper != null); w.Write(FlareLeft); w.Write(FlareCooldown);
             WriteCaller(w);
         }
 
@@ -395,7 +519,7 @@ namespace TideWall
         {
             State = (Tide)r.ReadByte(); Wave = r.ReadInt16(); Hp = r.ReadSingle(); MaxHp = r.ReadSingle(); Oil = r.ReadSingle(); MaxOil = r.ReadSingle();
             StateLeft = r.ReadSingle(); DarkLeft = r.ReadSingle(); Arena.WaterLevel = r.ReadSingle(); beamDir = r.ReadVector3(); Banked = r.ReadInt16();
-            manned = r.ReadBoolean();
+            manned = r.ReadBoolean(); FlareLeft = r.ReadSingle(); FlareCooldown = r.ReadSingle();
             ReadCaller(r);
         }
         bool manned;
